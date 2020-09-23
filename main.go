@@ -54,7 +54,7 @@ func main() {
 	}
 
 	logModules()
-	log.Info().Str("version", "v0.1.0").Msg("Starting chaind")
+	log.Info().Str("version", "v0.1.1").Msg("Starting chaind")
 
 	if err := initProfiling(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialise profiling")
