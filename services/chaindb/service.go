@@ -1,0 +1,95 @@
+// Copyright © 2020 Weald Technology Trading.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package chaindb
+
+import (
+	"context"
+)
+
+// MetadataService defines the metadata service.
+type MetadataService interface {
+	// SetMetadata sets a metadata key to a JSON value.
+	SetMetadata(ctx context.Context, key string, value []byte) error
+
+	// GetMetadata obtains the JSON value from a metadata key.
+	GetMetadata(ctx context.Context, key string) ([]byte, error)
+}
+
+// BlocksService defines the blocks service.
+type BlocksService interface {
+	// SetBlock sets a block.
+	SetBlock(ctx context.Context, block *Block) error
+}
+
+// AttestationsService defines the attestations service.
+type AttestationsService interface {
+	// SetAttestation sets an attestation.
+	SetAttestation(ctx context.Context, attestation *Attestation) error
+}
+
+// VoluntaryExitsService defines the voluntary exits service.
+type VoluntaryExitsService interface {
+	// SetVoluntaryExit sets a voluntary exit.
+	SetVoluntaryExit(ctx context.Context, voluntaryExit *VoluntaryExit) error
+}
+
+// AttesterSlashingsService defines the attester slashings service.
+type AttesterSlashingsService interface {
+	// SetAttesterSlashing sets an attester slashing.
+	SetAttesterSlashing(ctx context.Context, attesterSlashing *AttesterSlashing) error
+}
+
+// ProposerSlashingsService defines the proposer slashings service.
+type ProposerSlashingsService interface {
+	// SetProposerSlashing sets an proposer slashing.
+	SetProposerSlashing(ctx context.Context, proposerSlashing *ProposerSlashing) error
+}
+
+// ValidatorsService defines the validators service.
+type ValidatorsService interface {
+	// SetValidator sets a validator.
+	SetValidator(ctx context.Context, validator *Validator) error
+	// SetValidatorBalance sets a validator balance.
+	SetValidatorBalance(ctx context.Context, validatorBalance *ValidatorBalance) error
+}
+
+// BeaconCommitteeService defines the beacon committee service.
+type BeaconCommitteeService interface {
+	// SetBeaconComittee sets a beacon committee.
+	SetBeaconCommittee(ctx context.Context, beaconCommittee *BeaconCommittee) error
+}
+
+// ProposerDutyService defines the proposer duty service.
+type ProposerDutyService interface {
+	// SetProposerDuty sets a proposer duty.
+	SetProposerDuty(ctx context.Context, proposerDuty *ProposerDuty) error
+}
+
+// Service defines the chain database service.
+type Service interface {
+	BeaconCommitteeService
+	ProposerDutyService
+	BlocksService
+	AttestationsService
+	VoluntaryExitsService
+	AttesterSlashingsService
+	ProposerSlashingsService
+	ValidatorsService
+	MetadataService
+
+	// BeginTx begins a transaction.
+	BeginTx(ctx context.Context) (context.Context, context.CancelFunc, error)
+	// CommitTx commits a transaction.
+	CommitTx(ctx context.Context) error
+}

@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  push:
+    tags:
+    - 'v*'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.13
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Get dependencies
+      run: |
+       go get -v -t -d ./...
+       if [ -f Gopkg.toml ]; then
+         curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+         dep ensure
+       fi
+
+    - name: Set env
+      run: |
+       echo '::set-env name=GO111MODULE::on'
+       # Release tag comes from the github reference.
+       RELEASE_TAG=$(echo ${GITHUB_REF} | sed -e 's!.*/!!')
+       echo "::set-env name=RELEASE_TAG::${RELEASE_TAG}"
+       echo "::set-output name=RELEASE_TAG::${RELEASE_TAG}"
+       # Ensure the release tag has expected format.
+       echo ${RELEASE_TAG} | grep -q '^v' || exit 1
+       # Release version is same as release tag without leading 'v'.
+       RELEASE_VERSION=$(echo ${GITHUB_REF} | sed -e 's!.*/v!!')
+       echo "::set-env name=RELEASE_VERSION::${RELEASE_VERSION}"
+       echo "::set-output name=RELEASE_VERSION::${RELEASE_VERSION}"
+
+    - name: Build
+      run: go build -v -ldflags="-X github.com/wealdtech/chaind/cmd.ReleaseVersion=${RELEASE_VERSION}" .
+
+    - name: Test
+      run: go test -v .
+
+    - name: Fetch xgo
+      run: |
+       go get github.com/suburbandad/xgo
+
+    - name: Cross-compile
+      run: xgo -v -x -ldflags="-X github.com/wealdtech/chaind/cmd.ReleaseVersion=${RELEASE_VERSION}" --targets="linux/amd64,linux/arm64,windows/amd64" github.com/wealdtech/chaind
+
+    - name: Create windows zip file
+      run: |
+       mv chaind-windows-4.0-amd64.exe chaind.exe
+       zip --junk-paths chaind-${RELEASE_VERSION}-windows-exe.zip chaind.exe
+
+    - name: Create linux AMD64 tgz file
+      run: |
+       mv chaind-linux-amd64 chaind
+       tar zcf chaind-${RELEASE_VERSION}-linux-amd64.tar.gz chaind
+
+    - name: Create linux ARM64 tgz file
+      run: |
+       mv chaind-linux-arm64 chaind
+       tar zcf chaind-${RELEASE_VERSION}-linux-arm64.tar.gz chaind
+
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ env.RELEASE_VERSION }}
+        draft: false
+        prerelease: false
+
+    - name: Upload windows zip file
+      id: upload-release-asset-windows
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-windows-exe.zip
+        asset_name: chaind-${{ env.RELEASE_VERSION }}-windows-exe.zip
+        asset_content_type: application/zip
+
+    - name: Upload linux AMD64 tgz file
+      id: upload-release-asset-linux-amd64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-linux-amd64.tar.gz
+        asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-amd64.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload linux ARM64 tgz file
+      id: upload-release-asset-linux-arm64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-linux-arm64.tar.gz
+        asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-arm64.tar.gz
+        asset_content_type: application/gzip
