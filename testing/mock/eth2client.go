@@ -21,7 +21,7 @@ import (
 	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
-// MockGenesisTimeProvider is a mock for eth2client.GenesisTimeProvider.
+// GenesisTimeProvider is a mock for eth2client.GenesisTimeProvider.
 type GenesisTimeProvider struct {
 	genesisTime time.Time
 }
@@ -33,11 +33,12 @@ func NewGenesisTimeProvider(genesisTime time.Time) eth2client.GenesisTimeProvide
 	}
 }
 
+// GenesisTime is a mock.
 func (m *GenesisTimeProvider) GenesisTime(ctx context.Context) (time.Time, error) {
 	return m.genesisTime, nil
 }
 
-// SecondsPerSlotProvider is a mock for eth2client.SecondsPerSlotProvider.
+// SlotDurationProvider is a mock for eth2client.SlotDurationProvider.
 type SlotDurationProvider struct {
 	slotDuration time.Duration
 }
@@ -49,6 +50,7 @@ func NewSlotDurationProvider(slotDuration time.Duration) eth2client.SlotDuration
 	}
 }
 
+// SlotDuration is a mock.
 func (m *SlotDurationProvider) SlotDuration(ctx context.Context) (time.Duration, error) {
 	return m.slotDuration, nil
 }
@@ -65,6 +67,7 @@ func NewSlotsPerEpochProvider(slotsPerEpoch uint64) eth2client.SlotsPerEpochProv
 	}
 }
 
+// SlotsPerEpoch is a mock.
 func (m *SlotsPerEpochProvider) SlotsPerEpoch(ctx context.Context) (uint64, error) {
 	return m.slotsPerEpoch, nil
 }
@@ -72,10 +75,12 @@ func (m *SlotsPerEpochProvider) SlotsPerEpoch(ctx context.Context) (uint64, erro
 // AttestationSubmitter is a mock for eth2client.AttestationSubmitter.
 type AttestationSubmitter struct{}
 
+// NewAttestationSubmitter returns a mock attestation submitter with the provided value.
 func NewAttestationSubmitter() eth2client.AttestationSubmitter {
 	return &AttestationSubmitter{}
 }
 
+// SubmitAttestation is a mock.
 func (m *AttestationSubmitter) SubmitAttestation(ctx context.Context, attestation *spec.Attestation) error {
 	return nil
 }
@@ -83,10 +88,12 @@ func (m *AttestationSubmitter) SubmitAttestation(ctx context.Context, attestatio
 // BeaconBlockSubmitter is a mock for eth2client.BeaconBlockSubmitter.
 type BeaconBlockSubmitter struct{}
 
+// NewBeaconBlockSubmitter returns a mock beacon block submitter with the provided value.
 func NewBeaconBlockSubmitter() eth2client.BeaconBlockSubmitter {
 	return &BeaconBlockSubmitter{}
 }
 
+// SubmitBeaconBlock is a mock.
 func (m *BeaconBlockSubmitter) SubmitBeaconBlock(ctx context.Context, bloc *spec.SignedBeaconBlock) error {
 	return nil
 }
@@ -94,21 +101,25 @@ func (m *BeaconBlockSubmitter) SubmitBeaconBlock(ctx context.Context, bloc *spec
 // AggregateAttestationsSubmitter is a mock for eth2client.AggregateAttestationsSubmitter.
 type AggregateAttestationsSubmitter struct{}
 
+// NewAggregateAttestationsSubmitter returns a mock aggregate attestation submitter with the provided value.
 func NewAggregateAttestationsSubmitter() eth2client.AggregateAttestationsSubmitter {
 	return &AggregateAttestationsSubmitter{}
 }
 
+// SubmitAggregateAttestations is a mock.
 func (m *AggregateAttestationsSubmitter) SubmitAggregateAttestations(ctx context.Context, aggregates []*spec.SignedAggregateAndProof) error {
 	return nil
 }
 
-// NewBeaconCommitteeSubscriptionsSubmitter is a mock for eth2client.BeaconCommitteeSubscriptionsSubmitter.
+// BeaconCommitteeSubscriptionsSubmitter is a mock for eth2client.BeaconCommitteeSubscriptionsSubmitter.
 type BeaconCommitteeSubscriptionsSubmitter struct{}
 
+// NewBeaconCommitteeSubscriptionsSubmitter returns a mock beacon committee subscription submitter with the provided value.
 func NewBeaconCommitteeSubscriptionsSubmitter() eth2client.BeaconCommitteeSubscriptionsSubmitter {
 	return &BeaconCommitteeSubscriptionsSubmitter{}
 }
 
+// SubmitBeaconCommitteeSubscriptions is a mock.
 func (m *BeaconCommitteeSubscriptionsSubmitter) SubmitBeaconCommitteeSubscriptions(ctx context.Context, subscriptions []*eth2client.BeaconCommitteeSubscription) error {
 	return nil
 }

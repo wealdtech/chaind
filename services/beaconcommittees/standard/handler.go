@@ -22,6 +22,7 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
+// OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
 	slot uint64,

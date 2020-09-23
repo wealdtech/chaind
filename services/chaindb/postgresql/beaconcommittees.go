@@ -19,7 +19,7 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
-// SetBeaconComittee sets a beacon committee.
+// SetBeaconCommittee sets a beacon committee.
 func (s *Service) SetBeaconCommittee(ctx context.Context, beaconCommittee *chaindb.BeaconCommittee) error {
 	tx := s.tx(ctx)
 	if tx == nil {

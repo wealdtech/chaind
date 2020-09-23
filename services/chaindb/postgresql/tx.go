@@ -21,6 +21,8 @@ import (
 )
 
 var (
+	// ErrNoTransaction is returned when an attempt to carry out a mutation to the database
+	// is not inside a transaction.
 	ErrNoTransaction = errors.New("no transaction for action")
 )
 
