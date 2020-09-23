@@ -78,10 +78,25 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot uint64) error {
 	if err := s.chainDB.SetBlock(ctx, dbBlock); err != nil {
 		return errors.Wrap(err, "failed to set block")
 	}
+	if err := s.updateAttestationsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
+		return errors.Wrap(err, "failed to update attestations")
+	}
+	if err := s.updateProposerSlashingsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
+		return errors.Wrap(err, "failed to update proposer slashings")
+	}
+	if err := s.updateAttesterSlashingsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
+		return errors.Wrap(err, "failed to update attester slashings")
+	}
+	if err := s.updateVoluntaryExitsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
+		return errors.Wrap(err, "failed to update voluntar exits")
+	}
 
-	// Update the attestations in the database.
+	return nil
+}
+
+func (s *Service) updateAttestationsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot []byte) error {
 	for i, attestation := range signedBlock.Message.Body.Attestations {
-		dbAttestation, err := s.dbAttestation(ctx, dbBlock.Slot, dbBlock.Root, uint64(i), attestation)
+		dbAttestation, err := s.dbAttestation(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), attestation)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database attestation")
 		}
@@ -89,10 +104,12 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot uint64) error {
 			return errors.Wrap(err, "failed to set attestation")
 		}
 	}
+	return nil
+}
 
-	// Update the proposer slashings in the database.
+func (s *Service) updateProposerSlashingsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot []byte) error {
 	for i, proposerSlashing := range signedBlock.Message.Body.ProposerSlashings {
-		dbProposerSlashing, err := s.dbProposerSlashing(ctx, dbBlock.Slot, dbBlock.Root, uint64(i), proposerSlashing)
+		dbProposerSlashing, err := s.dbProposerSlashing(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), proposerSlashing)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database proposer slashing")
 		}
@@ -100,10 +117,12 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot uint64) error {
 			return errors.Wrap(err, "failed to set proposer slashing")
 		}
 	}
+	return nil
+}
 
-	// Update the attester slashings in the database.
+func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot []byte) error {
 	for i, attesterSlashing := range signedBlock.Message.Body.AttesterSlashings {
-		dbAttesterSlashing, err := s.dbAttesterSlashing(ctx, dbBlock.Slot, dbBlock.Root, uint64(i), attesterSlashing)
+		dbAttesterSlashing, err := s.dbAttesterSlashing(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), attesterSlashing)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database attester slashing")
 		}
@@ -111,10 +130,12 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot uint64) error {
 			return errors.Wrap(err, "failed to set attester slashing")
 		}
 	}
+	return nil
+}
 
-	// Update the voluntary exits in the database.
+func (s *Service) updateVoluntaryExitsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot []byte) error {
 	for i, voluntaryExit := range signedBlock.Message.Body.VoluntaryExits {
-		dbVoluntaryExit, err := s.dbVoluntaryExit(ctx, dbBlock.Slot, dbBlock.Root, uint64(i), voluntaryExit)
+		dbVoluntaryExit, err := s.dbVoluntaryExit(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), voluntaryExit)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database voluntary exit")
 		}
@@ -122,7 +143,6 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot uint64) error {
 			return errors.Wrap(err, "failed to set voluntary exit")
 		}
 	}
-
 	return nil
 }
 
