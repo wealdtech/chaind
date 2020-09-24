@@ -24,6 +24,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"syscall"
+	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	homedir "github.com/mitchellh/go-homedir"
@@ -94,6 +95,7 @@ func fetchConfig() error {
 	pflag.String("profile-address", "", "Address on which to run Go profile server")
 	pflag.String("tracing-address", "", "Address to which to send tracing data")
 	pflag.String("eth2client.address", "", "Address for beacon node")
+	pflag.Duration("eth2client.timeout", 2*time.Minute, "Timeout for beacon node requests")
 	pflag.Bool("blocks.enable", true, "Enable fetching of block-related information")
 	pflag.Bool("validators.enable", true, "Enable fetching of validator-related information")
 	pflag.Bool("validators.balances.enable", false, "Enable fetching of validator balances")
