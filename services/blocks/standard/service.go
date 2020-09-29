@@ -89,6 +89,8 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to obtain metadata after catchup")
 	}
+	// We will be updating latest slot as the daemon progresses, so mark anything between the last
+	// slot we processed and the current slot as missed.
 	for ; md.LatestSlot < s.chainTime.CurrentSlot(); md.LatestSlot++ {
 		md.MissedSlots = append(md.MissedSlots, md.LatestSlot)
 	}

@@ -4,6 +4,7 @@ CREATE TABLE t_metadata (
   f_key    TEXT NOT NULL PRIMARY KEY
  ,f_value JSONB NOT NULL
 );
+CREATE UNIQUE INDEX i_metadata_1 ON t_metadata(f_key);
 
 -- t_validators contains all validators known by the chain.
 -- This information is not stored per-epoch, as the latest values contain the
@@ -41,6 +42,7 @@ CREATE TABLE t_blocks (
 );
 CREATE UNIQUE INDEX i_blocks_1 ON t_blocks(f_slot,f_root);
 CREATE UNIQUE INDEX i_blocks_2 ON t_blocks(f_root);
+CREATE INDEX i_blocks_3 ON t_blocks(f_parent_root);
 
 -- t_beacon_committees contains all beacon committees.
 -- N.B. in the case of a chain re-org the committees can alter.
@@ -65,7 +67,7 @@ CREATE UNIQUE INDEX i_proposer_duties_1 ON t_proposer_duties(f_slot);
 DROP TABLE IF EXISTS t_attestations CASCADE;
 CREATE TABLE t_attestations (
   f_inclusion_slot       BIGINT NOT NULL
- ,f_inclusion_block_root BYTEA NOT NULL REFERENCES t_blocks(f_root)
+ ,f_inclusion_block_root BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
  ,f_inclusion_index      BIGINT NOT NULL
  ,f_slot                 BIGINT NOT NULL
  ,f_committee_index      BIGINT NOT NULL
@@ -78,12 +80,13 @@ CREATE TABLE t_attestations (
 );
 CREATE UNIQUE INDEX i_attestations_1 ON t_attestations(f_inclusion_slot,f_inclusion_block_root,f_inclusion_index);
 CREATE INDEX i_attestations_2 ON t_attestations(f_slot);
+CREATE INDEX i_attestations_3 ON t_attestations(f_beacon_block_root);
 
 -- t_attester_slashings contains all attester slashings included in blocks.
 DROP TABLE IF EXISTS t_attester_slashings CASCADE;
 CREATE TABLE t_attester_slashings (
   f_inclusion_slot                  BIGINT NOT NULL
- ,f_inclusion_block_root            BYTEA NOT NULL REFERENCES t_blocks(f_root)
+ ,f_inclusion_block_root            BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
  ,f_inclusion_index                 BIGINT NOT NULL
  ,f_attestation_1_indices           BIGINT[] NOT NULL -- REFERENCES t_validators(f_index)
  ,f_attestation_1_slot              BIGINT NOT NULL
@@ -110,7 +113,7 @@ CREATE UNIQUE INDEX i_attester_slashings_1 ON t_attester_slashings(f_inclusion_s
 DROP TABLE IF EXISTS t_proposer_slashings CASCADE;
 CREATE TABLE t_proposer_slashings (
   f_inclusion_slot          BIGINT NOT NULL
- ,f_inclusion_block_root    BYTEA NOT NULL REFERENCES t_blocks(f_root)
+ ,f_inclusion_block_root    BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
  ,f_inclusion_index         BIGINT NOT NULL
  ,f_header_1_slot           BIGINT NOT NULL
  ,f_header_1_proposer_index BIGINT NOT NULL
@@ -131,7 +134,7 @@ CREATE UNIQUE INDEX i_proposer_slashings_1 ON t_proposer_slashings(f_inclusion_s
 DROP TABLE IF EXISTS t_voluntary_exits CASCADE;
 CREATE TABLE t_voluntary_exits (
   f_inclusion_slot       BIGINT NOT NULL
- ,f_inclusion_block_root BYTEA NOT NULL REFERENCES t_blocks(f_root)
+ ,f_inclusion_block_root BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
  ,f_inclusion_index      BIGINT NOT NULL
  ,f_validator_index      BIGINT NOT NULL
  ,f_epoch                BIGINT NOT NULL
@@ -141,9 +144,10 @@ CREATE UNIQUE INDEX i_voluntary_exits_1 ON t_voluntary_exits(f_inclusion_slot,f_
 -- t_validator_balances contains per-epoch balances.
 DROP TABLE IF EXISTS t_validator_balances CASCADE;
 CREATE TABLE t_validator_balances (
-  f_validator_index   BIGINT NOT NULL REFERENCES t_validators(f_index)
+  f_validator_index   BIGINT NOT NULL REFERENCES t_validators(f_index) ON DELETE CASCADE
  ,f_epoch             BIGINT NOT NULL
  ,f_balance           BIGINT NOT NULL
  ,f_effective_balance BIGINT NOT NULL
 );
 CREATE UNIQUE INDEX i_validator_balances_1 ON t_validator_balances(f_validator_index, f_epoch);
+CREATE INDEX i_validator_balances_2 ON t_validator_balances(f_epoch);

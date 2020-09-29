@@ -16,6 +16,7 @@ package postgresql
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
@@ -41,4 +42,38 @@ func (s *Service) SetBeaconCommittee(ctx context.Context, beaconCommittee *chain
 	)
 
 	return err
+}
+
+// GetBeaconCommitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
+func (s *Service) GetBeaconCommitteeBySlotAndIndex(ctx context.Context, slot uint64, index uint64) (*chaindb.BeaconCommittee, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	committee := &chaindb.BeaconCommittee{}
+
+	err := tx.QueryRow(ctx, `
+      SELECT f_slot
+            ,f_index
+            ,f_committee
+      FROM t_beacon_committees
+      WHERE f_slot = $1
+        AND f_index = $2`,
+		slot,
+		index,
+	).Scan(
+		&committee.Slot,
+		&committee.Index,
+		&committee.Committee,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return committee, nil
 }

@@ -30,12 +30,24 @@ type MetadataService interface {
 type BlocksService interface {
 	// SetBlock sets a block.
 	SetBlock(ctx context.Context, block *Block) error
+
+	// GetBlocksBySlot fetches all blocks with the given slot.
+	GetBlocksBySlot(ctx context.Context, slot uint64) ([]*Block, error)
+
+	// GetBlockByRoot fetches the block with the given root.
+	GetBlockByRoot(ctx context.Context, root []byte) (*Block, error)
+
+	// GetBlocksByParentRoot fetches the blocks with the given parent root.
+	GetBlocksByParentRoot(ctx context.Context, root []byte) ([]*Block, error)
 }
 
 // AttestationsService defines the attestations service.
 type AttestationsService interface {
 	// SetAttestation sets an attestation.
 	SetAttestation(ctx context.Context, attestation *Attestation) error
+
+	// GetAttestationsForBlock fetches all attestations made for the given block.
+	GetAttestationsForBlock(ctx context.Context, blockRoot []byte) ([]*Attestation, error)
 }
 
 // VoluntaryExitsService defines the voluntary exits service.
@@ -60,14 +72,24 @@ type ProposerSlashingsService interface {
 type ValidatorsService interface {
 	// SetValidator sets a validator.
 	SetValidator(ctx context.Context, validator *Validator) error
+
 	// SetValidatorBalance sets a validator balance.
 	SetValidatorBalance(ctx context.Context, validatorBalance *ValidatorBalance) error
+
+	// GetValidators fetches the validators.
+	GetValidators(ctx context.Context) ([]*Validator, error)
+
+	// GetValidatorBalancesByValidatorsAndEpoch fetches the validator balances for the given validators and epoch.
+	GetValidatorBalancesByValidatorsAndEpoch(ctx context.Context, validators []*Validator, epoch uint64) ([]*ValidatorBalance, error)
 }
 
 // BeaconCommitteeService defines the beacon committee service.
 type BeaconCommitteeService interface {
 	// SetBeaconComittee sets a beacon committee.
 	SetBeaconCommittee(ctx context.Context, beaconCommittee *BeaconCommittee) error
+
+	// GetBeaconComitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
+	GetBeaconCommitteeBySlotAndIndex(ctx context.Context, slot uint64, index uint64) (*BeaconCommittee, error)
 }
 
 // ProposerDutyService defines the proposer duty service.

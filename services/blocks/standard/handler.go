@@ -61,12 +61,15 @@ func (s *Service) OnBeaconChainHeadUpdated(
 }
 
 func (s *Service) updateBlockForSlot(ctx context.Context, slot uint64) error {
+	log := log.With().Uint64("slot", slot).Logger()
+
+	log.Trace().Msg("Updating block for slot")
 	signedBlock, err := s.eth2Client.(eth2client.SignedBeaconBlockProvider).SignedBeaconBlockBySlot(ctx, slot)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain beacon block for slot")
 	}
 	if signedBlock == nil {
-		log.Trace().Uint64("slot", slot).Msg("Obtained empty beacon block for slot")
+		log.Debug().Msg("No beacon block obtained for slot")
 		return nil
 	}
 
@@ -88,7 +91,7 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot uint64) error {
 		return errors.Wrap(err, "failed to update attester slashings")
 	}
 	if err := s.updateVoluntaryExitsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
-		return errors.Wrap(err, "failed to update voluntar exits")
+		return errors.Wrap(err, "failed to update voluntary exits")
 	}
 
 	return nil
