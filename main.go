@@ -44,31 +44,41 @@ import (
 )
 
 func main() {
+	os.Exit(main2())
+}
+
+func main2() int {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	if err := fetchConfig(); err != nil {
-		zerologger.Fatal().Err(err).Msg("Failed to fetch configuration")
+		zerologger.Error().Err(err).Msg("Failed to fetch configuration")
+		return 1
 	}
 
 	if err := initLogging(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialise logging")
+		log.Error().Err(err).Msg("Failed to initialise logging")
+		return 1
 	}
 
 	logModules()
 	log.Info().Str("version", "v0.1.1").Msg("Starting chaind")
 
 	if err := initProfiling(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialise profiling")
+		log.Error().Err(err).Msg("Failed to initialise profiling")
+		return 1
 	}
 
 	runtime.GOMAXPROCS(runtime.NumCPU() * 8)
 
 	if err := e2types.InitBLS(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialise BLS library")
+		log.Error().Err(err).Msg("Failed to initialise BLS library")
+		return 1
 	}
 
 	if err := startServices(ctx); err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialise services")
+		log.Error().Err(err).Msg("Failed to initialise services")
+		return 1
 	}
 
 	log.Info().Msg("All services operational")
@@ -79,12 +89,12 @@ func main() {
 	for {
 		sig := <-sigCh
 		if sig == syscall.SIGINT || sig == syscall.SIGTERM || sig == os.Interrupt || sig == os.Kill {
-			cancel()
 			break
 		}
 	}
 
 	log.Info().Msg("Stopping chaind")
+	return 0
 }
 
 // fetchConfig fetches configuration from various sources.
