@@ -231,3 +231,41 @@ func (s *Service) GetBlocksByParentRoot(ctx context.Context, parentRoot []byte) 
 
 	return blocks, nil
 }
+
+// GetEmptySlots fetches the slots in the given range without a block in the database.
+func (s *Service) GetEmptySlots(ctx context.Context, minSlot uint64, maxSlot uint64) ([]uint64, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT missed
+	  FROM generate_series($1,$2,1) missed
+	  LEFT JOIN t_blocks
+	  ON missed = t_blocks.f_slot
+	  WHERE f_slot IS NULL`,
+		minSlot,
+		maxSlot,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	missedSlots := make([]uint64, 0)
+	for rows.Next() {
+		missedSlot := uint64(0)
+		err := rows.Scan(&missedSlot)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		missedSlots = append(missedSlots, missedSlot)
+	}
+
+	return missedSlots, nil
+}

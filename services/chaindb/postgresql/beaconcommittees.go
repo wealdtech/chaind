@@ -77,3 +77,68 @@ func (s *Service) GetBeaconCommitteeBySlotAndIndex(ctx context.Context, slot uin
 	}
 	return committee, nil
 }
+
+// GetAttesterDuties fetches the attester duties at the given slot range for the given validator indices.
+func (s *Service) GetAttesterDuties(ctx context.Context, startSlot uint64, endSlot uint64, validatorIndices []uint64) ([]*chaindb.AttesterDuty, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_slot
+            ,f_index
+            ,f_committee
+      FROM t_beacon_committees
+      WHERE f_slot >= $1
+        AND f_slot < $2
+        AND $3 && f_committee
+        ORDER BY f_slot, f_index`,
+		startSlot,
+		endSlot,
+		validatorIndices,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*chaindb.AttesterDuty, 0)
+
+	// Map for fast lookup of validator indices.
+	validatorIndicesMap := make(map[uint64]bool, len(validatorIndices))
+	for _, validatorIndex := range validatorIndices {
+		validatorIndicesMap[validatorIndex] = true
+	}
+
+	for rows.Next() {
+		var slot uint64
+		var index uint64
+		var committee []uint64
+		err := rows.Scan(
+			&slot,
+			&index,
+			&committee,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+
+		for i, validatorIndex := range committee {
+			if validatorIndicesMap[validatorIndex] {
+				res = append(res, &chaindb.AttesterDuty{
+					Slot:           slot,
+					Committee:      index,
+					ValidatorIndex: validatorIndex,
+					CommitteeIndex: uint64(i),
+				})
+			}
+		}
+	}
+
+	return res, nil
+}

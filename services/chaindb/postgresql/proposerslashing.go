@@ -16,6 +16,7 @@ package postgresql
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
@@ -77,4 +78,74 @@ func (s *Service) SetProposerSlashing(ctx context.Context, proposerSlashing *cha
 	)
 
 	return err
+}
+
+// GetProposerSlashingsForSlotRange fetches all proposer slashings made for the given slot range.
+func (s *Service) GetProposerSlashingsForSlotRange(ctx context.Context, minSlot uint64, maxSlot uint64) ([]*chaindb.ProposerSlashing, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_inclusion_slot
+            ,f_inclusion_block_root
+            ,f_inclusion_index
+            ,f_header_1_slot
+            ,f_header_1_proposer_index
+            ,f_header_1_parent_root
+            ,f_header_1_state_root
+            ,f_header_1_body_root
+            ,f_header_1_signature
+            ,f_header_2_slot
+            ,f_header_2_proposer_index
+            ,f_header_2_parent_root
+            ,f_header_2_state_root
+            ,f_header_2_body_root
+            ,f_header_2_signature
+      FROM t_proposer_slashings
+      WHERE f_inclusion_slot >= $1
+        AND f_inclusion_slot < $2
+      ORDER BY f_inclusion_slot
+	          ,f_inclusion_index`,
+		minSlot,
+		maxSlot,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	proposerSlashings := make([]*chaindb.ProposerSlashing, 0)
+
+	for rows.Next() {
+		proposerSlashing := &chaindb.ProposerSlashing{}
+		err := rows.Scan(
+			&proposerSlashing.InclusionSlot,
+			&proposerSlashing.InclusionBlockRoot,
+			&proposerSlashing.InclusionIndex,
+			&proposerSlashing.Header1Slot,
+			&proposerSlashing.Header1ProposerIndex,
+			&proposerSlashing.Header1ParentRoot,
+			&proposerSlashing.Header1StateRoot,
+			&proposerSlashing.Header1BodyRoot,
+			&proposerSlashing.Header1Signature,
+			&proposerSlashing.Header2Slot,
+			&proposerSlashing.Header2ProposerIndex,
+			&proposerSlashing.Header2ParentRoot,
+			&proposerSlashing.Header2StateRoot,
+			&proposerSlashing.Header2BodyRoot,
+			&proposerSlashing.Header2Signature,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		proposerSlashings = append(proposerSlashings, proposerSlashing)
+	}
+
+	return proposerSlashings, nil
 }

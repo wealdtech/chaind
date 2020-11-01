@@ -39,6 +39,9 @@ type BlocksService interface {
 
 	// GetBlocksByParentRoot fetches the blocks with the given parent root.
 	GetBlocksByParentRoot(ctx context.Context, root []byte) ([]*Block, error)
+
+	// GetEmptySlots fetches the slots in the given range without a block in the database.
+	GetEmptySlots(ctx context.Context, minSlot uint64, maxSlot uint64) ([]uint64, error)
 }
 
 // AttestationsService defines the attestations service.
@@ -48,6 +51,12 @@ type AttestationsService interface {
 
 	// GetAttestationsForBlock fetches all attestations made for the given block.
 	GetAttestationsForBlock(ctx context.Context, blockRoot []byte) ([]*Attestation, error)
+
+	// GetAttestationsInBlock fetches all attestations contained in the given block.
+	GetAttestationsInBlock(ctx context.Context, blockRoot []byte) ([]*Attestation, error)
+
+	// GetAttestationsForSlotRange fetches all attestations made for the given slot range.
+	GetAttestationsForSlotRange(ctx context.Context, minSlot uint64, maxSlot uint64) ([]*Attestation, error)
 }
 
 // VoluntaryExitsService defines the voluntary exits service.
@@ -66,6 +75,9 @@ type AttesterSlashingsService interface {
 type ProposerSlashingsService interface {
 	// SetProposerSlashing sets an proposer slashing.
 	SetProposerSlashing(ctx context.Context, proposerSlashing *ProposerSlashing) error
+
+	// GetProposerSlashingsForSlotRange fetches all proposer slashings made for the given slot range.
+	GetProposerSlashingsForSlotRange(ctx context.Context, minSlot uint64, maxSlot uint64) ([]*ProposerSlashing, error)
 }
 
 // ValidatorsService defines the validators service.
@@ -90,6 +102,9 @@ type BeaconCommitteeService interface {
 
 	// GetBeaconComitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
 	GetBeaconCommitteeBySlotAndIndex(ctx context.Context, slot uint64, index uint64) (*BeaconCommittee, error)
+
+	// GetAttesterDuties fetches the attester duties at the given slot range for the given validator indices.
+	GetAttesterDuties(ctx context.Context, startSlot uint64, endSlot uint64, validatorIndices []uint64) ([]*AttesterDuty, error)
 }
 
 // ProposerDutyService defines the proposer duty service.

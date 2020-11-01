@@ -61,6 +61,15 @@ type ProposerDuty struct {
 	ValidatorIndex uint64
 }
 
+// AttesterDuty holds information for attester duties.
+type AttesterDuty struct {
+	Slot           uint64
+	Committee      uint64
+	ValidatorIndex uint64
+	// CommitteeIndex is the index of the validator in the committee.
+	CommitteeIndex uint64
+}
+
 // Attestation holds information about an attestation included by a block.
 type Attestation struct {
 	InclusionSlot      uint64
