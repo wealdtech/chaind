@@ -18,6 +18,7 @@ import (
 	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	api "github.com/attestantio/go-eth2-client/api/v1"
 	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
@@ -120,6 +121,6 @@ func NewBeaconCommitteeSubscriptionsSubmitter() eth2client.BeaconCommitteeSubscr
 }
 
 // SubmitBeaconCommitteeSubscriptions is a mock.
-func (m *BeaconCommitteeSubscriptionsSubmitter) SubmitBeaconCommitteeSubscriptions(ctx context.Context, subscriptions []*eth2client.BeaconCommitteeSubscription) error {
+func (m *BeaconCommitteeSubscriptionsSubmitter) SubmitBeaconCommitteeSubscriptions(ctx context.Context, subscriptions []*api.BeaconCommitteeSubscription) error {
 	return nil
 }
