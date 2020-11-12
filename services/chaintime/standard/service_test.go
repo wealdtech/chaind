@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/wealdtech/chaind/services/chaintime/standard"
@@ -153,7 +154,7 @@ func TestCurrentSlot(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	require.Equal(t, uint64(5), s.CurrentSlot())
+	require.Equal(t, spec.Slot(5), s.CurrentSlot())
 }
 
 func TestCurrentEpoch(t *testing.T) {
@@ -170,5 +171,5 @@ func TestCurrentEpoch(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	require.Equal(t, uint64(2), s.CurrentEpoch())
+	require.Equal(t, spec.Epoch(2), s.CurrentEpoch())
 }
