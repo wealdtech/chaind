@@ -53,16 +53,16 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
          ,f_target_root = excluded.f_target_root
 	  `,
 		attestation.InclusionSlot,
-		attestation.InclusionBlockRoot,
+		attestation.InclusionBlockRoot[:],
 		attestation.InclusionIndex,
 		attestation.Slot,
 		attestation.CommitteeIndex,
 		attestation.AggregationBits,
-		attestation.BeaconBlockRoot,
+		attestation.BeaconBlockRoot[:],
 		attestation.SourceEpoch,
-		attestation.SourceRoot,
+		attestation.SourceRoot[:],
 		attestation.TargetEpoch,
-		attestation.TargetRoot,
+		attestation.TargetRoot[:],
 	)
 
 	return err

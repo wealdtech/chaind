@@ -16,6 +16,7 @@ package postgresql
 import (
 	"context"
 
+	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -46,7 +47,7 @@ func (s *Service) SetValidator(ctx context.Context, validator *chaindb.Validator
          ,f_withdrawable_epoch = excluded.f_withdrawable_epoch
          ,f_effective_balance = excluded.f_effective_balance
 		 `,
-		validator.PublicKey,
+		validator.PublicKey[:],
 		validator.Index,
 		validator.Slashed,
 		int64(validator.ActivationEligibilityEpoch),
@@ -136,10 +137,10 @@ func (s *Service) GetValidators(ctx context.Context) ([]*chaindb.Validator, erro
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
-		validator.ActivationEligibilityEpoch = uint64(activationEligibilityEpoch)
-		validator.ActivationEpoch = uint64(activationEpoch)
-		validator.ExitEpoch = uint64(exitEpoch)
-		validator.WithdrawableEpoch = uint64(withdrawableEpoch)
+		validator.ActivationEligibilityEpoch = spec.Epoch(activationEligibilityEpoch)
+		validator.ActivationEpoch = spec.Epoch(activationEpoch)
+		validator.ExitEpoch = spec.Epoch(exitEpoch)
+		validator.WithdrawableEpoch = spec.Epoch(withdrawableEpoch)
 		validators = append(validators, validator)
 	}
 
@@ -158,7 +159,7 @@ func (s *Service) GetValidatorBalancesByValidatorsAndEpoch(ctx context.Context, 
 		defer cancel()
 	}
 
-	validatorIndices := make([]uint64, len(validators))
+	validatorIndices := make([]spec.ValidatorIndex, len(validators))
 	for i := range validators {
 		validatorIndices[i] = validators[i].Index
 	}

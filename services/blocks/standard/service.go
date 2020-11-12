@@ -17,6 +17,8 @@ import (
 	"context"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	api "github.com/attestantio/go-eth2-client/api/v1"
+	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
@@ -67,19 +69,24 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 	}
 	if startSlot >= 0 {
 		// Explicit requirement to start at a given slot.
-		md.LatestSlot = uint64(startSlot)
+		md.LatestSlot = spec.Slot(startSlot)
 	} else if md.LatestSlot > 0 {
 		// We have a definite hit on this being the last processed slot; increment it to avoid duplication of work.
 		md.LatestSlot++
 	}
 
-	log.Info().Uint64("slot", md.LatestSlot).Msg("Catching up from slot")
+	log.Info().Uint64("slot", uint64(md.LatestSlot)).Msg("Catching up from slot")
 	s.catchupOnRestart(ctx, md)
 	if len(md.MissedSlots) > 0 {
-		log.Info().Uints64("missed_slots", md.MissedSlots).Msg("Re-fetching missed slots")
+		// Need this as a []uint64 for logging only.
+		missedSlots := make([]uint64, len(md.MissedSlots))
+		for i := range md.MissedSlots {
+			missedSlots[i] = uint64(md.MissedSlots[i])
+		}
+		log.Info().Uints64("missed_slots", missedSlots).Msg("Re-fetching missed slots")
 		s.handleMissed(ctx, md)
 		// Catchup again, in case handling the missed took a while.
-		log.Info().Uint64("slot", md.LatestSlot).Msg("Catching up from slot")
+		log.Info().Uint64("slot", uint64(md.LatestSlot)).Msg("Catching up from slot")
 		s.catchupOnRestart(ctx, md)
 	}
 	log.Info().Msg("Caught up")
@@ -109,14 +116,17 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 	}
 
 	// Set up the handler for new chain head updates.
-	if err := s.eth2Client.(eth2client.BeaconChainHeadUpdatedSource).AddOnBeaconChainHeadUpdatedHandler(ctx, s); err != nil {
+	if err := s.eth2Client.(eth2client.EventsProvider).Events(ctx, []string{"head"}, func(event *api.Event) {
+		eventData := event.Data.(*api.HeadEvent)
+		s.OnBeaconChainHeadUpdated(ctx, eventData.Slot, eventData.Block, eventData.State, eventData.EpochTransition)
+	}); err != nil {
 		log.Fatal().Err(err).Msg("Failed to add beacon chain head updated handler")
 	}
 }
 
 func (s *Service) catchupOnRestart(ctx context.Context, md *metadata) {
 	for slot := md.LatestSlot; slot <= s.chainTime.CurrentSlot(); slot++ {
-		log := log.With().Uint64("slot", slot).Logger()
+		log := log.With().Uint64("slot", uint64(slot)).Logger()
 		// Each update goes in to its own transaction, to make the data available sooner.
 		ctx, cancel, err := s.chainDB.BeginTx(ctx)
 		if err != nil {
@@ -147,7 +157,7 @@ func (s *Service) catchupOnRestart(ctx context.Context, md *metadata) {
 func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 	failed := 0
 	for i := 0; i < len(md.MissedSlots); i++ {
-		log := log.With().Uint64("slot", md.MissedSlots[i]).Logger()
+		log := log.With().Uint64("slot", uint64(md.MissedSlots[i])).Logger()
 		// Each update goes in to its own transaction, to make the data available sooner.
 		ctx, cancel, err := s.chainDB.BeginTx(ctx)
 		if err != nil {
@@ -163,7 +173,7 @@ func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 		} else {
 			log.Trace().Msg("Updated block")
 			// Remove this from the list of missed slots.
-			missedSlots := make([]uint64, len(md.MissedSlots)-1)
+			missedSlots := make([]spec.Slot, len(md.MissedSlots)-1)
 			copy(missedSlots[:failed], md.MissedSlots[:failed])
 			copy(missedSlots[failed:], md.MissedSlots[i+1:])
 			md.MissedSlots = missedSlots
@@ -177,7 +187,7 @@ func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 		}
 
 		if err := s.chainDB.CommitTx(ctx); err != nil {
-			log.Error().Err(err).Uint64("slot", md.MissedSlots[i]).Msg("Failed to commit transaction")
+			log.Error().Err(err).Uint64("slot", uint64(md.MissedSlots[i])).Msg("Failed to commit transaction")
 			cancel()
 			return
 		}

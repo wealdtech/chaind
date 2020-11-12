@@ -13,52 +13,56 @@
 
 package chaindb
 
+import (
+	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+)
+
 // Block holds information about a block.
 type Block struct {
-	Slot             uint64
-	ProposerIndex    uint64
-	Root             []byte
+	Slot             spec.Slot
+	ProposerIndex    spec.ValidatorIndex
+	Root             spec.Root
 	Graffiti         []byte
-	RANDAOReveal     []byte
-	BodyRoot         []byte
-	ParentRoot       []byte
-	StateRoot        []byte
+	RANDAOReveal     spec.BLSSignature
+	BodyRoot         spec.Root
+	ParentRoot       spec.Root
+	StateRoot        spec.Root
 	ETH1BlockHash    []byte
 	ETH1DepositCount uint64
-	ETH1DepositRoot  []byte
+	ETH1DepositRoot  spec.Root
 }
 
 // Validator holds information about a validator.
 type Validator struct {
-	PublicKey                  []byte
-	Index                      uint64
-	EffectiveBalance           uint64
+	PublicKey                  spec.BLSPubKey
+	Index                      spec.ValidatorIndex
+	EffectiveBalance           spec.Gwei
 	Slashed                    bool
-	ActivationEligibilityEpoch uint64
-	ActivationEpoch            uint64
-	ExitEpoch                  uint64
-	WithdrawableEpoch          uint64
+	ActivationEligibilityEpoch spec.Epoch
+	ActivationEpoch            spec.Epoch
+	ExitEpoch                  spec.Epoch
+	WithdrawableEpoch          spec.Epoch
 }
 
 // ValidatorBalance holds information about a validator's balance at a given epoch.
 type ValidatorBalance struct {
-	Index            uint64
-	Epoch            uint64
-	Balance          uint64
-	EffectiveBalance uint64
+	Index            spec.ValidatorIndex
+	Epoch            spec.Epoch
+	Balance          spec.Gwei
+	EffectiveBalance spec.Gwei
 }
 
 // BeaconCommittee holds information for beacon committees.
 type BeaconCommittee struct {
-	Slot      uint64
-	Index     uint64
-	Committee []uint64
+	Slot      spec.Slot
+	Index     spec.CommitteeIndex
+	Committee []spec.ValidatorIndex
 }
 
 // ProposerDuty holds information for proposer duties.
 type ProposerDuty struct {
-	Slot           uint64
-	ValidatorIndex uint64
+	Slot           spec.Slot
+	ValidatorIndex spec.ValidatorIndex
 }
 
 // AttesterDuty holds information for attester duties.
@@ -72,68 +76,68 @@ type AttesterDuty struct {
 
 // Attestation holds information about an attestation included by a block.
 type Attestation struct {
-	InclusionSlot      uint64
-	InclusionBlockRoot []byte
+	InclusionSlot      spec.Slot
+	InclusionBlockRoot spec.Root
 	InclusionIndex     uint64
-	Slot               uint64
-	CommitteeIndex     uint64
+	Slot               spec.Slot
+	CommitteeIndex     spec.CommitteeIndex
 	AggregationBits    []byte
-	BeaconBlockRoot    []byte
-	SourceEpoch        uint64
-	SourceRoot         []byte
-	TargetEpoch        uint64
-	TargetRoot         []byte
+	BeaconBlockRoot    spec.Root
+	SourceEpoch        spec.Epoch
+	SourceRoot         spec.Root
+	TargetEpoch        spec.Epoch
+	TargetRoot         spec.Root
 }
 
 // VoluntaryExit holds information about a voluntary exit included in a block.
 type VoluntaryExit struct {
-	InclusionSlot      uint64
-	InclusionBlockRoot []byte
+	InclusionSlot      spec.Slot
+	InclusionBlockRoot spec.Root
 	InclusionIndex     uint64
-	ValidatorIndex     uint64
-	Epoch              uint64
+	ValidatorIndex     spec.ValidatorIndex
+	Epoch              spec.Epoch
 }
 
 // AttesterSlashing holds information about an attester slashing included by a block.
 type AttesterSlashing struct {
-	InclusionSlot               uint64
-	InclusionBlockRoot          []byte
+	InclusionSlot               spec.Slot
+	InclusionBlockRoot          spec.Root
 	InclusionIndex              uint64
-	Attestation1Indices         []uint64
-	Attestation1Slot            uint64
-	Attestation1CommitteeIndex  uint64
-	Attestation1BeaconBlockRoot []byte
-	Attestation1SourceEpoch     uint64
-	Attestation1SourceRoot      []byte
-	Attestation1TargetEpoch     uint64
-	Attestation1TargetRoot      []byte
-	Attestation1Signature       []byte
-	Attestation2Indices         []uint64
-	Attestation2Slot            uint64
-	Attestation2CommitteeIndex  uint64
-	Attestation2BeaconBlockRoot []byte
-	Attestation2SourceEpoch     uint64
-	Attestation2SourceRoot      []byte
-	Attestation2TargetEpoch     uint64
-	Attestation2TargetRoot      []byte
-	Attestation2Signature       []byte
+	Attestation1Indices         []spec.ValidatorIndex
+	Attestation1Slot            spec.Slot
+	Attestation1CommitteeIndex  spec.CommitteeIndex
+	Attestation1BeaconBlockRoot spec.Root
+	Attestation1SourceEpoch     spec.Epoch
+	Attestation1SourceRoot      spec.Root
+	Attestation1TargetEpoch     spec.Epoch
+	Attestation1TargetRoot      spec.Root
+	Attestation1Signature       spec.BLSSignature
+	Attestation2Indices         []spec.ValidatorIndex
+	Attestation2Slot            spec.Slot
+	Attestation2CommitteeIndex  spec.CommitteeIndex
+	Attestation2BeaconBlockRoot spec.Root
+	Attestation2SourceEpoch     spec.Epoch
+	Attestation2SourceRoot      spec.Root
+	Attestation2TargetEpoch     spec.Epoch
+	Attestation2TargetRoot      spec.Root
+	Attestation2Signature       spec.BLSSignature
 }
 
 // ProposerSlashing holds information about a proposer slashing included by a block.
 type ProposerSlashing struct {
-	InclusionSlot        uint64
-	InclusionBlockRoot   []byte
+	InclusionSlot        spec.Slot
+	InclusionBlockRoot   spec.Root
 	InclusionIndex       uint64
-	Header1Slot          uint64
-	Header1ProposerIndex uint64
-	Header1ParentRoot    []byte
-	Header1StateRoot     []byte
-	Header1BodyRoot      []byte
-	Header1Signature     []byte
-	Header2Slot          uint64
-	Header2ProposerIndex uint64
-	Header2ParentRoot    []byte
-	Header2StateRoot     []byte
-	Header2BodyRoot      []byte
-	Header2Signature     []byte
+	Header1Slot          spec.Slot
+	Header1ProposerIndex spec.ValidatorIndex
+	Header1ParentRoot    spec.Root
+	Header1StateRoot     spec.Root
+	Header1BodyRoot      spec.Root
+	Header1Signature     spec.BLSSignature
+	Header2Slot          spec.Slot
+	Header2ProposerIndex spec.ValidatorIndex
+	Header2ParentRoot    spec.Root
+	Header2StateRoot     spec.Root
+	Header2BodyRoot      spec.Root
+	Header2Signature     spec.BLSSignature
 }

@@ -15,6 +15,7 @@ package standard
 
 import (
 	"context"
+	"fmt"
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	spec "github.com/attestantio/go-eth2-client/spec/phase0"
@@ -25,12 +26,14 @@ import (
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
-	slot uint64,
-	blockRoot []byte,
-	stateRoot []byte,
+	slot spec.Slot,
+	blockRoot spec.Root,
+	stateRoot spec.Root,
 	epochTransition bool,
 ) {
-	log.Trace().Uint64("slot", slot).Msg("Handler called")
+	log := log.With().Uint64("slot", uint64(slot)).Logger()
+
+	log.Trace().Msg("Handler called")
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to begin transaction")
@@ -42,7 +45,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	}
 
 	if err := s.updateBlockForSlot(ctx, slot); err != nil {
-		log.Error().Uint64("slot", slot).Err(err).Msg("Failed to update block on chain head updated")
+		log.Error().Err(err).Msg("Failed to update block on chain head updated")
 		md.MissedSlots = append(md.MissedSlots, slot)
 	}
 
@@ -57,14 +60,14 @@ func (s *Service) OnBeaconChainHeadUpdated(
 		return
 	}
 
-	log.Trace().Uint64("slot", slot).Msg("Stored block")
+	log.Trace().Msg("Stored block")
 }
 
-func (s *Service) updateBlockForSlot(ctx context.Context, slot uint64) error {
-	log := log.With().Uint64("slot", slot).Logger()
+func (s *Service) updateBlockForSlot(ctx context.Context, slot spec.Slot) error {
+	log := log.With().Uint64("slot", uint64(slot)).Logger()
 
 	log.Trace().Msg("Updating block for slot")
-	signedBlock, err := s.eth2Client.(eth2client.SignedBeaconBlockProvider).SignedBeaconBlockBySlot(ctx, slot)
+	signedBlock, err := s.eth2Client.(eth2client.SignedBeaconBlockProvider).SignedBeaconBlock(ctx, fmt.Sprintf("%d", slot))
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain beacon block for slot")
 	}
@@ -97,7 +100,7 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot uint64) error {
 	return nil
 }
 
-func (s *Service) updateAttestationsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot []byte) error {
+func (s *Service) updateAttestationsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot spec.Root) error {
 	for i, attestation := range signedBlock.Message.Body.Attestations {
 		dbAttestation, err := s.dbAttestation(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), attestation)
 		if err != nil {
@@ -110,7 +113,7 @@ func (s *Service) updateAttestationsForBlock(ctx context.Context, signedBlock *s
 	return nil
 }
 
-func (s *Service) updateProposerSlashingsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot []byte) error {
+func (s *Service) updateProposerSlashingsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot spec.Root) error {
 	for i, proposerSlashing := range signedBlock.Message.Body.ProposerSlashings {
 		dbProposerSlashing, err := s.dbProposerSlashing(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), proposerSlashing)
 		if err != nil {
@@ -123,7 +126,7 @@ func (s *Service) updateProposerSlashingsForBlock(ctx context.Context, signedBlo
 	return nil
 }
 
-func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot []byte) error {
+func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot spec.Root) error {
 	for i, attesterSlashing := range signedBlock.Message.Body.AttesterSlashings {
 		dbAttesterSlashing, err := s.dbAttesterSlashing(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), attesterSlashing)
 		if err != nil {
@@ -136,7 +139,7 @@ func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context, signedBlo
 	return nil
 }
 
-func (s *Service) updateVoluntaryExitsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot []byte) error {
+func (s *Service) updateVoluntaryExitsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot spec.Root) error {
 	for i, voluntaryExit := range signedBlock.Message.Body.VoluntaryExits {
 		dbVoluntaryExit, err := s.dbVoluntaryExit(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), voluntaryExit)
 		if err != nil {
@@ -163,7 +166,7 @@ func (s *Service) dbBlock(
 		ProposerIndex: block.ProposerIndex,
 		ParentRoot:    block.ParentRoot,
 		StateRoot:     block.StateRoot,
-		BodyRoot:      bodyRoot[:],
+		BodyRoot:      bodyRoot,
 	}
 	root, err := header.HashTreeRoot()
 	if err != nil {
@@ -173,10 +176,10 @@ func (s *Service) dbBlock(
 	dbBlock := &chaindb.Block{
 		Slot:             block.Slot,
 		ProposerIndex:    block.ProposerIndex,
-		Root:             root[:],
+		Root:             root,
 		Graffiti:         block.Body.Graffiti,
 		RANDAOReveal:     block.Body.RANDAOReveal,
-		BodyRoot:         bodyRoot[:],
+		BodyRoot:         bodyRoot,
 		ParentRoot:       block.ParentRoot,
 		StateRoot:        block.StateRoot,
 		ETH1BlockHash:    block.Body.ETH1Data.BlockHash,
@@ -189,8 +192,8 @@ func (s *Service) dbBlock(
 
 func (s *Service) dbAttestation(
 	ctx context.Context,
-	slot uint64,
-	blockRoot []byte,
+	slot spec.Slot,
+	blockRoot spec.Root,
 	index uint64,
 	attestation *spec.Attestation,
 ) (*chaindb.Attestation, error) {
@@ -213,8 +216,8 @@ func (s *Service) dbAttestation(
 
 func (s *Service) dbVoluntaryExit(
 	ctx context.Context,
-	slot uint64,
-	blockRoot []byte,
+	slot spec.Slot,
+	blockRoot spec.Root,
 	index uint64,
 	voluntaryExit *spec.SignedVoluntaryExit,
 ) (*chaindb.VoluntaryExit, error) {
@@ -231,16 +234,26 @@ func (s *Service) dbVoluntaryExit(
 
 func (s *Service) dbAttesterSlashing(
 	ctx context.Context,
-	slot uint64,
-	blockRoot []byte,
+	slot spec.Slot,
+	blockRoot spec.Root,
 	index uint64,
 	attesterSlashing *spec.AttesterSlashing,
 ) (*chaindb.AttesterSlashing, error) {
+	// This is temporary, until attester fastssz is fixed to support []spec.ValidatorIndex.
+	attestation1Indices := make([]spec.ValidatorIndex, len(attesterSlashing.Attestation1.AttestingIndices))
+	for i := range attesterSlashing.Attestation1.AttestingIndices {
+		attestation1Indices[i] = spec.ValidatorIndex(attesterSlashing.Attestation1.AttestingIndices[i])
+	}
+	attestation2Indices := make([]spec.ValidatorIndex, len(attesterSlashing.Attestation2.AttestingIndices))
+	for i := range attesterSlashing.Attestation2.AttestingIndices {
+		attestation2Indices[i] = spec.ValidatorIndex(attesterSlashing.Attestation2.AttestingIndices[i])
+	}
+
 	dbAttesterSlashing := &chaindb.AttesterSlashing{
 		InclusionSlot:               slot,
 		InclusionBlockRoot:          blockRoot,
 		InclusionIndex:              index,
-		Attestation1Indices:         attesterSlashing.Attestation1.AttestingIndices,
+		Attestation1Indices:         attestation1Indices,
 		Attestation1Slot:            attesterSlashing.Attestation1.Data.Slot,
 		Attestation1CommitteeIndex:  attesterSlashing.Attestation1.Data.Index,
 		Attestation1BeaconBlockRoot: attesterSlashing.Attestation1.Data.BeaconBlockRoot,
@@ -249,7 +262,7 @@ func (s *Service) dbAttesterSlashing(
 		Attestation1TargetEpoch:     attesterSlashing.Attestation1.Data.Target.Epoch,
 		Attestation1TargetRoot:      attesterSlashing.Attestation1.Data.Target.Root,
 		Attestation1Signature:       attesterSlashing.Attestation1.Signature,
-		Attestation2Indices:         attesterSlashing.Attestation2.AttestingIndices,
+		Attestation2Indices:         attestation2Indices,
 		Attestation2Slot:            attesterSlashing.Attestation2.Data.Slot,
 		Attestation2CommitteeIndex:  attesterSlashing.Attestation2.Data.Index,
 		Attestation2BeaconBlockRoot: attesterSlashing.Attestation2.Data.BeaconBlockRoot,
@@ -265,8 +278,8 @@ func (s *Service) dbAttesterSlashing(
 
 func (s *Service) dbProposerSlashing(
 	ctx context.Context,
-	slot uint64,
-	blockRoot []byte,
+	slot spec.Slot,
+	blockRoot spec.Root,
 	index uint64,
 	proposerSlashing *spec.ProposerSlashing,
 ) (*chaindb.ProposerSlashing, error) {
@@ -274,18 +287,18 @@ func (s *Service) dbProposerSlashing(
 		InclusionSlot:        slot,
 		InclusionBlockRoot:   blockRoot,
 		InclusionIndex:       index,
-		Header1Slot:          proposerSlashing.Header1.Message.Slot,
-		Header1ProposerIndex: proposerSlashing.Header1.Message.ProposerIndex,
-		Header1ParentRoot:    proposerSlashing.Header1.Message.ParentRoot,
-		Header1StateRoot:     proposerSlashing.Header1.Message.StateRoot,
-		Header1BodyRoot:      proposerSlashing.Header1.Message.BodyRoot,
-		Header1Signature:     proposerSlashing.Header1.Signature,
-		Header2Slot:          proposerSlashing.Header2.Message.Slot,
-		Header2ProposerIndex: proposerSlashing.Header2.Message.ProposerIndex,
-		Header2ParentRoot:    proposerSlashing.Header2.Message.ParentRoot,
-		Header2StateRoot:     proposerSlashing.Header2.Message.StateRoot,
-		Header2BodyRoot:      proposerSlashing.Header2.Message.BodyRoot,
-		Header2Signature:     proposerSlashing.Header2.Signature,
+		Header1Slot:          proposerSlashing.SignedHeader1.Message.Slot,
+		Header1ProposerIndex: proposerSlashing.SignedHeader1.Message.ProposerIndex,
+		Header1ParentRoot:    proposerSlashing.SignedHeader1.Message.ParentRoot,
+		Header1StateRoot:     proposerSlashing.SignedHeader1.Message.StateRoot,
+		Header1BodyRoot:      proposerSlashing.SignedHeader1.Message.BodyRoot,
+		Header1Signature:     proposerSlashing.SignedHeader1.Signature,
+		Header2Slot:          proposerSlashing.SignedHeader2.Message.Slot,
+		Header2ProposerIndex: proposerSlashing.SignedHeader2.Message.ProposerIndex,
+		Header2ParentRoot:    proposerSlashing.SignedHeader2.Message.ParentRoot,
+		Header2StateRoot:     proposerSlashing.SignedHeader2.Message.StateRoot,
+		Header2BodyRoot:      proposerSlashing.SignedHeader2.Message.BodyRoot,
+		Header2Signature:     proposerSlashing.SignedHeader2.Signature,
 	}
 
 	return dbProposerSlashing, nil

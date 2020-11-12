@@ -40,7 +40,7 @@ func (s *Service) SetVoluntaryExit(ctx context.Context, voluntaryExit *chaindb.V
          ,f_epoch = excluded.f_epoch
       `,
 		voluntaryExit.InclusionSlot,
-		voluntaryExit.InclusionBlockRoot,
+		voluntaryExit.InclusionBlockRoot[:],
 		voluntaryExit.InclusionIndex,
 		voluntaryExit.ValidatorIndex,
 		voluntaryExit.Epoch,

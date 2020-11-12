@@ -96,9 +96,9 @@ func parseAndCheckParameters(params ...Parameter) (*parameters, error) {
 		//nolint:stylecheck
 		return nil, errors.New("Ethereum 2 client does not provide beacon committee information")
 	}
-	if _, isProvider := parameters.eth2Client.(eth2client.BeaconChainHeadUpdatedSource); !isProvider {
+	if _, isProvider := parameters.eth2Client.(eth2client.EventsProvider); !isProvider {
 		//nolint:stylecheck
-		return nil, errors.New("Ethereum 2 client does not provide beacon chain head updates")
+		return nil, errors.New("Ethereum 2 client does not provide events")
 	}
 	if parameters.chainDB == nil {
 		return nil, errors.New("no chain database specified")

@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -25,9 +26,9 @@ import (
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
-	slot uint64,
-	blockRoot []byte,
-	stateRoot []byte,
+	slot spec.Slot,
+	blockRoot spec.Root,
+	stateRoot spec.Root,
 	epochTransition bool,
 ) {
 	if !epochTransition {
@@ -36,7 +37,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	}
 
 	epoch := s.chainTime.SlotToEpoch(slot)
-	log := log.With().Uint64("epoch", epoch).Logger()
+	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
@@ -87,7 +88,7 @@ func (s *Service) updateValidatorsForState(ctx context.Context, stateID string) 
 			return errors.Wrap(err, "failed to set validator")
 		}
 		if s.balances {
-			epoch, err := s.eth2Client.EpochFromStateID(ctx, stateID)
+			epoch, err := s.eth2Client.(eth2client.EpochFromStateIDProvider).EpochFromStateID(ctx, stateID)
 			if err != nil {
 				return errors.Wrap(err, "failed to calculate epoch from state ID")
 			}
@@ -107,7 +108,7 @@ func (s *Service) updateValidatorsForState(ctx context.Context, stateID string) 
 
 func (s *Service) updateValidatorBalancesForState(ctx context.Context, stateID string) error {
 	if s.balances {
-		epoch, err := s.eth2Client.EpochFromStateID(ctx, stateID)
+		epoch, err := s.eth2Client.(eth2client.EpochFromStateIDProvider).EpochFromStateID(ctx, stateID)
 		if err != nil {
 			return errors.Wrap(err, "failed to calculate epoch from state ID")
 		}

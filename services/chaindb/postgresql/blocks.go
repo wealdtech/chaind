@@ -54,15 +54,15 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 	  `,
 		block.Slot,
 		block.ProposerIndex,
-		block.Root,
+		block.Root[:],
 		block.Graffiti,
-		block.RANDAOReveal,
-		block.BodyRoot,
-		block.ParentRoot,
-		block.StateRoot,
+		block.RANDAOReveal[:],
+		block.BodyRoot[:],
+		block.ParentRoot[:],
+		block.StateRoot[:],
 		block.ETH1BlockHash,
 		block.ETH1DepositCount,
-		block.ETH1DepositRoot,
+		block.ETH1DepositRoot[:],
 	)
 
 	return err

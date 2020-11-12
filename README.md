@@ -68,7 +68,11 @@ psql -h localhost -U chain chain <schema.sql
 ```
 
 ## Beacon node
-`chaind` supports Lighthouse, Prysm and Teku beacon nodes.  Note that not all beacon nodes support all calls at current.  For best support, run a Teku node synced from genesis with the `data-storage-mode` set to `archive` (see the [Teku documentation](https://docs.teku.consensys.net/en/latest/Reference/CLI/CLI-Syntax/#data-storage-mode) for more details on how to set this value).
+`chaind` supports Teku, Prysm and Lighthouse beacon nodes.  The current state of obtaining data from beacon nodes is as follows:
+
+  - Teku: must be run in [archive mode](https://docs.teku.consensys.net/en/latest/Reference/CLI/CLI-Syntax/#data-storage-mode) to allow `chaind` to obtain historical data
+  - Prysm: beacon committee information is not available.  Run `chaind` with `--beacon-committees.enable=false` to disabled fetching this information
+  - Lighthouse: beacon committee information is not available.  Run `chaind` with `--beacon-committees.enable=false` to disabled fetching this information
 
 # Configuring `chaind`
 The minimal requirements for `chaind` are references to the database and beacon node, for example:

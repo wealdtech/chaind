@@ -17,6 +17,8 @@ import (
 	"context"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	api "github.com/attestantio/go-eth2-client/api/v1"
+	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
@@ -67,19 +69,24 @@ func (s *Service) updateAfterRestart(ctx context.Context, startEpoch int64) {
 	}
 	if startEpoch >= 0 {
 		// Explicit requirement to start at a given epoch.
-		md.LatestEpoch = uint64(startEpoch)
+		md.LatestEpoch = spec.Epoch(startEpoch)
 	} else if md.LatestEpoch > 0 {
 		// We have a definite hit on this being the last processed epoch; increment it to avoid duplication of work.
 		md.LatestEpoch++
 	}
 
-	log.Info().Uint64("epoch", md.LatestEpoch).Msg("Catching up from epoch")
+	log.Info().Uint64("epoch", uint64(md.LatestEpoch)).Msg("Catching up from epoch")
 	s.catchupOnRestart(ctx, md)
 	if len(md.MissedEpochs) > 0 {
-		log.Info().Uints64("missed_epochs", md.MissedEpochs).Msg("Re-fetching missed epochs")
+		// Need this as a []uint64 for logging only.
+		missedEpochs := make([]uint64, len(md.MissedEpochs))
+		for i := range md.MissedEpochs {
+			missedEpochs[i] = uint64(md.MissedEpochs[i])
+		}
+		log.Info().Uints64("missed_epochs", missedEpochs).Msg("Re-fetching missed epochs")
 		s.handleMissed(ctx, md)
 		// Catchup again, in case handling the missed epochs took a while.
-		log.Info().Uint64("epoch", md.LatestEpoch).Msg("Catching up from epoch")
+		log.Info().Uint64("epoch", uint64(md.LatestEpoch)).Msg("Catching up from epoch")
 		s.catchupOnRestart(ctx, md)
 	}
 	log.Info().Msg("Caught up")
@@ -107,14 +114,17 @@ func (s *Service) updateAfterRestart(ctx context.Context, startEpoch int64) {
 	}
 
 	// Set up the handler for new chain head updates.
-	if err := s.eth2Client.(eth2client.BeaconChainHeadUpdatedSource).AddOnBeaconChainHeadUpdatedHandler(ctx, s); err != nil {
+	if err := s.eth2Client.(eth2client.EventsProvider).Events(ctx, []string{"head"}, func(event *api.Event) {
+		eventData := event.Data.(*api.HeadEvent)
+		s.OnBeaconChainHeadUpdated(ctx, eventData.Slot, eventData.Block, eventData.State, eventData.EpochTransition)
+	}); err != nil {
 		log.Fatal().Err(err).Msg("Failed to add beacon chain head updated handler")
 	}
 }
 
 func (s *Service) catchupOnRestart(ctx context.Context, md *metadata) {
 	for epoch := md.LatestEpoch; epoch <= s.chainTime.CurrentEpoch(); epoch++ {
-		log := log.With().Uint64("epoch", epoch).Logger()
+		log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 		// Each update goes in to its own transaction, to make the data available sooner.
 		ctx, cancel, err := s.chainDB.BeginTx(ctx)
 		if err != nil {
@@ -145,7 +155,7 @@ func (s *Service) catchupOnRestart(ctx context.Context, md *metadata) {
 func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 	failed := 0
 	for i := 0; i < len(md.MissedEpochs); i++ {
-		log := log.With().Uint64("epoch", md.MissedEpochs[i]).Logger()
+		log := log.With().Uint64("epoch", uint64(md.MissedEpochs[i])).Logger()
 		// Each update goes in to its own transaction, to make the data available sooner.
 		ctx, cancel, err := s.chainDB.BeginTx(ctx)
 		if err != nil {
@@ -160,7 +170,7 @@ func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 			continue
 		} else {
 			// Remove this from the list of missed epochs.
-			missedEpochs := make([]uint64, len(md.MissedEpochs)-1)
+			missedEpochs := make([]spec.Epoch, len(md.MissedEpochs)-1)
 			copy(missedEpochs[:failed], md.MissedEpochs[:failed])
 			copy(missedEpochs[failed:], md.MissedEpochs[i+1:])
 			md.MissedEpochs = missedEpochs
