@@ -151,3 +151,14 @@ CREATE TABLE t_validator_balances (
 );
 CREATE UNIQUE INDEX i_validator_balances_1 ON t_validator_balances(f_validator_index, f_epoch);
 CREATE INDEX i_validator_balances_2 ON t_validator_balances(f_epoch);
+
+-- t_epochs contain rollup information for epochs.
+DROP TABLE IF EXISTS t_epochs CASCADE;
+CREATE TABLE t_epochs (
+  f_epoch                    BIGINT NOT NULL
+ ,f_active_validators        BIGINT NOT NULL
+ ,f_active_effective_balance BIGINT NOT NULL
+ ,f_justified_at             BIGINT
+ ,f_finalized_at             BIGINT
+);
+CREATE UNIQUE INDEX i_epochs_1 ON t_epochs(f_epoch);

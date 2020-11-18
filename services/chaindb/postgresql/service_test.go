@@ -19,6 +19,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaindb/postgresql"
 )
 
@@ -34,7 +36,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:          "Good",
-			connectionURL: os.Getenv("DATABASE_URL"),
+			connectionURL: os.Getenv("CHAINDB_DATABASE_URL"),
 		},
 	}
 
@@ -51,4 +53,24 @@ func TestService(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInterfaces(t *testing.T) {
+	ctx := context.Background()
+	s, err := postgresql.New(ctx, postgresql.WithConnectionURL(os.Getenv("CHAINDB_DATABASE_URL")))
+	require.NoError(t, err)
+
+	require.Implements(t, (*chaindb.Service)(nil), s)
+	require.Implements(t, (*chaindb.AttestationsProvider)(nil), s)
+	require.Implements(t, (*chaindb.AttestationsSetter)(nil), s)
+	require.Implements(t, (*chaindb.AttesterSlashingsSetter)(nil), s)
+	require.Implements(t, (*chaindb.BeaconCommitteesProvider)(nil), s)
+	require.Implements(t, (*chaindb.BeaconCommitteesSetter)(nil), s)
+	require.Implements(t, (*chaindb.BlocksProvider)(nil), s)
+	require.Implements(t, (*chaindb.BlocksSetter)(nil), s)
+	require.Implements(t, (*chaindb.ProposerDutiesSetter)(nil), s)
+	require.Implements(t, (*chaindb.ProposerSlashingsSetter)(nil), s)
+	require.Implements(t, (*chaindb.ValidatorsProvider)(nil), s)
+	require.Implements(t, (*chaindb.ValidatorsSetter)(nil), s)
+	require.Implements(t, (*chaindb.VoluntaryExitsSetter)(nil), s)
 }

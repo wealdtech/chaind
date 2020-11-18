@@ -81,7 +81,7 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot spec.Slot) error 
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain database block")
 	}
-	if err := s.chainDB.SetBlock(ctx, dbBlock); err != nil {
+	if err := s.blocksSetter.SetBlock(ctx, dbBlock); err != nil {
 		return errors.Wrap(err, "failed to set block")
 	}
 	if err := s.updateAttestationsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
@@ -106,7 +106,7 @@ func (s *Service) updateAttestationsForBlock(ctx context.Context, signedBlock *s
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database attestation")
 		}
-		if err := s.chainDB.SetAttestation(ctx, dbAttestation); err != nil {
+		if err := s.attestationsSetter.SetAttestation(ctx, dbAttestation); err != nil {
 			return errors.Wrap(err, "failed to set attestation")
 		}
 	}
@@ -119,7 +119,7 @@ func (s *Service) updateProposerSlashingsForBlock(ctx context.Context, signedBlo
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database proposer slashing")
 		}
-		if err := s.chainDB.SetProposerSlashing(ctx, dbProposerSlashing); err != nil {
+		if err := s.proposerSlashingsSetter.SetProposerSlashing(ctx, dbProposerSlashing); err != nil {
 			return errors.Wrap(err, "failed to set proposer slashing")
 		}
 	}
@@ -132,7 +132,7 @@ func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context, signedBlo
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database attester slashing")
 		}
-		if err := s.chainDB.SetAttesterSlashing(ctx, dbAttesterSlashing); err != nil {
+		if err := s.attesterSlashingsSetter.SetAttesterSlashing(ctx, dbAttesterSlashing); err != nil {
 			return errors.Wrap(err, "failed to set attester slashing")
 		}
 	}
@@ -145,7 +145,7 @@ func (s *Service) updateVoluntaryExitsForBlock(ctx context.Context, signedBlock 
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database voluntary exit")
 		}
-		if err := s.chainDB.SetVoluntaryExit(ctx, dbVoluntaryExit); err != nil {
+		if err := s.voluntaryExitsSetter.SetVoluntaryExit(ctx, dbVoluntaryExit); err != nil {
 			return errors.Wrap(err, "failed to set voluntary exit")
 		}
 	}

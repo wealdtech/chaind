@@ -29,10 +29,11 @@ import (
 
 // Service is a chain database service.
 type Service struct {
-	eth2Client eth2client.Service
-	chainDB    chaindb.Service
-	chainTime  chaintime.Service
-	balances   bool
+	eth2Client       eth2client.Service
+	chainDB          chaindb.Service
+	validatorsSetter chaindb.ValidatorsSetter
+	chainTime        chaintime.Service
+	balances         bool
 }
 
 // module-wide log.
@@ -51,11 +52,17 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		log = log.Level(parameters.logLevel)
 	}
 
+	validatorsSetter, isValidatorsSetter := parameters.chainDB.(chaindb.ValidatorsSetter)
+	if !isValidatorsSetter {
+		return nil, errors.New("chain DB does not support validator setting")
+	}
+
 	s := &Service{
-		eth2Client: parameters.eth2Client,
-		chainDB:    parameters.chainDB,
-		chainTime:  parameters.chainTime,
-		balances:   parameters.balances,
+		eth2Client:       parameters.eth2Client,
+		chainDB:          parameters.chainDB,
+		validatorsSetter: validatorsSetter,
+		chainTime:        parameters.chainTime,
+		balances:         parameters.balances,
 	}
 
 	// Update to current epoch before starting (in the background).

@@ -84,7 +84,7 @@ func (s *Service) updateValidatorsForState(ctx context.Context, stateID string) 
 			ExitEpoch:                  validator.Validator.ExitEpoch,
 			WithdrawableEpoch:          validator.Validator.WithdrawableEpoch,
 		}
-		if err := s.chainDB.SetValidator(ctx, dbValidator); err != nil {
+		if err := s.validatorsSetter.SetValidator(ctx, dbValidator); err != nil {
 			return errors.Wrap(err, "failed to set validator")
 		}
 		if s.balances {
@@ -98,7 +98,7 @@ func (s *Service) updateValidatorsForState(ctx context.Context, stateID string) 
 				Balance:          validator.Balance,
 				EffectiveBalance: validator.Validator.EffectiveBalance,
 			}
-			if err := s.chainDB.SetValidatorBalance(ctx, dbValidatorBalance); err != nil {
+			if err := s.validatorsSetter.SetValidatorBalance(ctx, dbValidatorBalance); err != nil {
 				return errors.Wrap(err, "failed to set validator balance")
 			}
 		}
@@ -123,7 +123,7 @@ func (s *Service) updateValidatorBalancesForState(ctx context.Context, stateID s
 				Balance:          validator.Balance,
 				EffectiveBalance: validator.Validator.EffectiveBalance,
 			}
-			if err := s.chainDB.SetValidatorBalance(ctx, dbValidatorBalance); err != nil {
+			if err := s.validatorsSetter.SetValidatorBalance(ctx, dbValidatorBalance); err != nil {
 				return errors.Wrap(err, "failed to set validator balance")
 			}
 		}

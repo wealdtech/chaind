@@ -22,7 +22,7 @@ import (
 
 func TestMain(m *testing.M) {
 	zerolog.SetGlobalLevel(zerolog.Disabled)
-	if os.Getenv("DATABASE_URL") != "" {
+	if os.Getenv("CHAINDB_DATABASE_URL") != "" {
 		os.Exit(m.Run())
 	}
 }

@@ -83,7 +83,7 @@ func (s *Service) updateBeaconCommitteesForEpoch(ctx context.Context, epoch spec
 			Index:     beaconCommittee.Index,
 			Committee: beaconCommittee.Validators,
 		}
-		if err := s.chainDB.(chaindb.BeaconCommitteeService).SetBeaconCommittee(ctx, dbBeaconCommittee); err != nil {
+		if err := s.beaconCommitteesSetter.SetBeaconCommittee(ctx, dbBeaconCommittee); err != nil {
 			return errors.Wrap(err, "failed to set beacon committee")
 		}
 	}

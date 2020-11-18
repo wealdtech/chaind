@@ -79,7 +79,7 @@ func (s *Service) updateProposerDutiesForEpoch(ctx context.Context, epoch spec.E
 			Slot:           duty.Slot,
 			ValidatorIndex: duty.ValidatorIndex,
 		}
-		if err := s.chainDB.(chaindb.ProposerDutyService).SetProposerDuty(ctx, dbProposerDuty); err != nil {
+		if err := s.proposerDutiesSetter.SetProposerDuty(ctx, dbProposerDuty); err != nil {
 			return errors.Wrap(err, "failed to set proposer duty")
 		}
 	}

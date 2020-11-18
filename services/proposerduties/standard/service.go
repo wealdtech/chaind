@@ -28,9 +28,10 @@ import (
 
 // Service is a chain database service.
 type Service struct {
-	eth2Client eth2client.Service
-	chainDB    chaindb.Service
-	chainTime  chaintime.Service
+	eth2Client           eth2client.Service
+	chainDB              chaindb.Service
+	proposerDutiesSetter chaindb.ProposerDutiesSetter
+	chainTime            chaintime.Service
 }
 
 // module-wide log.
@@ -49,10 +50,16 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		log = log.Level(parameters.logLevel)
 	}
 
+	proposerDutiesSetter, isProposerDutiesSetter := parameters.chainDB.(chaindb.ProposerDutiesSetter)
+	if !isProposerDutiesSetter {
+		return nil, errors.New("chain DB does not support proposer duty setting")
+	}
+
 	s := &Service{
-		eth2Client: parameters.eth2Client,
-		chainDB:    parameters.chainDB,
-		chainTime:  parameters.chainTime,
+		eth2Client:           parameters.eth2Client,
+		chainDB:              parameters.chainDB,
+		proposerDutiesSetter: proposerDutiesSetter,
+		chainTime:            parameters.chainTime,
 	}
 
 	// Update to current epoch before starting (in the background).

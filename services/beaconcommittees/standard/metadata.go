@@ -33,7 +33,7 @@ var metadataKey = "beaconcommittees.standard"
 // getMetadata gets metadata for this service.
 func (s *Service) getMetadata(ctx context.Context) (*metadata, error) {
 	md := &metadata{}
-	mdJSON, err := s.chainDB.GetMetadata(ctx, metadataKey)
+	mdJSON, err := s.chainDB.Metadata(ctx, metadataKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch metadata")
 	}

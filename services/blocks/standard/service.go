@@ -28,9 +28,14 @@ import (
 
 // Service is a chain database service.
 type Service struct {
-	eth2Client eth2client.Service
-	chainDB    chaindb.Service
-	chainTime  chaintime.Service
+	eth2Client              eth2client.Service
+	chainDB                 chaindb.Service
+	blocksSetter            chaindb.BlocksSetter
+	attestationsSetter      chaindb.AttestationsSetter
+	attesterSlashingsSetter chaindb.AttesterSlashingsSetter
+	proposerSlashingsSetter chaindb.ProposerSlashingsSetter
+	voluntaryExitsSetter    chaindb.VoluntaryExitsSetter
+	chainTime               chaintime.Service
 }
 
 // module-wide log.
@@ -49,10 +54,40 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		log = log.Level(parameters.logLevel)
 	}
 
+	blocksSetter, isBlocksSetter := parameters.chainDB.(chaindb.BlocksSetter)
+	if !isBlocksSetter {
+		return nil, errors.New("chain DB does not support block setting")
+	}
+
+	attestationsSetter, isAttestationsSetter := parameters.chainDB.(chaindb.AttestationsSetter)
+	if !isAttestationsSetter {
+		return nil, errors.New("chain DB does not support attestation setting")
+	}
+
+	attesterSlashingsSetter, isAttesterSlashingsSetter := parameters.chainDB.(chaindb.AttesterSlashingsSetter)
+	if !isAttesterSlashingsSetter {
+		return nil, errors.New("chain DB does not support attester slashing setting")
+	}
+
+	proposerSlashingsSetter, isProposerSlashingsSetter := parameters.chainDB.(chaindb.ProposerSlashingsSetter)
+	if !isProposerSlashingsSetter {
+		return nil, errors.New("chain DB does not support proposer slashing setting")
+	}
+
+	voluntaryExitsSetter, isVoluntaryExitsSetter := parameters.chainDB.(chaindb.VoluntaryExitsSetter)
+	if !isVoluntaryExitsSetter {
+		return nil, errors.New("chain DB does not support voluntary exit setting")
+	}
+
 	s := &Service{
-		eth2Client: parameters.eth2Client,
-		chainDB:    parameters.chainDB,
-		chainTime:  parameters.chainTime,
+		eth2Client:              parameters.eth2Client,
+		chainDB:                 parameters.chainDB,
+		blocksSetter:            blocksSetter,
+		attestationsSetter:      attestationsSetter,
+		attesterSlashingsSetter: attesterSlashingsSetter,
+		proposerSlashingsSetter: proposerSlashingsSetter,
+		voluntaryExitsSetter:    voluntaryExitsSetter,
+		chainTime:               parameters.chainTime,
 	}
 
 	// Update to current epoch before starting (in the background).

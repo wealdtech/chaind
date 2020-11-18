@@ -87,8 +87,8 @@ func (s *Service) SetValidatorBalance(ctx context.Context, balance *chaindb.Vali
 	return err
 }
 
-// GetValidators fetches the validators.
-func (s *Service) GetValidators(ctx context.Context) ([]*chaindb.Validator, error) {
+// Validators fetches the validators.
+func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -118,6 +118,7 @@ func (s *Service) GetValidators(ctx context.Context) ([]*chaindb.Validator, erro
 
 	validators := make([]*chaindb.Validator, 0)
 
+	var publicKey []byte
 	var activationEligibilityEpoch int64
 	var activationEpoch int64
 	var exitEpoch int64
@@ -125,7 +126,7 @@ func (s *Service) GetValidators(ctx context.Context) ([]*chaindb.Validator, erro
 	for rows.Next() {
 		validator := &chaindb.Validator{}
 		err := rows.Scan(
-			&validator.PublicKey,
+			&publicKey,
 			&validator.Index,
 			&validator.Slashed,
 			&activationEligibilityEpoch,
@@ -137,6 +138,7 @@ func (s *Service) GetValidators(ctx context.Context) ([]*chaindb.Validator, erro
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
+		copy(validator.PublicKey[:], publicKey)
 		validator.ActivationEligibilityEpoch = spec.Epoch(activationEligibilityEpoch)
 		validator.ActivationEpoch = spec.Epoch(activationEpoch)
 		validator.ExitEpoch = spec.Epoch(exitEpoch)
@@ -147,8 +149,8 @@ func (s *Service) GetValidators(ctx context.Context) ([]*chaindb.Validator, erro
 	return validators, nil
 }
 
-// GetValidatorBalancesByValidatorsAndEpoch fetches the validator balances for the given validators and epoch.
-func (s *Service) GetValidatorBalancesByValidatorsAndEpoch(ctx context.Context, validators []*chaindb.Validator, epoch uint64) ([]*chaindb.ValidatorBalance, error) {
+// ValidatorBalancesByValidatorsAndEpoch fetches the validator balances for the given validators and epoch.
+func (s *Service) ValidatorBalancesByValidatorsAndEpoch(ctx context.Context, validators []*chaindb.Validator, epoch spec.Epoch) (map[spec.ValidatorIndex]*chaindb.ValidatorBalance, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -181,7 +183,7 @@ func (s *Service) GetValidatorBalancesByValidatorsAndEpoch(ctx context.Context, 
 		return nil, err
 	}
 
-	validatorBalances := make([]*chaindb.ValidatorBalance, 0, len(validatorIndices))
+	validatorBalances := make(map[spec.ValidatorIndex]*chaindb.ValidatorBalance, len(validatorIndices))
 
 	for rows.Next() {
 		validatorBalance := &chaindb.ValidatorBalance{}
@@ -194,7 +196,7 @@ func (s *Service) GetValidatorBalancesByValidatorsAndEpoch(ctx context.Context, 
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
-		validatorBalances = append(validatorBalances, validatorBalance)
+		validatorBalances[validatorBalance.Index] = validatorBalance
 	}
 
 	return validatorBalances, nil
