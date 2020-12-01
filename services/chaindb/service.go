@@ -93,11 +93,35 @@ type ValidatorsSetter interface {
 
 // ValidatorsProvider defines functions to access validator information.
 type ValidatorsProvider interface {
-	// Validators fetches the validators.
+	// Validators fetches all validators.
 	Validators(ctx context.Context) ([]*Validator, error)
 
-	// ValidatorBalancesByValidatorsAndEpoch fetches the validator balances for the given validators and epoch.
-	ValidatorBalancesByValidatorsAndEpoch(ctx context.Context, validators []*Validator, epoch spec.Epoch) (map[spec.ValidatorIndex]*ValidatorBalance, error)
+	// ValidatorsByPublicKey fetches all validators matching the given public keys.
+	// This is a common starting point for external entities to query specific validators, as they should
+	// always have the public key at a minimum, hence the return map keyed by public key.
+	ValidatorsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) (map[spec.BLSPubKey]*Validator, error)
+
+	// ValidatorBalancesByIndexAndEpoch fetches the validator balances for the given validators and epoch.
+	ValidatorBalancesByIndexAndEpoch(
+		ctx context.Context,
+		indices []spec.ValidatorIndex,
+		epoch spec.Epoch,
+	) (
+		map[spec.ValidatorIndex]*ValidatorBalance,
+		error,
+	)
+
+	// ValidatorBalancesByIndexAndEpochRange fetches the validator balances for the given validators and epoch range.
+	// Ranges are inclusive i.e. a request with startEpoch 2 and endEpoch 4 will provide balances for epochs 2, 3 and 4.
+	ValidatorBalancesByIndexAndEpochRange(
+		ctx context.Context,
+		indices []spec.ValidatorIndex,
+		startEpoch spec.Epoch,
+		endEpoch spec.Epoch,
+	) (
+		map[spec.ValidatorIndex][]*ValidatorBalance,
+		error,
+	)
 }
 
 // BeaconCommitteesSetter defines functions to create and update beacon committee information.

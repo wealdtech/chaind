@@ -149,8 +149,8 @@ func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) 
 	return validators, nil
 }
 
-// ValidatorBalancesByValidatorsAndEpoch fetches the validator balances for the given validators and epoch.
-func (s *Service) ValidatorBalancesByValidatorsAndEpoch(ctx context.Context, validators []*chaindb.Validator, epoch spec.Epoch) (map[spec.ValidatorIndex]*chaindb.ValidatorBalance, error) {
+// ValidatorsByPublicKey fetches all validators matching the given public keys.
+func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) (map[spec.BLSPubKey]*chaindb.Validator, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -161,9 +161,79 @@ func (s *Service) ValidatorBalancesByValidatorsAndEpoch(ctx context.Context, val
 		defer cancel()
 	}
 
-	validatorIndices := make([]spec.ValidatorIndex, len(validators))
-	for i := range validators {
-		validatorIndices[i] = validators[i].Index
+	sqlPubKeys := make([][]byte, len(pubKeys))
+	for i := range pubKeys {
+		sqlPubKeys[i] = pubKeys[i][:]
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_public_key
+            ,f_index
+            ,f_slashed
+            ,f_activation_eligibility_epoch
+            ,f_activation_epoch
+            ,f_exit_epoch
+            ,f_withdrawable_epoch
+            ,f_effective_balance
+      FROM t_validators
+      WHERE f_public_key = ANY($1)
+      ORDER BY f_index
+	  `,
+		sqlPubKeys,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	validators := make(map[spec.BLSPubKey]*chaindb.Validator)
+	var publicKey []byte
+	var activationEligibilityEpoch int64
+	var activationEpoch int64
+	var exitEpoch int64
+	var withdrawableEpoch int64
+	for rows.Next() {
+		validator := &chaindb.Validator{}
+		err := rows.Scan(
+			&publicKey,
+			&validator.Index,
+			&validator.Slashed,
+			&activationEligibilityEpoch,
+			&activationEpoch,
+			&exitEpoch,
+			&withdrawableEpoch,
+			&validator.EffectiveBalance,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		copy(validator.PublicKey[:], publicKey)
+		validator.ActivationEligibilityEpoch = spec.Epoch(activationEligibilityEpoch)
+		validator.ActivationEpoch = spec.Epoch(activationEpoch)
+		validator.ExitEpoch = spec.Epoch(exitEpoch)
+		validator.WithdrawableEpoch = spec.Epoch(withdrawableEpoch)
+		validators[validator.PublicKey] = validator
+	}
+
+	return validators, nil
+}
+
+// ValidatorBalancesByIndexAndEpoch fetches the validator balances for the given validators and epoch.
+func (s *Service) ValidatorBalancesByIndexAndEpoch(
+	ctx context.Context,
+	validatorIndices []spec.ValidatorIndex,
+	epoch spec.Epoch,
+) (
+	map[spec.ValidatorIndex]*chaindb.ValidatorBalance,
+	error,
+) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -177,7 +247,7 @@ func (s *Service) ValidatorBalancesByValidatorsAndEpoch(ctx context.Context, val
       ORDER BY f_validator_index
 	  `,
 		validatorIndices,
-		epoch,
+		uint64(epoch),
 	)
 	if err != nil {
 		return nil, err
@@ -197,6 +267,69 @@ func (s *Service) ValidatorBalancesByValidatorsAndEpoch(ctx context.Context, val
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
 		validatorBalances[validatorBalance.Index] = validatorBalance
+	}
+
+	return validatorBalances, nil
+}
+
+// ValidatorBalancesByIndexAndEpochRange fetches the validator balances for the given validators and epoch range.
+// Ranges are inclusive i.e. a request with startEpoch 2 and endEpoch 4 will provide balances for epochs 2, 3 and 4.
+func (s *Service) ValidatorBalancesByIndexAndEpochRange(
+	ctx context.Context,
+	validatorIndices []spec.ValidatorIndex,
+	startEpoch spec.Epoch,
+	endEpoch spec.Epoch,
+) (
+	map[spec.ValidatorIndex][]*chaindb.ValidatorBalance,
+	error,
+) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_validator_index
+            ,f_epoch
+            ,f_balance
+            ,f_effective_balance
+      FROM t_validator_balances
+      WHERE f_validator_index = ANY($1)
+        AND f_epoch >= $2
+        AND f_epoch <= $3
+      ORDER BY f_validator_index
+	          ,f_epoch
+	  `,
+		validatorIndices,
+		uint64(startEpoch),
+		uint64(endEpoch),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	validatorBalances := make(map[spec.ValidatorIndex][]*chaindb.ValidatorBalance, len(validatorIndices))
+	for rows.Next() {
+		validatorBalance := &chaindb.ValidatorBalance{}
+		err := rows.Scan(
+			&validatorBalance.Index,
+			&validatorBalance.Epoch,
+			&validatorBalance.Balance,
+			&validatorBalance.EffectiveBalance,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		_, exists := validatorBalances[validatorBalance.Index]
+		if !exists {
+			validatorBalances[validatorBalance.Index] = make([]*chaindb.ValidatorBalance, 0, endEpoch+1-startEpoch)
+		}
+		validatorBalances[validatorBalance.Index] = append(validatorBalances[validatorBalance.Index], validatorBalance)
 	}
 
 	return validatorBalances, nil
