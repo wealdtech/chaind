@@ -154,6 +154,10 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 
 	// Set up the handler for new chain head updates.
 	if err := s.eth2Client.(eth2client.EventsProvider).Events(ctx, []string{"head"}, func(event *api.Event) {
+		if event.Data == nil {
+			// Happens when the channel shuts down, nothing to worry about.
+			return
+		}
 		eventData := event.Data.(*api.HeadEvent)
 		s.OnBeaconChainHeadUpdated(ctx, eventData.Slot, eventData.Block, eventData.State, eventData.EpochTransition)
 	}); err != nil {
