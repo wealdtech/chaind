@@ -132,11 +132,11 @@ type BeaconCommitteesSetter interface {
 
 // BeaconCommitteesProvider defines functions to access beacon committee information.
 type BeaconCommitteesProvider interface {
-	// GetBeaconComitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
-	GetBeaconCommitteeBySlotAndIndex(ctx context.Context, slot spec.Slot, index spec.CommitteeIndex) (*BeaconCommittee, error)
+	// BeaconComitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
+	BeaconCommitteeBySlotAndIndex(ctx context.Context, slot spec.Slot, index spec.CommitteeIndex) (*BeaconCommittee, error)
 
-	// GetAttesterDuties fetches the attester duties at the given slot range for the given validator indices.
-	GetAttesterDuties(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot, validatorIndices []spec.ValidatorIndex) ([]*AttesterDuty, error)
+	// AttesterDuties fetches the attester duties at the given slot range for the given validator indices.
+	AttesterDuties(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot, validatorIndices []spec.ValidatorIndex) ([]*AttesterDuty, error)
 }
 
 // ProposerDutiesSetter defines the functions to create and update proposer duties.

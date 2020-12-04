@@ -44,8 +44,8 @@ func (s *Service) SetBeaconCommittee(ctx context.Context, beaconCommittee *chain
 	return err
 }
 
-// GetBeaconCommitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
-func (s *Service) GetBeaconCommitteeBySlotAndIndex(ctx context.Context, slot uint64, index uint64) (*chaindb.BeaconCommittee, error) {
+// BeaconCommitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
+func (s *Service) BeaconCommitteeBySlotAndIndex(ctx context.Context, slot uint64, index uint64) (*chaindb.BeaconCommittee, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -78,8 +78,8 @@ func (s *Service) GetBeaconCommitteeBySlotAndIndex(ctx context.Context, slot uin
 	return committee, nil
 }
 
-// GetAttesterDuties fetches the attester duties at the given slot range for the given validator indices.
-func (s *Service) GetAttesterDuties(ctx context.Context, startSlot uint64, endSlot uint64, validatorIndices []uint64) ([]*chaindb.AttesterDuty, error) {
+// AttesterDuties fetches the attester duties at the given slot range for the given validator indices.
+func (s *Service) AttesterDuties(ctx context.Context, startSlot uint64, endSlot uint64, validatorIndices []uint64) ([]*chaindb.AttesterDuty, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
