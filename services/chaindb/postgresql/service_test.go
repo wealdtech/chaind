@@ -68,8 +68,6 @@ func TestInterfaces(t *testing.T) {
 	require.Implements(t, (*chaindb.BeaconCommitteesSetter)(nil), s)
 	require.Implements(t, (*chaindb.BlocksProvider)(nil), s)
 	require.Implements(t, (*chaindb.BlocksSetter)(nil), s)
-	require.Implements(t, (*chaindb.ETH1DepositsProvider)(nil), s)
-	require.Implements(t, (*chaindb.ETH1DepositsSetter)(nil), s)
 	require.Implements(t, (*chaindb.ProposerDutiesSetter)(nil), s)
 	require.Implements(t, (*chaindb.ProposerSlashingsSetter)(nil), s)
 	require.Implements(t, (*chaindb.ValidatorsProvider)(nil), s)
