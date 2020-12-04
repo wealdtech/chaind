@@ -35,4 +35,8 @@ type Service interface {
 	SlotToEpoch(slot spec.Slot) spec.Epoch
 	// FirstSlotOfEpoch provides the first slot of the given epoch.
 	FirstSlotOfEpoch(epoch spec.Epoch) spec.Slot
+	// TimestampToSlot provides the slot of the given timestamp.
+	TimestampToSlot(timestamp time.Time) spec.Slot
+	// TimestampToEpoch provides the epoch of the given timestamp.
+	TimestampToEpoch(timestamp time.Time) spec.Epoch
 }

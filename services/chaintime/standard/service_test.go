@@ -173,3 +173,106 @@ func TestCurrentEpoch(t *testing.T) {
 
 	require.Equal(t, spec.Epoch(2), s.CurrentEpoch())
 }
+
+func TestTimestampToSlot(t *testing.T) {
+	slotDuration := 12 * time.Second
+	slotsPerEpoch := uint64(32)
+	now := time.Now()
+	genesisTime := now
+	mockGenesisTimeProvider := mock.NewGenesisTimeProvider(genesisTime)
+	mockSlotDurationProvider := mock.NewSlotDurationProvider(slotDuration)
+	mockSlotsPerEpochProvider := mock.NewSlotsPerEpochProvider(slotsPerEpoch)
+	s, err := standard.New(context.Background(),
+		standard.WithGenesisTimeProvider(mockGenesisTimeProvider),
+		standard.WithSlotDurationProvider(mockSlotDurationProvider),
+		standard.WithSlotsPerEpochProvider(mockSlotsPerEpochProvider),
+	)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		timestamp time.Time
+		slot      spec.Slot
+	}{
+		{
+			name:      "PreGenesis",
+			timestamp: now.AddDate(0, 0, -1),
+			slot:      0,
+		},
+		{
+			name:      "Genesis",
+			timestamp: now,
+			slot:      0,
+		},
+		{
+			name:      "Slot1",
+			timestamp: now.Add(slotDuration),
+			slot:      1,
+		},
+		{
+			name:      "Slot999",
+			timestamp: now.Add(999 * slotDuration),
+			slot:      999,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.slot, s.TimestampToSlot(test.timestamp))
+		})
+	}
+}
+
+func TestTimestampToEpoch(t *testing.T) {
+	slotDuration := 12 * time.Second
+	slotsPerEpoch := uint64(32)
+	now := time.Now()
+	genesisTime := now
+	mockGenesisTimeProvider := mock.NewGenesisTimeProvider(genesisTime)
+	mockSlotDurationProvider := mock.NewSlotDurationProvider(slotDuration)
+	mockSlotsPerEpochProvider := mock.NewSlotsPerEpochProvider(slotsPerEpoch)
+	s, err := standard.New(context.Background(),
+		standard.WithGenesisTimeProvider(mockGenesisTimeProvider),
+		standard.WithSlotDurationProvider(mockSlotDurationProvider),
+		standard.WithSlotsPerEpochProvider(mockSlotsPerEpochProvider),
+	)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		timestamp time.Time
+		epoch     spec.Epoch
+	}{
+		{
+			name:      "PreGenesis",
+			timestamp: now.AddDate(0, 0, -1),
+			epoch:     0,
+		},
+		{
+			name:      "Genesis",
+			timestamp: now,
+			epoch:     0,
+		},
+		{
+			name:      "Epoch1",
+			timestamp: now.Add(time.Duration(slotsPerEpoch) * slotDuration),
+			epoch:     1,
+		},
+		{
+			name:      "Epoch1Boundary",
+			timestamp: now.Add(2 * time.Duration(slotsPerEpoch) * slotDuration).Add(-1 * time.Millisecond),
+			epoch:     1,
+		},
+		{
+			name:      "Epoch999",
+			timestamp: now.Add(999 * time.Duration(slotsPerEpoch) * slotDuration),
+			epoch:     999,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.epoch, s.TimestampToEpoch(test.timestamp))
+		})
+	}
+}

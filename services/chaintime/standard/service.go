@@ -113,3 +113,21 @@ func (s *Service) SlotToEpoch(slot spec.Slot) spec.Epoch {
 func (s *Service) FirstSlotOfEpoch(epoch spec.Epoch) spec.Slot {
 	return spec.Slot(uint64(epoch) * s.slotsPerEpoch)
 }
+
+// TimestampToSlot provides the slot of the given timestamp.
+func (s *Service) TimestampToSlot(timestamp time.Time) spec.Slot {
+	if timestamp.Before(s.genesisTime) {
+		return 0
+	}
+	secondsSinceGenesis := uint64(timestamp.Sub(s.genesisTime).Seconds())
+	return spec.Slot(secondsSinceGenesis / uint64(s.slotDuration.Seconds()))
+}
+
+// TimestampToEpoch provides the epoch of the given timestamp.
+func (s *Service) TimestampToEpoch(timestamp time.Time) spec.Epoch {
+	if timestamp.Before(s.genesisTime) {
+		return 0
+	}
+	secondsSinceGenesis := uint64(timestamp.Sub(s.genesisTime).Seconds())
+	return spec.Epoch(secondsSinceGenesis / uint64(s.slotDuration.Seconds()) / s.slotsPerEpoch)
+}
