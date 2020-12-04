@@ -52,22 +52,28 @@ jobs:
       run: |
        go get github.com/suburbandad/xgo
 
-    - name: Cross-compile
-      run: xgo -v -x -ldflags="-X github.com/wealdtech/chaind/cmd.ReleaseVersion=${RELEASE_VERSION}" --targets="linux/amd64,linux/arm64,windows/amd64" github.com/wealdtech/chaind
+    - name: Cross-compile linux
+      run: xgo -v -x -ldflags="-X github.com/wealdtech/chaind/cmd.ReleaseVersion=${RELEASE_VERSION}" --targets="linux/amd64,linux/arm64" github.com/wealdtech/chaind
+
+    - name: Cross-compile Windows
+      run: xgo -v -x -ldflags="-X github.com/wealdtech/chaind/cmd.ReleaseVersion=${RELEASE_VERSION} -s -w -extldflags -static" --targets="windows/amd64" github.com/wealdtech/chaind
 
     - name: Create windows zip file
       run: |
        mv chaind-windows-4.0-amd64.exe chaind.exe
+       sha256sum chaind.exe >chaind-${RELEASE_VERSION}-windows.sha256
        zip --junk-paths chaind-${RELEASE_VERSION}-windows-exe.zip chaind.exe
 
     - name: Create linux AMD64 tgz file
       run: |
        mv chaind-linux-amd64 chaind
+       sha256sum chaind >chaind-${RELEASE_VERSION}-linux-amd64.sha256
        tar zcf chaind-${RELEASE_VERSION}-linux-amd64.tar.gz chaind
 
     - name: Create linux ARM64 tgz file
       run: |
        mv chaind-linux-arm64 chaind
+       sha256sum chaind >chaind-${RELEASE_VERSION}-linux-arm64.sha256
        tar zcf chaind-${RELEASE_VERSION}-linux-arm64.tar.gz chaind
 
     - name: Create release
@@ -78,8 +84,19 @@ jobs:
       with:
         tag_name: ${{ github.ref }}
         release_name: Release ${{ env.RELEASE_VERSION }}
-        draft: false
+        draft: true
         prerelease: false
+
+    - name: Upload windows checksum file
+      id: upload-release-asset-windows
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-windows.sha256
+        asset_name: chaind-${{ env.RELEASE_VERSION }}-windows.sha256
+        asset_content_type: text/plain
 
     - name: Upload windows zip file
       id: upload-release-asset-windows
@@ -92,6 +109,17 @@ jobs:
         asset_name: chaind-${{ env.RELEASE_VERSION }}-windows-exe.zip
         asset_content_type: application/zip
 
+    - name: Upload linux AMD64 checksum file
+      id: upload-release-asset-linux-amd64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-linux-amd64.sha256
+        asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-amd64.sha256
+        asset_content_type: text/plain
+
     - name: Upload linux AMD64 tgz file
       id: upload-release-asset-linux-amd64
       uses: actions/upload-release-asset@v1
@@ -101,6 +129,17 @@ jobs:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./chaind-${{ env.RELEASE_VERSION }}-linux-amd64.tar.gz
         asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-amd64.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload linux ARM64 checksum file
+      id: upload-release-asset-linux-arm64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-linux-arm64.sha256
+        asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-arm64.sha256
         asset_content_type: application/gzip
 
     - name: Upload linux ARM64 tgz file
