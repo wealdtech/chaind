@@ -14,6 +14,7 @@
 package standard
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -32,8 +33,17 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	epochTransition bool,
 ) {
 	log := log.With().Uint64("slot", uint64(slot)).Logger()
+	log.Trace().
+		Str("block_root", fmt.Sprintf("%#x", blockRoot)).
+		Str("state_root", fmt.Sprintf("%#x", stateRoot)).
+		Bool("epoch_transition", epochTransition).
+		Msg("Handler called")
 
-	log.Trace().Msg("Handler called")
+	if bytes.Equal(s.lastHandledBlockRoot[:], blockRoot[:]) {
+		log.Trace().Msg("Already handled this block; ignoring")
+		return
+	}
+
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to begin transaction")
@@ -59,6 +69,8 @@ func (s *Service) OnBeaconChainHeadUpdated(
 		cancel()
 		return
 	}
+
+	s.lastHandledBlockRoot = blockRoot
 
 	log.Trace().Msg("Stored block")
 }

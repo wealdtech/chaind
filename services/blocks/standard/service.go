@@ -37,6 +37,7 @@ type Service struct {
 	voluntaryExitsSetter    chaindb.VoluntaryExitsSetter
 	chainTime               chaintime.Service
 	refetch                 bool
+	lastHandledBlockRoot    spec.Root
 }
 
 // module-wide log.
