@@ -67,9 +67,9 @@ type ProposerDuty struct {
 
 // AttesterDuty holds information for attester duties.
 type AttesterDuty struct {
-	Slot           uint64
-	Committee      uint64
-	ValidatorIndex uint64
+	Slot           spec.Slot
+	Committee      spec.CommitteeIndex
+	ValidatorIndex spec.ValidatorIndex
 	// CommitteeIndex is the index of the validator in the committee.
 	CommitteeIndex uint64
 }
