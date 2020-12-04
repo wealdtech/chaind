@@ -17,12 +17,46 @@ import (
 	"context"
 
 	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/wealdtech/chaind/types"
 )
 
-// BlocksSetter defines functions to create and update blocks.
-type BlocksSetter interface {
-	// SetBlock sets a block.
-	SetBlock(ctx context.Context, block *Block) error
+// AttestationsProvider defines functions to access attestations.
+type AttestationsProvider interface {
+	// AttestationsForBlock fetches all attestations made for the given block.
+	AttestationsForBlock(ctx context.Context, blockRoot spec.Root) ([]*Attestation, error)
+
+	// AttestationsInBlock fetches all attestations contained in the given block.
+	AttestationsInBlock(ctx context.Context, blockRoot spec.Root) ([]*Attestation, error)
+
+	// AttestationsForSlotRange fetches all attestations made for the given slot range.
+	AttestationsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*Attestation, error)
+}
+
+// AttestationsSetter defines functions to create and update attestations.
+type AttestationsSetter interface {
+	// SetAttestation sets an attestation.
+	SetAttestation(ctx context.Context, attestation *Attestation) error
+}
+
+// AttesterSlashingsSetter defines functions to create and update attester slashings.
+type AttesterSlashingsSetter interface {
+	// SetAttesterSlashing sets an attester slashing.
+	SetAttesterSlashing(ctx context.Context, attesterSlashing *AttesterSlashing) error
+}
+
+// BeaconCommitteesProvider defines functions to access beacon committee information.
+type BeaconCommitteesProvider interface {
+	// BeaconComitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
+	BeaconCommitteeBySlotAndIndex(ctx context.Context, slot spec.Slot, index spec.CommitteeIndex) (*BeaconCommittee, error)
+
+	// AttesterDuties fetches the attester duties at the given slot range for the given validator indices.
+	AttesterDuties(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot, validatorIndices []spec.ValidatorIndex) ([]*AttesterDuty, error)
+}
+
+// BeaconCommitteesSetter defines functions to create and update beacon committee information.
+type BeaconCommitteesSetter interface {
+	// SetBeaconComittee sets a beacon committee.
+	SetBeaconCommittee(ctx context.Context, beaconCommittee *BeaconCommittee) error
 }
 
 // BlocksProvider defines functions to access blocks.
@@ -40,40 +74,28 @@ type BlocksProvider interface {
 	EmptySlots(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Slot, error)
 }
 
-// AttestationsSetter defines functions to create and update attestations.
-type AttestationsSetter interface {
-	// SetAttestation sets an attestation.
-	SetAttestation(ctx context.Context, attestation *Attestation) error
+// BlocksSetter defines functions to create and update blocks.
+type BlocksSetter interface {
+	// SetBlock sets a block.
+	SetBlock(ctx context.Context, block *Block) error
 }
 
-// AttestationsProvider defines functions to access attestations.
-type AttestationsProvider interface {
-	// AttestationsForBlock fetches all attestations made for the given block.
-	AttestationsForBlock(ctx context.Context, blockRoot spec.Root) ([]*Attestation, error)
-
-	// AttestationsInBlock fetches all attestations contained in the given block.
-	AttestationsInBlock(ctx context.Context, blockRoot spec.Root) ([]*Attestation, error)
-
-	// AttestationsForSlotRange fetches all attestations made for the given slot range.
-	AttestationsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*Attestation, error)
+// ETH1DepositsProvider defines functions to access Ethereum 1 deposits.
+type ETH1DepositsProvider interface {
+	// ETH1DepositsByPublicKey fetches Ethereum 1 deposits for a given set of validator public keys.
+	ETH1DepositsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) ([]*types.ETH1Deposit, error)
 }
 
-// VoluntaryExitsSetter defines functions to create and update voluntary exits.
-type VoluntaryExitsSetter interface {
-	// SetVoluntaryExit sets a voluntary exit.
-	SetVoluntaryExit(ctx context.Context, voluntaryExit *VoluntaryExit) error
+// ETH1DepositsSetter defines functions to create and update Ethereum 1 deposits.
+type ETH1DepositsSetter interface {
+	// SetETH1Deposit sets an Ethereum 1 deposit.
+	SetETH1Deposit(ctx context.Context, deposit *types.ETH1Deposit) error
 }
 
-// AttesterSlashingsSetter defines functions to create and update attester slashings.
-type AttesterSlashingsSetter interface {
-	// SetAttesterSlashing sets an attester slashing.
-	SetAttesterSlashing(ctx context.Context, attesterSlashing *AttesterSlashing) error
-}
-
-// ProposerSlashingsSetter defines functions to create and update proposer slashings.
-type ProposerSlashingsSetter interface {
-	// SetProposerSlashing sets an proposer slashing.
-	SetProposerSlashing(ctx context.Context, proposerSlashing *ProposerSlashing) error
+// ProposerDutiesSetter defines the functions to create and update proposer duties.
+type ProposerDutiesSetter interface {
+	// SetProposerDuty sets a proposer duty.
+	SetProposerDuty(ctx context.Context, proposerDuty *ProposerDuty) error
 }
 
 // ProposerSlashingsProvider defines functions to access proposer slashings.
@@ -82,13 +104,10 @@ type ProposerSlashingsProvider interface {
 	ProposerSlashingsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*ProposerSlashing, error)
 }
 
-// ValidatorsSetter defines functions to create and update validator information.
-type ValidatorsSetter interface {
-	// SetValidator sets a validator.
-	SetValidator(ctx context.Context, validator *Validator) error
-
-	// SetValidatorBalance sets a validator balance.
-	SetValidatorBalance(ctx context.Context, validatorBalance *ValidatorBalance) error
+// ProposerSlashingsSetter defines functions to create and update proposer slashings.
+type ProposerSlashingsSetter interface {
+	// SetProposerSlashing sets an proposer slashing.
+	SetProposerSlashing(ctx context.Context, proposerSlashing *ProposerSlashing) error
 }
 
 // ValidatorsProvider defines functions to access validator information.
@@ -124,25 +143,19 @@ type ValidatorsProvider interface {
 	)
 }
 
-// BeaconCommitteesSetter defines functions to create and update beacon committee information.
-type BeaconCommitteesSetter interface {
-	// SetBeaconComittee sets a beacon committee.
-	SetBeaconCommittee(ctx context.Context, beaconCommittee *BeaconCommittee) error
+// ValidatorsSetter defines functions to create and update validator information.
+type ValidatorsSetter interface {
+	// SetValidator sets a validator.
+	SetValidator(ctx context.Context, validator *Validator) error
+
+	// SetValidatorBalance sets a validator balance.
+	SetValidatorBalance(ctx context.Context, validatorBalance *ValidatorBalance) error
 }
 
-// BeaconCommitteesProvider defines functions to access beacon committee information.
-type BeaconCommitteesProvider interface {
-	// BeaconComitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
-	BeaconCommitteeBySlotAndIndex(ctx context.Context, slot spec.Slot, index spec.CommitteeIndex) (*BeaconCommittee, error)
-
-	// AttesterDuties fetches the attester duties at the given slot range for the given validator indices.
-	AttesterDuties(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot, validatorIndices []spec.ValidatorIndex) ([]*AttesterDuty, error)
-}
-
-// ProposerDutiesSetter defines the functions to create and update proposer duties.
-type ProposerDutiesSetter interface {
-	// SetProposerDuty sets a proposer duty.
-	SetProposerDuty(ctx context.Context, proposerDuty *ProposerDuty) error
+// VoluntaryExitsSetter defines functions to create and update voluntary exits.
+type VoluntaryExitsSetter interface {
+	// SetVoluntaryExit sets a voluntary exit.
+	SetVoluntaryExit(ctx context.Context, voluntaryExit *VoluntaryExit) error
 }
 
 // Service defines a minimal chain database service.

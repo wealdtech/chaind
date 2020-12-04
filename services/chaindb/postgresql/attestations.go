@@ -16,6 +16,7 @@ package postgresql
 import (
 	"context"
 
+	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -68,8 +69,8 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
 	return err
 }
 
-// GetAttestationsForBlock fetches all attestations made for the given block.
-func (s *Service) GetAttestationsForBlock(ctx context.Context, blockRoot []byte) ([]*chaindb.Attestation, error) {
+// AttestationsForBlock fetches all attestations made for the given block.
+func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root) ([]*chaindb.Attestation, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -96,7 +97,7 @@ func (s *Service) GetAttestationsForBlock(ctx context.Context, blockRoot []byte)
       WHERE f_beacon_block_root = $1
       ORDER BY f_inclusion_slot
 	          ,f_inclusion_index`,
-		blockRoot,
+		blockRoot[:],
 	)
 	if err != nil {
 		return nil, err
@@ -128,8 +129,8 @@ func (s *Service) GetAttestationsForBlock(ctx context.Context, blockRoot []byte)
 	return attestations, nil
 }
 
-// GetAttestationsInBlock fetches all attestations contained in the given block.
-func (s *Service) GetAttestationsInBlock(ctx context.Context, blockRoot []byte) ([]*chaindb.Attestation, error) {
+// AttestationsInBlock fetches all attestations contained in the given block.
+func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) ([]*chaindb.Attestation, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -156,7 +157,7 @@ func (s *Service) GetAttestationsInBlock(ctx context.Context, blockRoot []byte) 
       WHERE f_inclusion_block_root = $1
       ORDER BY f_inclusion_slot
 	          ,f_inclusion_index`,
-		blockRoot,
+		blockRoot[:],
 	)
 	if err != nil {
 		return nil, err
@@ -188,8 +189,8 @@ func (s *Service) GetAttestationsInBlock(ctx context.Context, blockRoot []byte) 
 	return attestations, nil
 }
 
-// GetAttestationsForSlotRange fetches all attestations made for the given slot range.
-func (s *Service) GetAttestationsForSlotRange(ctx context.Context, minSlot uint64, maxSlot uint64) ([]*chaindb.Attestation, error) {
+// AttestationsForSlotRange fetches all attestations made for the given slot range.
+func (s *Service) AttestationsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*chaindb.Attestation, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)

@@ -43,6 +43,9 @@ import (
 	e2types "github.com/wealdtech/go-eth2-types/v2"
 )
 
+// ReleaseVersion is the release version for the code.
+var ReleaseVersion = "0.1.5"
+
 func main() {
 	os.Exit(main2())
 }
@@ -62,7 +65,7 @@ func main2() int {
 	}
 
 	logModules()
-	log.Info().Str("version", "v0.1.1").Msg("Starting chaind")
+	log.Info().Str("version", ReleaseVersion).Msg("Starting chaind")
 
 	if err := initProfiling(); err != nil {
 		log.Error().Err(err).Msg("Failed to initialise profiling")
@@ -107,6 +110,8 @@ func fetchConfig() error {
 	pflag.String("eth2client.address", "", "Address for beacon node")
 	pflag.Duration("eth2client.timeout", 2*time.Minute, "Timeout for beacon node requests")
 	pflag.Bool("blocks.enable", true, "Enable fetching of block-related information")
+	pflag.Int32("blocks.start-slot", -1, "Slot from which to start fetching blocks")
+	pflag.Bool("blocks.refetch", false, "Refetch all blocks even if they are already in the database")
 	pflag.Bool("validators.enable", true, "Enable fetching of validator-related information")
 	pflag.Bool("validators.balances.enable", false, "Enable fetching of validator balances")
 	pflag.Bool("beacon-committees.enable", true, "Enable fetching of beacom committee-related information")
@@ -263,6 +268,8 @@ func startBlocks(
 		standardblocks.WithETH2Client(eth2Client),
 		standardblocks.WithChainTime(chainTime),
 		standardblocks.WithChainDB(chainDB),
+		standardblocks.WithStartSlot(viper.GetInt64("blocks.start-slot")),
+		standardblocks.WithRefetch(viper.GetBool("blocks.refetch")),
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create blocks service")

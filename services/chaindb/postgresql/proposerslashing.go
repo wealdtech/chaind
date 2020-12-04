@@ -80,8 +80,8 @@ func (s *Service) SetProposerSlashing(ctx context.Context, proposerSlashing *cha
 	return err
 }
 
-// GetProposerSlashingsForSlotRange fetches all proposer slashings made for the given slot range.
-func (s *Service) GetProposerSlashingsForSlotRange(ctx context.Context, minSlot uint64, maxSlot uint64) ([]*chaindb.ProposerSlashing, error) {
+// ProposerSlashingsForSlotRange fetches all proposer slashings made for the given slot range.
+func (s *Service) ProposerSlashingsForSlotRange(ctx context.Context, minSlot uint64, maxSlot uint64) ([]*chaindb.ProposerSlashing, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)

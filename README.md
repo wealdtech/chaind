@@ -109,6 +109,12 @@ blocks:
   # address is a separate connection for this module.  If not present then
   # chaind will use the eth2client connection.
   address: localhost:5051
+  # start-slot is the slot from which to start.  chaind should keep track of this itself,
+  # however if you wish to start from a later slot this can be set.
+  # start-slot: 2000
+  # refetch will refetch block data from a beacon node even if it has already has a block
+  # in its database.
+  # refetch: false
 # validators contains configuration for obtaining validator-related information.
 validators:
   enable: true

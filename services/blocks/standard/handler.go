@@ -66,6 +66,15 @@ func (s *Service) OnBeaconChainHeadUpdated(
 func (s *Service) updateBlockForSlot(ctx context.Context, slot spec.Slot) error {
 	log := log.With().Uint64("slot", uint64(slot)).Logger()
 
+	// Start off by seeing if we already have the block (unless we are re-fetching regardless).
+	if !s.refetch {
+		blocks, err := s.chainDB.(chaindb.BlocksProvider).BlocksBySlot(ctx, slot)
+		if err == nil && len(blocks) > 0 {
+			// Already have this block.
+			return nil
+		}
+	}
+
 	log.Trace().Msg("Updating block for slot")
 	signedBlock, err := s.eth2Client.(eth2client.SignedBeaconBlockProvider).SignedBeaconBlock(ctx, fmt.Sprintf("%d", slot))
 	if err != nil {

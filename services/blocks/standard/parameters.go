@@ -28,6 +28,7 @@ type parameters struct {
 	chainDB    chaindb.Service
 	chainTime  chaintime.Service
 	startSlot  int64
+	refetch    bool
 }
 
 // Parameter is the interface for service parameters.
@@ -73,6 +74,13 @@ func WithChainTime(chainTime chaintime.Service) Parameter {
 func WithStartSlot(startSlot int64) Parameter {
 	return parameterFunc(func(p *parameters) {
 		p.startSlot = startSlot
+	})
+}
+
+// WithRefrech sets the refetch flag for this module.
+func WithRefetch(refetch bool) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.refetch = refetch
 	})
 }
 

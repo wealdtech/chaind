@@ -36,6 +36,7 @@ type Service struct {
 	proposerSlashingsSetter chaindb.ProposerSlashingsSetter
 	voluntaryExitsSetter    chaindb.VoluntaryExitsSetter
 	chainTime               chaintime.Service
+	refetch                 bool
 }
 
 // module-wide log.
@@ -88,6 +89,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		proposerSlashingsSetter: proposerSlashingsSetter,
 		voluntaryExitsSetter:    voluntaryExitsSetter,
 		chainTime:               parameters.chainTime,
+		refetch:                 parameters.refetch,
 	}
 
 	// Update to current epoch before starting (in the background).

@@ -16,6 +16,7 @@ package postgresql
 import (
 	"context"
 
+	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -45,7 +46,7 @@ func (s *Service) SetBeaconCommittee(ctx context.Context, beaconCommittee *chain
 }
 
 // BeaconCommitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
-func (s *Service) BeaconCommitteeBySlotAndIndex(ctx context.Context, slot uint64, index uint64) (*chaindb.BeaconCommittee, error) {
+func (s *Service) BeaconCommitteeBySlotAndIndex(ctx context.Context, slot spec.Slot, index spec.CommitteeIndex) (*chaindb.BeaconCommittee, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -79,7 +80,7 @@ func (s *Service) BeaconCommitteeBySlotAndIndex(ctx context.Context, slot uint64
 }
 
 // AttesterDuties fetches the attester duties at the given slot range for the given validator indices.
-func (s *Service) AttesterDuties(ctx context.Context, startSlot uint64, endSlot uint64, validatorIndices []uint64) ([]*chaindb.AttesterDuty, error) {
+func (s *Service) AttesterDuties(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot, validatorIndices []spec.ValidatorIndex) ([]*chaindb.AttesterDuty, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -110,7 +111,7 @@ func (s *Service) AttesterDuties(ctx context.Context, startSlot uint64, endSlot 
 	res := make([]*chaindb.AttesterDuty, 0)
 
 	// Map for fast lookup of validator indices.
-	validatorIndicesMap := make(map[uint64]bool, len(validatorIndices))
+	validatorIndicesMap := make(map[spec.ValidatorIndex]bool, len(validatorIndices))
 	for _, validatorIndex := range validatorIndices {
 		validatorIndicesMap[validatorIndex] = true
 	}
@@ -129,11 +130,11 @@ func (s *Service) AttesterDuties(ctx context.Context, startSlot uint64, endSlot 
 		}
 
 		for i, validatorIndex := range committee {
-			if validatorIndicesMap[validatorIndex] {
+			if validatorIndicesMap[spec.ValidatorIndex(validatorIndex)] {
 				res = append(res, &chaindb.AttesterDuty{
-					Slot:           slot,
-					Committee:      index,
-					ValidatorIndex: validatorIndex,
+					Slot:           spec.Slot(slot),
+					Committee:      spec.CommitteeIndex(index),
+					ValidatorIndex: spec.ValidatorIndex(validatorIndex),
 					CommitteeIndex: uint64(i),
 				})
 			}

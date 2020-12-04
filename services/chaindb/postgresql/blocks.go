@@ -16,6 +16,7 @@ package postgresql
 import (
 	"context"
 
+	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -68,8 +69,8 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 	return err
 }
 
-// GetBlocksBySlot fetches all blocks with the given slot.
-func (s *Service) GetBlocksBySlot(ctx context.Context, slot uint64) ([]*chaindb.Block, error) {
+// BlocksBySlot fetches all blocks with the given slot.
+func (s *Service) BlocksBySlot(ctx context.Context, slot spec.Slot) ([]*chaindb.Block, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -126,8 +127,8 @@ func (s *Service) GetBlocksBySlot(ctx context.Context, slot uint64) ([]*chaindb.
 	return blocks, nil
 }
 
-// GetBlockByRoot fetches the block with the given root.
-func (s *Service) GetBlockByRoot(ctx context.Context, root []byte) (*chaindb.Block, error) {
+// BlockByRoot fetches the block with the given root.
+func (s *Service) BlockByRoot(ctx context.Context, root spec.Root) (*chaindb.Block, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -154,7 +155,7 @@ func (s *Service) GetBlockByRoot(ctx context.Context, root []byte) (*chaindb.Blo
             ,f_eth1_deposit_root
       FROM t_blocks
       WHERE f_root = $1`,
-		root,
+		root[:],
 	).Scan(
 		&block.Slot,
 		&block.ProposerIndex,
@@ -174,8 +175,8 @@ func (s *Service) GetBlockByRoot(ctx context.Context, root []byte) (*chaindb.Blo
 	return block, nil
 }
 
-// GetBlocksByParentRoot fetches the blocks with the given root.
-func (s *Service) GetBlocksByParentRoot(ctx context.Context, parentRoot []byte) ([]*chaindb.Block, error) {
+// BlocksByParentRoot fetches the blocks with the given root.
+func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot spec.Root) ([]*chaindb.Block, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -200,7 +201,7 @@ func (s *Service) GetBlocksByParentRoot(ctx context.Context, parentRoot []byte) 
             ,f_eth1_deposit_root
       FROM t_blocks
       WHERE f_parent_root = $1`,
-		parentRoot,
+		parentRoot[:],
 	)
 	if err != nil {
 		return nil, err
@@ -232,8 +233,8 @@ func (s *Service) GetBlocksByParentRoot(ctx context.Context, parentRoot []byte) 
 	return blocks, nil
 }
 
-// GetEmptySlots fetches the slots in the given range without a block in the database.
-func (s *Service) GetEmptySlots(ctx context.Context, minSlot uint64, maxSlot uint64) ([]uint64, error) {
+// EmptySlots fetches the slots in the given range without a block in the database.
+func (s *Service) EmptySlots(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Slot, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -257,9 +258,9 @@ func (s *Service) GetEmptySlots(ctx context.Context, minSlot uint64, maxSlot uin
 		return nil, err
 	}
 
-	missedSlots := make([]uint64, 0)
+	missedSlots := make([]spec.Slot, 0)
 	for rows.Next() {
-		missedSlot := uint64(0)
+		missedSlot := spec.Slot(0)
 		err := rows.Scan(&missedSlot)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
