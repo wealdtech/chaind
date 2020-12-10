@@ -243,7 +243,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpoch(
             ,f_effective_balance
       FROM t_validator_balances
       WHERE f_validator_index = ANY($1)
-        AND f_epoch = $2
+		AND f_epoch = $2::BIGINT
       ORDER BY f_validator_index
 	  `,
 		validatorIndices,
@@ -273,7 +273,8 @@ func (s *Service) ValidatorBalancesByIndexAndEpoch(
 }
 
 // ValidatorBalancesByIndexAndEpochRange fetches the validator balances for the given validators and epoch range.
-// Ranges are inclusive i.e. a request with startEpoch 2 and endEpoch 4 will provide balances for epochs 2, 3 and 4.
+// Ranges are inclusive of start and exclusive of end i.e. a request with startEpoch 2 and endEpoch 4 will provide
+// balances for epochs 2 and 3.
 func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 	ctx context.Context,
 	validatorIndices []spec.ValidatorIndex,
@@ -300,8 +301,8 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
             ,f_effective_balance
       FROM t_validator_balances
       WHERE f_validator_index = ANY($1)
-        AND f_epoch >= $2
-        AND f_epoch <= $3
+		AND f_epoch >= $2
+		AND f_epoch < $3
       ORDER BY f_validator_index
 	          ,f_epoch
 	  `,
