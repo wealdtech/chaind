@@ -184,6 +184,7 @@ func startServices(ctx context.Context) error {
 		return errors.Wrap(err, "failed to start Ethereum 2 client service")
 	}
 
+	log.Trace().Msg("Starting chain time service")
 	chainTime, err := standardchaintime.New(ctx,
 		standardchaintime.WithLogLevel(logLevel(viper.GetString("chaintime.log-level"))),
 		standardchaintime.WithGenesisTimeProvider(eth2Client.(eth2client.GenesisTimeProvider)),
@@ -194,18 +195,22 @@ func startServices(ctx context.Context) error {
 		return errors.Wrap(err, "failed to start chain time service")
 	}
 
+	log.Trace().Msg("Starting blocks service")
 	if err := startBlocks(ctx, eth2Client, chainDB, chainTime); err != nil {
 		return errors.Wrap(err, "failed to start blocks service")
 	}
 
+	log.Trace().Msg("Starting validators service")
 	if err := startValidators(ctx, eth2Client, chainDB, chainTime); err != nil {
 		return errors.Wrap(err, "failed to start validators service")
 	}
 
+	log.Trace().Msg("Starting beacon committees service")
 	if err := startBeaconCommittees(ctx, eth2Client, chainDB, chainTime); err != nil {
 		return errors.Wrap(err, "failed to start beacon committees service")
 	}
 
+	log.Trace().Msg("Starting proposer duties service")
 	if err := startProposerDuties(ctx, eth2Client, chainDB, chainTime); err != nil {
 		return errors.Wrap(err, "failed to start proposer duties service")
 	}
