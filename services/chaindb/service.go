@@ -107,6 +107,9 @@ type ValidatorsProvider interface {
 	// always have the public key at a minimum, hence the return map keyed by public key.
 	ValidatorsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) (map[spec.BLSPubKey]*Validator, error)
 
+	// ValidatorsByIndex fetches all validators matching the given indices.
+	ValidatorsByIndex(ctx context.Context, indices []spec.ValidatorIndex) (map[spec.ValidatorIndex]*Validator, error)
+
 	// ValidatorBalancesByIndexAndEpoch fetches the validator balances for the given validators and epoch.
 	ValidatorBalancesByIndexAndEpoch(
 		ctx context.Context,

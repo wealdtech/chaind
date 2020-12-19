@@ -217,6 +217,69 @@ func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []spec.BLSP
 	return validators, nil
 }
 
+// ValidatorsByIndex fetches all validators matching the given indices.
+func (s *Service) ValidatorsByIndex(ctx context.Context, indices []spec.ValidatorIndex) (map[spec.ValidatorIndex]*chaindb.Validator, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_public_key
+            ,f_index
+            ,f_slashed
+            ,f_activation_eligibility_epoch
+            ,f_activation_epoch
+            ,f_exit_epoch
+            ,f_withdrawable_epoch
+            ,f_effective_balance
+      FROM t_validators
+      WHERE f_index = ANY($1)
+      ORDER BY f_index
+	  `,
+		indices,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	validators := make(map[spec.ValidatorIndex]*chaindb.Validator)
+	var publicKey []byte
+	var activationEligibilityEpoch int64
+	var activationEpoch int64
+	var exitEpoch int64
+	var withdrawableEpoch int64
+	for rows.Next() {
+		validator := &chaindb.Validator{}
+		err := rows.Scan(
+			&publicKey,
+			&validator.Index,
+			&validator.Slashed,
+			&activationEligibilityEpoch,
+			&activationEpoch,
+			&exitEpoch,
+			&withdrawableEpoch,
+			&validator.EffectiveBalance,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		copy(validator.PublicKey[:], publicKey)
+		validator.ActivationEligibilityEpoch = spec.Epoch(activationEligibilityEpoch)
+		validator.ActivationEpoch = spec.Epoch(activationEpoch)
+		validator.ExitEpoch = spec.Epoch(exitEpoch)
+		validator.WithdrawableEpoch = spec.Epoch(withdrawableEpoch)
+		validators[validator.Index] = validator
+	}
+
+	return validators, nil
+}
+
 // ValidatorBalancesByIndexAndEpoch fetches the validator balances for the given validators and epoch.
 func (s *Service) ValidatorBalancesByIndexAndEpoch(
 	ctx context.Context,
