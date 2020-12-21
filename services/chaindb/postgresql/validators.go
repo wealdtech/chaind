@@ -396,5 +396,27 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 		validatorBalances[validatorBalance.Index] = append(validatorBalances[validatorBalance.Index], validatorBalance)
 	}
 
+	// If a validator is not present until after the beginning of the range, for example we ask for epochs 5->10 and
+	// the validator is first present at epoch 7, we need to front-pad the data for that validator with 0s.
+	padValidatorBalances(ctx, validatorBalances, int(uint64(endEpoch)-uint64(startEpoch)), startEpoch)
+
 	return validatorBalances, nil
+}
+func padValidatorBalances(ctx context.Context, validatorBalances map[spec.ValidatorIndex][]*chaindb.ValidatorBalance, entries int, startEpoch spec.Epoch) {
+	for validatorIndex, balances := range validatorBalances {
+		if len(balances) != entries {
+			paddedBalances := make([]*chaindb.ValidatorBalance, entries)
+			padding := entries - len(balances)
+			for i := 0; i < padding; i++ {
+				paddedBalances[i] = &chaindb.ValidatorBalance{
+					Index:            validatorIndex,
+					Epoch:            startEpoch + spec.Epoch(i),
+					Balance:          0,
+					EffectiveBalance: 0,
+				}
+			}
+			copy(paddedBalances[padding:], balances)
+			validatorBalances[validatorIndex] = paddedBalances
+		}
+	}
 }

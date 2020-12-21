@@ -121,7 +121,8 @@ type ValidatorsProvider interface {
 	)
 
 	// ValidatorBalancesByIndexAndEpochRange fetches the validator balances for the given validators and epoch range.
-	// Ranges are inclusive i.e. a request with startEpoch 2 and endEpoch 4 will provide balances for epochs 2, 3 and 4.
+	// Ranges are inclusive of start and exclusive of end i.e. a request with startEpoch 2 and endEpoch 4 will provide
+	// balances for epochs 2 and 3.
 	ValidatorBalancesByIndexAndEpochRange(
 		ctx context.Context,
 		indices []spec.ValidatorIndex,
