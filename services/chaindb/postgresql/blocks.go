@@ -105,22 +105,34 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot spec.Slot) ([]*chaindb.
 
 	for rows.Next() {
 		block := &chaindb.Block{}
+		var blockRoot []byte
+		var randaoReveal []byte
+		var bodyRoot []byte
+		var parentRoot []byte
+		var stateRoot []byte
+		var eth1DepositRoot []byte
 		err := rows.Scan(
 			&block.Slot,
 			&block.ProposerIndex,
-			&block.Root,
+			&blockRoot,
 			&block.Graffiti,
-			&block.RANDAOReveal,
-			&block.BodyRoot,
-			&block.ParentRoot,
-			&block.StateRoot,
+			&randaoReveal,
+			&bodyRoot,
+			&parentRoot,
+			&stateRoot,
 			&block.ETH1BlockHash,
 			&block.ETH1DepositCount,
-			&block.ETH1DepositRoot,
+			&eth1DepositRoot,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
+		copy(block.Root[:], blockRoot)
+		copy(block.RANDAOReveal[:], randaoReveal)
+		copy(block.BodyRoot[:], bodyRoot)
+		copy(block.ParentRoot[:], parentRoot)
+		copy(block.StateRoot[:], stateRoot)
+		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
 		blocks = append(blocks, block)
 	}
 
@@ -140,6 +152,12 @@ func (s *Service) BlockByRoot(ctx context.Context, root spec.Root) (*chaindb.Blo
 	}
 
 	block := &chaindb.Block{}
+	var blockRoot []byte
+	var randaoReveal []byte
+	var bodyRoot []byte
+	var parentRoot []byte
+	var stateRoot []byte
+	var eth1DepositRoot []byte
 
 	err := tx.QueryRow(ctx, `
       SELECT f_slot
@@ -159,19 +177,25 @@ func (s *Service) BlockByRoot(ctx context.Context, root spec.Root) (*chaindb.Blo
 	).Scan(
 		&block.Slot,
 		&block.ProposerIndex,
-		&block.Root,
+		&blockRoot,
 		&block.Graffiti,
-		&block.RANDAOReveal,
-		&block.BodyRoot,
-		&block.ParentRoot,
-		&block.StateRoot,
+		&randaoReveal,
+		&bodyRoot,
+		&parentRoot,
+		&stateRoot,
 		&block.ETH1BlockHash,
 		&block.ETH1DepositCount,
-		&block.ETH1DepositRoot,
+		&eth1DepositRoot,
 	)
 	if err != nil {
 		return nil, err
 	}
+	copy(block.Root[:], blockRoot)
+	copy(block.RANDAOReveal[:], randaoReveal)
+	copy(block.BodyRoot[:], bodyRoot)
+	copy(block.ParentRoot[:], parentRoot)
+	copy(block.StateRoot[:], stateRoot)
+	copy(block.ETH1DepositRoot[:], eth1DepositRoot)
 	return block, nil
 }
 
@@ -211,22 +235,34 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot spec.Root) 
 
 	for rows.Next() {
 		block := &chaindb.Block{}
+		var blockRoot []byte
+		var randaoReveal []byte
+		var bodyRoot []byte
+		var parentRoot []byte
+		var stateRoot []byte
+		var eth1DepositRoot []byte
 		err := rows.Scan(
 			&block.Slot,
 			&block.ProposerIndex,
-			&block.Root,
+			&blockRoot,
 			&block.Graffiti,
-			&block.RANDAOReveal,
-			&block.BodyRoot,
-			&block.ParentRoot,
-			&block.StateRoot,
+			&randaoReveal,
+			&bodyRoot,
+			&parentRoot,
+			&stateRoot,
 			&block.ETH1BlockHash,
 			&block.ETH1DepositCount,
-			&block.ETH1DepositRoot,
+			&eth1DepositRoot,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
+		copy(block.Root[:], blockRoot)
+		copy(block.RANDAOReveal[:], randaoReveal)
+		copy(block.BodyRoot[:], bodyRoot)
+		copy(block.ParentRoot[:], parentRoot)
+		copy(block.StateRoot[:], stateRoot)
+		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
 		blocks = append(blocks, block)
 	}
 

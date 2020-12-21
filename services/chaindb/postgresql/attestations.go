@@ -107,22 +107,30 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
 
 	for rows.Next() {
 		attestation := &chaindb.Attestation{}
+		var inclusionBlockRoot []byte
+		var beaconBlockRoot []byte
+		var sourceRoot []byte
+		var targetRoot []byte
 		err := rows.Scan(
 			&attestation.InclusionSlot,
-			&attestation.InclusionBlockRoot,
+			&inclusionBlockRoot,
 			&attestation.InclusionIndex,
 			&attestation.Slot,
 			&attestation.CommitteeIndex,
 			&attestation.AggregationBits,
-			&attestation.BeaconBlockRoot,
+			&beaconBlockRoot,
 			&attestation.SourceEpoch,
-			&attestation.SourceRoot,
+			&sourceRoot,
 			&attestation.TargetEpoch,
-			&attestation.TargetRoot,
+			&targetRoot,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
+		copy(attestation.InclusionBlockRoot[:], inclusionBlockRoot)
+		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
+		copy(attestation.SourceRoot[:], sourceRoot)
+		copy(attestation.TargetRoot[:], targetRoot)
 		attestations = append(attestations, attestation)
 	}
 
@@ -167,22 +175,30 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 
 	for rows.Next() {
 		attestation := &chaindb.Attestation{}
+		var inclusionBlockRoot []byte
+		var beaconBlockRoot []byte
+		var sourceRoot []byte
+		var targetRoot []byte
 		err := rows.Scan(
 			&attestation.InclusionSlot,
-			&attestation.InclusionBlockRoot,
+			&inclusionBlockRoot,
 			&attestation.InclusionIndex,
 			&attestation.Slot,
 			&attestation.CommitteeIndex,
 			&attestation.AggregationBits,
-			&attestation.BeaconBlockRoot,
+			&beaconBlockRoot,
 			&attestation.SourceEpoch,
-			&attestation.SourceRoot,
+			&sourceRoot,
 			&attestation.TargetEpoch,
-			&attestation.TargetRoot,
+			&targetRoot,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
+		copy(attestation.InclusionBlockRoot[:], inclusionBlockRoot)
+		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
+		copy(attestation.SourceRoot[:], sourceRoot)
+		copy(attestation.TargetRoot[:], targetRoot)
 		attestations = append(attestations, attestation)
 	}
 
@@ -229,22 +245,30 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, minSlot spec.Slo
 
 	for rows.Next() {
 		attestation := &chaindb.Attestation{}
+		var inclusionBlockRoot []byte
+		var beaconBlockRoot []byte
+		var sourceRoot []byte
+		var targetRoot []byte
 		err := rows.Scan(
 			&attestation.InclusionSlot,
-			&attestation.InclusionBlockRoot,
+			&inclusionBlockRoot,
 			&attestation.InclusionIndex,
 			&attestation.Slot,
 			&attestation.CommitteeIndex,
 			&attestation.AggregationBits,
-			&attestation.BeaconBlockRoot,
+			&beaconBlockRoot,
 			&attestation.SourceEpoch,
-			&attestation.SourceRoot,
+			&sourceRoot,
 			&attestation.TargetEpoch,
-			&attestation.TargetRoot,
+			&targetRoot,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
+		copy(attestation.InclusionBlockRoot[:], inclusionBlockRoot)
+		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
+		copy(attestation.SourceRoot[:], sourceRoot)
+		copy(attestation.TargetRoot[:], targetRoot)
 		attestations = append(attestations, attestation)
 	}
 

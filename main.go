@@ -40,6 +40,7 @@ import (
 	standardchaintime "github.com/wealdtech/chaind/services/chaintime/standard"
 	standardproposerduties "github.com/wealdtech/chaind/services/proposerduties/standard"
 	standardvalidators "github.com/wealdtech/chaind/services/validators/standard"
+	"github.com/wealdtech/chaind/util"
 	e2types "github.com/wealdtech/go-eth2-types/v2"
 )
 
@@ -168,7 +169,7 @@ func initProfiling() error {
 func startServices(ctx context.Context) error {
 	log.Trace().Msg("Starting chain database service")
 	chainDB, err := postgresqlchaindb.New(ctx,
-		postgresqlchaindb.WithLogLevel(logLevel(viper.GetString("chaindb.log-level"))),
+		postgresqlchaindb.WithLogLevel(util.LogLevel(viper.GetString("chaindb.log-level"))),
 		postgresqlchaindb.WithConnectionURL(viper.GetString("chaindb.url")),
 	)
 	if err != nil {
@@ -186,7 +187,7 @@ func startServices(ctx context.Context) error {
 
 	log.Trace().Msg("Starting chain time service")
 	chainTime, err := standardchaintime.New(ctx,
-		standardchaintime.WithLogLevel(logLevel(viper.GetString("chaintime.log-level"))),
+		standardchaintime.WithLogLevel(util.LogLevel(viper.GetString("chaintime.log-level"))),
 		standardchaintime.WithGenesisTimeProvider(eth2Client.(eth2client.GenesisTimeProvider)),
 		standardchaintime.WithSlotDurationProvider(eth2Client.(eth2client.SlotDurationProvider)),
 		standardchaintime.WithSlotsPerEpochProvider(eth2Client.(eth2client.SlotsPerEpochProvider)),
@@ -269,7 +270,7 @@ func startBlocks(
 	}
 
 	_, err = standardblocks.New(ctx,
-		standardblocks.WithLogLevel(logLevel(viper.GetString("blocks.log-level"))),
+		standardblocks.WithLogLevel(util.LogLevel(viper.GetString("blocks.log-level"))),
 		standardblocks.WithETH2Client(eth2Client),
 		standardblocks.WithChainTime(chainTime),
 		standardblocks.WithChainDB(chainDB),
@@ -302,7 +303,7 @@ func startValidators(
 	}
 
 	_, err = standardvalidators.New(ctx,
-		standardvalidators.WithLogLevel(logLevel(viper.GetString("validators.log-level"))),
+		standardvalidators.WithLogLevel(util.LogLevel(viper.GetString("validators.log-level"))),
 		standardvalidators.WithETH2Client(eth2Client),
 		standardvalidators.WithChainTime(chainTime),
 		standardvalidators.WithChainDB(chainDB),
@@ -334,7 +335,7 @@ func startBeaconCommittees(
 	}
 
 	_, err = standardbeaconcommittees.New(ctx,
-		standardbeaconcommittees.WithLogLevel(logLevel(viper.GetString("beacon-committees.log-level"))),
+		standardbeaconcommittees.WithLogLevel(util.LogLevel(viper.GetString("beacon-committees.log-level"))),
 		standardbeaconcommittees.WithETH2Client(eth2Client),
 		standardbeaconcommittees.WithChainTime(chainTime),
 		standardbeaconcommittees.WithChainDB(chainDB),
@@ -365,7 +366,7 @@ func startProposerDuties(
 	}
 
 	_, err = standardproposerduties.New(ctx,
-		standardproposerduties.WithLogLevel(logLevel(viper.GetString("proposer-duties.log-level"))),
+		standardproposerduties.WithLogLevel(util.LogLevel(viper.GetString("proposer-duties.log-level"))),
 		standardproposerduties.WithETH2Client(eth2Client),
 		standardproposerduties.WithChainTime(chainTime),
 		standardproposerduties.WithChainDB(chainDB),

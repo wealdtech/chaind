@@ -21,6 +21,7 @@ import (
 	autoclient "github.com/attestantio/go-eth2-client/auto"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
+	"github.com/wealdtech/chaind/util"
 )
 
 var clients map[string]eth2client.Service
@@ -39,7 +40,7 @@ func fetchClient(ctx context.Context, address string) (eth2client.Service, error
 	if client, exists = clients[address]; !exists {
 		var err error
 		client, err = autoclient.New(ctx,
-			autoclient.WithLogLevel(logLevel(viper.GetString("eth2client.log-level"))),
+			autoclient.WithLogLevel(util.LogLevel(viper.GetString("eth2client.log-level"))),
 			autoclient.WithTimeout(viper.GetDuration("eth2client.timeout")),
 			autoclient.WithAddress(address))
 		if err != nil {

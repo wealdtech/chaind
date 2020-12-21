@@ -15,12 +15,12 @@ package main
 
 import (
 	"os"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
+	"github.com/wealdtech/chaind/util"
 )
 
 // log.
@@ -42,30 +42,7 @@ func initLogging() error {
 	}
 
 	// Set the local logger from the global logger.
-	log = zerologger.Logger.With().Logger().Level(logLevel(viper.GetString("log-level")))
+	log = zerologger.Logger.With().Logger().Level(util.LogLevel(viper.GetString("log-level")))
 
 	return nil
-}
-
-// logLevel converts a string to a log level.
-// It returns the user-supplied level by default.
-func logLevel(input string) zerolog.Level {
-	switch strings.ToLower(input) {
-	case "none":
-		return zerolog.Disabled
-	case "trace":
-		return zerolog.TraceLevel
-	case "debug":
-		return zerolog.DebugLevel
-	case "warn", "warning":
-		return zerolog.WarnLevel
-	case "info", "information":
-		return zerolog.InfoLevel
-	case "err", "error":
-		return zerolog.ErrorLevel
-	case "fatal":
-		return zerolog.FatalLevel
-	default:
-		return log.GetLevel()
-	}
 }

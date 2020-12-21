@@ -73,16 +73,16 @@ func (m *SlotsPerEpochProvider) SlotsPerEpoch(ctx context.Context) (uint64, erro
 	return m.slotsPerEpoch, nil
 }
 
-// AttestationSubmitter is a mock for eth2client.AttestationSubmitter.
-type AttestationSubmitter struct{}
+// AttestationsSubmitter is a mock for eth2client.AttestationsSubmitter.
+type AttestationsSubmitter struct{}
 
-// NewAttestationSubmitter returns a mock attestation submitter with the provided value.
-func NewAttestationSubmitter() eth2client.AttestationSubmitter {
-	return &AttestationSubmitter{}
+// NewAttestationSubmitter returns a mock attestations submitter with the provided value.
+func NewAttestationSubmitter() eth2client.AttestationsSubmitter {
+	return &AttestationsSubmitter{}
 }
 
-// SubmitAttestation is a mock.
-func (m *AttestationSubmitter) SubmitAttestation(ctx context.Context, attestation *spec.Attestation) error {
+// SubmitAttestations is a mock.
+func (m *AttestationsSubmitter) SubmitAttestations(ctx context.Context, attestations []*spec.Attestation) error {
 	return nil
 }
 

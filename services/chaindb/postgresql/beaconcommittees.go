@@ -58,6 +58,7 @@ func (s *Service) BeaconCommitteeBySlotAndIndex(ctx context.Context, slot spec.S
 	}
 
 	committee := &chaindb.BeaconCommittee{}
+	var committeeMembers []uint64
 
 	err := tx.QueryRow(ctx, `
       SELECT f_slot
@@ -71,10 +72,14 @@ func (s *Service) BeaconCommitteeBySlotAndIndex(ctx context.Context, slot spec.S
 	).Scan(
 		&committee.Slot,
 		&committee.Index,
-		&committee.Committee,
+		&committeeMembers,
 	)
 	if err != nil {
 		return nil, err
+	}
+	committee.Committee = make([]spec.ValidatorIndex, len(committeeMembers))
+	for i := range committeeMembers {
+		committee.Committee[i] = spec.ValidatorIndex(committeeMembers[i])
 	}
 	return committee, nil
 }
