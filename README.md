@@ -38,7 +38,7 @@ docker pull wealdtech/chaind
 `chaind` is a standard Go binary which can be installed with:
 
 ```sh
-go get github.com/wealdtech/chaind
+GO111MODULE=on go get github.com/wealdtech/chaind
 ```
 
 # Usage
