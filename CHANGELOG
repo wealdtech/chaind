@@ -1,0 +1,3 @@
+Development:
+  - t_validators table no longer uses '-1' as an indicator for the Ethereum spec value `FAR_FUTURE_EPOCH`, instead it uses NULL
+  - add upgrader to update the database schema when changes are made
