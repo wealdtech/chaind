@@ -14,10 +14,10 @@ CREATE TABLE t_validators (
   f_public_key                   BYTEA NOT NULL
  ,f_index                        BIGINT NOT NULL
  ,f_slashed                      BOOLEAN NOT NULL
- ,f_activation_eligibility_epoch BIGINT NOT NULL
- ,f_activation_epoch             BIGINT NOT NULL
- ,f_exit_epoch                   BIGINT NOT NULL
- ,f_withdrawable_epoch           BIGINT NOT NULL
+ ,f_activation_eligibility_epoch BIGINT
+ ,f_activation_epoch             BIGINT
+ ,f_exit_epoch                   BIGINT
+ ,f_withdrawable_epoch           BIGINT
  ,f_effective_balance            BIGINT NOT NULL
 );
 CREATE UNIQUE INDEX i_validators_1 ON t_validators(f_index);

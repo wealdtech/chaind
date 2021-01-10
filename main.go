@@ -176,6 +176,11 @@ func startServices(ctx context.Context) error {
 		return errors.Wrap(err, "failed to start chain database service")
 	}
 
+	log.Trace().Msg("Checking for schema upgrades")
+	if err := chainDB.Upgrade(ctx); err != nil {
+		return errors.Wrap(err, "failed to upgrade chain database")
+	}
+
 	log.Trace().Msg("Starting Ethereum 2 client service")
 	eth2Client, err := fetchClient(ctx, viper.GetString("eth2client.address"))
 	if err != nil {
