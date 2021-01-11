@@ -77,7 +77,7 @@ func WithStartSlot(startSlot int64) Parameter {
 	})
 }
 
-// WithRefrech sets the refetch flag for this module.
+// WithRefetch sets the refetch flag for this module.
 func WithRefetch(refetch bool) Parameter {
 	return parameterFunc(func(p *parameters) {
 		p.refetch = refetch
