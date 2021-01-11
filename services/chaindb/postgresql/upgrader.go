@@ -30,6 +30,8 @@ var upgradeFunctions = map[uint64][]func(context.Context, *Service) error{
 	1: {
 		validatorsEpochNull,
 		createDeposits,
+		createChainSpec,
+		createGenesis,
 	},
 }
 
@@ -133,6 +135,41 @@ func createDeposits(ctx context.Context, s *Service) error {
 	if _, err := tx.Exec(ctx, "CREATE UNIQUE INDEX i_deposits_1 ON t_deposits(f_inclusion_slot,f_inclusion_block_root,f_inclusion_index)"); err != nil {
 		return errors.Wrap(err, "failed to create deposits index")
 	}
+	return nil
+}
+
+// createChainSpec creates the t_chain_spec table.
+func createChainSpec(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `CREATE TABLE t_chain_spec (
+  f_key TEXT NOT NULL PRIMARY KEY
+ ,f_value TEXT NOT NULL
+)`); err != nil {
+		return errors.Wrap(err, "failed to create chain spec table")
+	}
+
+	return nil
+}
+
+// createGenesis creates the t_genesis table.
+func createGenesis(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `CREATE TABLE t_genesis (
+  f_validators_root BYTEA NOT NULL PRIMARY KEY
+ ,f_time TIMESTAMPTZ NOT NULL
+ ,f_fork_version BYTEA NOT NULL
+)`); err != nil {
+		return errors.Wrap(err, "failed to create genesis table")
+	}
+
 	return nil
 }
 

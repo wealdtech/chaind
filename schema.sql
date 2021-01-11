@@ -5,6 +5,23 @@ CREATE TABLE t_metadata (
  ,f_value JSONB NOT NULL
 );
 CREATE UNIQUE INDEX i_metadata_1 ON t_metadata(f_key);
+INSERT INTO t_metadata VALUES('schema', '{"version": 1}');
+
+-- t_chain_spec contains the specification of the chain to which the rest of
+-- the tables relate.
+DROP TABLE IF EXISTS t_chain_spec CASCADE;
+CREATE TABLE t_chain_spec (
+  f_key TEXT NOT NULL PRIMARY KEY
+ ,f_value TEXT NOT NULL
+);
+
+-- t_genesis contains the genesis parameters of the chain.
+DROP TABLE IF EXISTS t_genesis CASCADE;
+CREATE TABLE t_genesis (
+  f_validators_root BYTEA NOT NULL PRIMARY KEY
+ ,f_time TIMESTAMPTZ NOT NULL
+ ,f_fork_version BYTEA NOT NULL
+);
 
 -- t_validators contains all validators known by the chain.
 -- This information is not stored per-epoch, as the latest values contain the
