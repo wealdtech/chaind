@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2021 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -114,6 +114,9 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot spec.Slot) error 
 	if err := s.updateAttesterSlashingsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
 		return errors.Wrap(err, "failed to update attester slashings")
 	}
+	if err := s.updateDepositsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
+		return errors.Wrap(err, "failed to update deposits")
+	}
 	if err := s.updateVoluntaryExitsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
 		return errors.Wrap(err, "failed to update voluntary exits")
 	}
@@ -155,6 +158,19 @@ func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context, signedBlo
 		}
 		if err := s.attesterSlashingsSetter.SetAttesterSlashing(ctx, dbAttesterSlashing); err != nil {
 			return errors.Wrap(err, "failed to set attester slashing")
+		}
+	}
+	return nil
+}
+
+func (s *Service) updateDepositsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot spec.Root) error {
+	for i, deposit := range signedBlock.Message.Body.Deposits {
+		dbDeposit, err := s.dbDeposit(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), deposit)
+		if err != nil {
+			return errors.Wrap(err, "failed to obtain database deposit")
+		}
+		if err := s.depositsSetter.SetDeposit(ctx, dbDeposit); err != nil {
+			return errors.Wrap(err, "failed to set deposit")
 		}
 	}
 	return nil
@@ -233,6 +249,25 @@ func (s *Service) dbAttestation(
 	}
 
 	return dbAttestation, nil
+}
+
+func (s *Service) dbDeposit(
+	ctx context.Context,
+	slot spec.Slot,
+	blockRoot spec.Root,
+	index uint64,
+	deposit *spec.Deposit,
+) (*chaindb.Deposit, error) {
+	dbDeposit := &chaindb.Deposit{
+		InclusionSlot:         slot,
+		InclusionBlockRoot:    blockRoot,
+		InclusionIndex:        index,
+		ValidatorPubKey:       deposit.Data.PublicKey,
+		WithdrawalCredentials: deposit.Data.WithdrawalCredentials,
+		Amount:                deposit.Data.Amount,
+	}
+
+	return dbDeposit, nil
 }
 
 func (s *Service) dbVoluntaryExit(

@@ -60,7 +60,8 @@ func (s *Service) SetValidator(ctx context.Context, validator *chaindb.Validator
       VALUES($1,$2,$3,$4,$5,$6,$7,$8)
       ON CONFLICT (f_index) DO
       UPDATE
-      SET f_slashed = excluded.f_slashed
+      SET f_public_key = excluded.f_public_key
+         ,f_slashed = excluded.f_slashed
          ,f_activation_eligibility_epoch = excluded.f_activation_eligibility_epoch
          ,f_activation_epoch = excluded.f_activation_epoch
          ,f_exit_epoch = excluded.f_exit_epoch
@@ -135,6 +136,7 @@ func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) 
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	validators := make([]*chaindb.Validator, 0)
 
@@ -220,6 +222,7 @@ func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []spec.BLSP
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	validators := make(map[spec.BLSPubKey]*chaindb.Validator)
 	var publicKey []byte
@@ -299,6 +302,7 @@ func (s *Service) ValidatorsByIndex(ctx context.Context, indices []spec.Validato
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	validators := make(map[spec.ValidatorIndex]*chaindb.Validator)
 	var publicKey []byte
@@ -383,6 +387,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpoch(
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	validatorBalances := make(map[spec.ValidatorIndex]*chaindb.ValidatorBalance, len(validatorIndices))
 
@@ -444,6 +449,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	validatorBalances := make(map[spec.ValidatorIndex][]*chaindb.ValidatorBalance, len(validatorIndices))
 	for rows.Next() {

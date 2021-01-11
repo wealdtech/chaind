@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2021 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -34,6 +34,7 @@ type Service struct {
 	attestationsSetter      chaindb.AttestationsSetter
 	attesterSlashingsSetter chaindb.AttesterSlashingsSetter
 	proposerSlashingsSetter chaindb.ProposerSlashingsSetter
+	depositsSetter          chaindb.DepositsSetter
 	voluntaryExitsSetter    chaindb.VoluntaryExitsSetter
 	chainTime               chaintime.Service
 	refetch                 bool
@@ -76,6 +77,11 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		return nil, errors.New("chain DB does not support proposer slashing setting")
 	}
 
+	depositsSetter, isDepositsSetter := parameters.chainDB.(chaindb.DepositsSetter)
+	if !isDepositsSetter {
+		return nil, errors.New("chain DB does not support deposits setting")
+	}
+
 	voluntaryExitsSetter, isVoluntaryExitsSetter := parameters.chainDB.(chaindb.VoluntaryExitsSetter)
 	if !isVoluntaryExitsSetter {
 		return nil, errors.New("chain DB does not support voluntary exit setting")
@@ -88,6 +94,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		attestationsSetter:      attestationsSetter,
 		attesterSlashingsSetter: attesterSlashingsSetter,
 		proposerSlashingsSetter: proposerSlashingsSetter,
+		depositsSetter:          depositsSetter,
 		voluntaryExitsSetter:    voluntaryExitsSetter,
 		chainTime:               parameters.chainTime,
 		refetch:                 parameters.refetch,

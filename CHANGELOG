@@ -1,3 +1,4 @@
 Development:
+  - add t_deposits table, holding Ethereum 1 deposits recognized on the beacon chain and provided in the beacon block
   - t_validators table no longer uses '-1' as an indicator for the Ethereum spec value `FAR_FUTURE_EPOCH`, instead it uses NULL
   - add upgrader to update the database schema when changes are made

@@ -89,6 +89,16 @@ type Attestation struct {
 	TargetRoot         spec.Root
 }
 
+// Deposit holds information about an Ethereum 2 deposit included by a block.
+type Deposit struct {
+	InclusionSlot         spec.Slot
+	InclusionBlockRoot    spec.Root
+	InclusionIndex        uint64
+	ValidatorPubKey       spec.BLSPubKey
+	WithdrawalCredentials []byte
+	Amount                spec.Gwei
+}
+
 // VoluntaryExit holds information about a voluntary exit included in a block.
 type VoluntaryExit struct {
 	InclusionSlot      spec.Slot
