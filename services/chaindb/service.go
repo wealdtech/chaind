@@ -16,6 +16,7 @@ package chaindb
 import (
 	"context"
 
+	api "github.com/attestantio/go-eth2-client/api/v1"
 	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
@@ -77,6 +78,33 @@ type BlocksProvider interface {
 type BlocksSetter interface {
 	// SetBlock sets a block.
 	SetBlock(ctx context.Context, block *Block) error
+}
+
+// ChainSpecProvider defines functions to access chain specification.
+type ChainSpecProvider interface {
+	// ChainSpec fetches all chain specification values.
+	ChainSpec(ctx context.Context) (map[string]interface{}, error)
+
+	// ChainSpecValue fetches a chain specification value given its key.
+	ChainSpecValue(ctx context.Context, key string) (interface{}, error)
+}
+
+// ChainSpecSetter defines functions to create and update chain specification.
+type ChainSpecSetter interface {
+	// SetChainSpecValue sets the value of the provided key.
+	SetChainSpecValue(ctx context.Context, key string, value interface{}) error
+}
+
+// GenesisProvider defines functions to access genesis information.
+type GenesisProvider interface {
+	// Genesis fetches genesis values.
+	Genesis(ctx context.Context) (*api.Genesis, error)
+}
+
+// GenesisSetter defines functions to create and update genesis information.
+type GenesisSetter interface {
+	// SetGenesis sets the genesis information.
+	SetGenesis(ctx context.Context, genesis *api.Genesis) error
 }
 
 // ProposerDutiesSetter defines the functions to create and update proposer duties.
