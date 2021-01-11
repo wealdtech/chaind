@@ -38,10 +38,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}
 
 	// Set logging.
-	log = zerologger.With().Str("service", "chaindb").Str("impl", "postgresql").Logger()
-	if parameters.logLevel != log.GetLevel() {
-		log = log.Level(parameters.logLevel)
-	}
+	log = zerologger.With().Str("service", "chaindb").Str("impl", "postgresql").Logger().Level(parameters.logLevel)
 
 	pool, err := pgxpool.Connect(context.Background(), parameters.connectionURL)
 	if err != nil {

@@ -1,4 +1,5 @@
 Development:
+  - make log level configuration hierarchical; if a log level is not present it will use the next one up the hierarchy
   - add t_chain_spec table, holding the chain specification
   - add t_genesis table, holding the chain genesis information
   - add t_deposits table, holding Ethereum 1 deposits recognized on the beacon chain and provided in the beacon block

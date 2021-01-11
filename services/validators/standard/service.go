@@ -47,10 +47,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}
 
 	// Set logging.
-	log = zerologger.With().Str("service", "validators").Str("impl", "standard").Logger()
-	if parameters.logLevel != log.GetLevel() {
-		log = log.Level(parameters.logLevel)
-	}
+	log = zerologger.With().Str("service", "validators").Str("impl", "standard").Logger().Level(parameters.logLevel)
 
 	validatorsSetter, isValidatorsSetter := parameters.chainDB.(chaindb.ValidatorsSetter)
 	if !isValidatorsSetter {
