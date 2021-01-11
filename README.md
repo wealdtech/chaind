@@ -88,7 +88,7 @@ Here, `chaindb.url` is the URL of a local PostgreSQL database with pasword 'secr
 ```
 # log-level is the base log level of the process.
 # 'info' should be a suitable log level, unless detailed information is
-# reqiured in which case 'debug' or 'trace' can be used.
+# required in which case 'debug' or 'trace' can be used.
 log-level: info
 # log-file specifies that log output should go to a file.  If this is not
 # present log output will be to stderr.
@@ -98,7 +98,8 @@ chaindb:
   url: postgres://chain:secret@localhost:5432
 # eth2client contains configuration for the Ethereum 2 client.
 eth2client:
-  # log-level is the log level of the specific module.
+  # log-level is the log level of the specific module.  If not present the base log
+  # level will be used.
   log-level: debug
   # address is the address of the beacon node.
   address: localhost:5051

@@ -45,10 +45,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}
 
 	// Set logging.
-	log = zerologger.With().Str("service", "beaconcommittees").Str("impl", "standard").Logger()
-	if parameters.logLevel != log.GetLevel() {
-		log = log.Level(parameters.logLevel)
-	}
+	log = zerologger.With().Str("service", "beaconcommittees").Str("impl", "standard").Logger().Level(parameters.logLevel)
 
 	beaconCommitteesSetter, isBeaconCommitteesSetter := parameters.chainDB.(chaindb.BeaconCommitteesSetter)
 	if !isBeaconCommitteesSetter {

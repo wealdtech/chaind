@@ -42,7 +42,7 @@ func initLogging() error {
 	}
 
 	// Set the local logger from the global logger.
-	log = zerologger.Logger.With().Logger().Level(util.LogLevel(viper.GetString("log-level")))
+	log = zerologger.Logger.With().Logger().Level(util.LogLevel(""))
 
 	return nil
 }

@@ -40,7 +40,7 @@ func fetchClient(ctx context.Context, address string) (eth2client.Service, error
 	if client, exists = clients[address]; !exists {
 		var err error
 		client, err = autoclient.New(ctx,
-			autoclient.WithLogLevel(util.LogLevel(viper.GetString("eth2client.log-level"))),
+			autoclient.WithLogLevel(util.LogLevel("eth2client")),
 			autoclient.WithTimeout(viper.GetDuration("eth2client.timeout")),
 			autoclient.WithAddress(address))
 		if err != nil {

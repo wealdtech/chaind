@@ -14,15 +14,36 @@
 package util
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
-// LogLevel converts a string to a log level.
+// LogLevel returns the best log level for the path.
+func LogLevel(path string) zerolog.Level {
+	if path == "" {
+		return stringToLevel(viper.GetString("log-level"))
+	}
+
+	key := fmt.Sprintf("%s.log-level", path)
+	if viper.GetString(key) != "" {
+		return stringToLevel(viper.GetString(key))
+	}
+	// Lop off the child and try again.
+	lastPeriod := strings.LastIndex(path, ".")
+	if lastPeriod == -1 {
+		return LogLevel("")
+	} else {
+		return LogLevel(path[0:lastPeriod])
+	}
+}
+
+// stringtoLevel converts a string to a log level.
 // It returns the user-supplied level by default.
-func LogLevel(input string) zerolog.Level {
+func stringToLevel(input string) zerolog.Level {
 	switch strings.ToLower(input) {
 	case "none":
 		return zerolog.Disabled
