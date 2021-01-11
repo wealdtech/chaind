@@ -39,6 +39,7 @@ import (
 	"github.com/wealdtech/chaind/services/chaintime"
 	standardchaintime "github.com/wealdtech/chaind/services/chaintime/standard"
 	standardproposerduties "github.com/wealdtech/chaind/services/proposerduties/standard"
+	standardspec "github.com/wealdtech/chaind/services/spec/standard"
 	standardvalidators "github.com/wealdtech/chaind/services/validators/standard"
 	"github.com/wealdtech/chaind/util"
 	e2types "github.com/wealdtech/go-eth2-types/v2"
@@ -201,6 +202,11 @@ func startServices(ctx context.Context) error {
 		return errors.Wrap(err, "failed to start chain time service")
 	}
 
+	log.Trace().Msg("Starting spec service")
+	if err := startSpec(ctx, eth2Client, chainDB); err != nil {
+		return errors.Wrap(err, "failed to start spec service")
+	}
+
 	log.Trace().Msg("Starting blocks service")
 	if err := startBlocks(ctx, eth2Client, chainDB, chainTime); err != nil {
 		return errors.Wrap(err, "failed to start blocks service")
@@ -254,6 +260,31 @@ func resolvePath(path string) string {
 		baseDir = homeDir
 	}
 	return filepath.Join(baseDir, path)
+}
+
+func startSpec(
+	ctx context.Context,
+	eth2Client eth2client.Service,
+	chainDB chaindb.Service,
+) error {
+	var err error
+	if viper.GetString("spec.address") != "" {
+		eth2Client, err = fetchClient(ctx, viper.GetString("spec.address"))
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to fetch client %q", viper.GetString("spec.address")))
+		}
+	}
+
+	_, err = standardspec.New(ctx,
+		standardspec.WithLogLevel(util.LogLevel(viper.GetString("spec.log-level"))),
+		standardspec.WithETH2Client(eth2Client),
+		standardspec.WithChainDB(chainDB),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to create spec service")
+	}
+
+	return nil
 }
 
 func startBlocks(
