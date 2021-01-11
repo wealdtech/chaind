@@ -141,6 +141,18 @@ CREATE TABLE t_voluntary_exits (
 );
 CREATE UNIQUE INDEX i_voluntary_exits_1 ON t_voluntary_exits(f_inclusion_slot,f_inclusion_block_root,f_inclusion_index);
 
+-- t_deposits contains all deposits included in blocks.
+DROP TABLE IF EXISTS t_deposits CASCADE;
+CREATE TABLE t_deposits (
+  f_inclusion_slot         BIGINT NOT NULL
+ ,f_inclusion_block_root   BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_inclusion_index        BIGINT NOT NULL
+ ,f_validator_pubkey       BYTEA NOT NULL
+ ,f_withdrawal_credentials BYTEA NOT NULL
+ ,f_amount                 BIGINT NOT NULL
+);
+CREATE UNIQUE INDEX i_deposits_1 ON t_deposits(f_inclusion_slot,f_inclusion_block_root,f_inclusion_index);
+
 -- t_validator_balances contains per-epoch balances.
 DROP TABLE IF EXISTS t_validator_balances CASCADE;
 CREATE TABLE t_validator_balances (

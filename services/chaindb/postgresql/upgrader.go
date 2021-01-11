@@ -29,6 +29,7 @@ var currentVersion = uint64(1)
 var upgradeFunctions = map[uint64][]func(context.Context, *Service) error{
 	1: {
 		validatorsEpochNull,
+		createDeposits,
 	},
 }
 
@@ -108,6 +109,30 @@ func validatorsEpochNull(ctx context.Context, s *Service) error {
 		return errors.Wrap(err, "failed to change -1 to NULL on f_withdrawable_epoch")
 	}
 
+	return nil
+}
+
+// createDeposits creates the t_deposits table.
+func createDeposits(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `CREATE TABLE t_deposits (
+  f_inclusion_slot         BIGINT NOT NULL
+ ,f_inclusion_block_root   BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_inclusion_index        BIGINT NOT NULL
+ ,f_validator_pubkey       BYTEA NOT NULL
+ ,f_withdrawal_credentials BYTEA NOT NULL
+ ,f_amount                 BIGINT NOT NULL
+)`); err != nil {
+		return errors.Wrap(err, "failed to create deposits table")
+	}
+
+	if _, err := tx.Exec(ctx, "CREATE UNIQUE INDEX i_deposits_1 ON t_deposits(f_inclusion_slot,f_inclusion_block_root,f_inclusion_index)"); err != nil {
+		return errors.Wrap(err, "failed to create deposits index")
+	}
 	return nil
 }
 

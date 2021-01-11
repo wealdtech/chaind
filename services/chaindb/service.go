@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2021 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -151,6 +151,18 @@ type ValidatorsSetter interface {
 
 	// SetValidatorBalance sets a validator balance.
 	SetValidatorBalance(ctx context.Context, validatorBalance *ValidatorBalance) error
+}
+
+// DepositsProvider defines functions to access deposits.
+type DepositsProvider interface {
+	// DepositsByPublicKey fetches deposits for a given set of validator public keys.
+	DepositsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) (map[spec.BLSPubKey][]*Deposit, error)
+}
+
+// DepositsSetter defines functions to create and update deposits.
+type DepositsSetter interface {
+	// SetDeposit sets a deposit.
+	SetDeposit(ctx context.Context, deposit *Deposit) error
 }
 
 // VoluntaryExitsSetter defines functions to create and update voluntary exits.
