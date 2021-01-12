@@ -132,6 +132,16 @@ type ValidatorsProvider interface {
 		map[spec.ValidatorIndex][]*ValidatorBalance,
 		error,
 	)
+
+	// ValidatorBalancesByIndexAndEpochs fetches the validator balances for the given validators at the specified epochs.
+	ValidatorBalancesByIndexAndEpochs(
+		ctx context.Context,
+		indices []spec.ValidatorIndex,
+		epochs []spec.Epoch,
+	) (
+		map[spec.ValidatorIndex][]*ValidatorBalance,
+		error,
+	)
 }
 
 // ValidatorsSetter defines functions to create and update validator information.

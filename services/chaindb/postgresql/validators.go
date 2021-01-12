@@ -15,6 +15,9 @@ package postgresql
 
 import (
 	"context"
+	"fmt"
+	"sort"
+	"strings"
 
 	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
@@ -357,19 +360,30 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 		defer cancel()
 	}
 
-	rows, err := tx.Query(ctx, `
+	// Sort the validator indices.
+	sort.Slice(validatorIndices, func(i, j int) bool {
+		return validatorIndices[i] < validatorIndices[j]
+	})
+
+	// Create an array for the validator indices.  This gives us higher performance for our query.
+	indices := make([]string, len(validatorIndices))
+	for i, validatorIndex := range validatorIndices {
+		indices[i] = fmt.Sprintf("(%d)", validatorIndex)
+	}
+
+	rows, err := tx.Query(ctx, fmt.Sprintf(`
       SELECT f_validator_index
             ,f_epoch
             ,f_balance
             ,f_effective_balance
       FROM t_validator_balances
-      WHERE f_validator_index = ANY($1)
-		AND f_epoch >= $2
-		AND f_epoch < $3
+      JOIN (VALUES %s)
+        AS x(id)
+        ON x.id = t_validator_balances.f_validator_index
+      WHERE f_epoch >= $1
+        AND f_epoch < $2
       ORDER BY f_validator_index
-	          ,f_epoch
-	  `,
-		validatorIndices,
+              ,f_epoch`, strings.Join(indices, ",")),
 		uint64(startEpoch),
 		uint64(endEpoch),
 	)
@@ -402,6 +416,81 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 
 	return validatorBalances, nil
 }
+
+// ValidatorBalancesByIndexAndEpochs fetches the validator balances for the given validators at the specified epochs.
+func (s *Service) ValidatorBalancesByIndexAndEpochs(
+	ctx context.Context,
+	validatorIndices []spec.ValidatorIndex,
+	epochs []spec.Epoch,
+) (
+	map[spec.ValidatorIndex][]*chaindb.ValidatorBalance,
+	error,
+) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	// Sort the validator indices.
+	sort.Slice(validatorIndices, func(i, j int) bool {
+		return validatorIndices[i] < validatorIndices[j]
+	})
+
+	// Create an array for the validator indices.  This gives us higher performance for our query.
+	indices := make([]string, len(validatorIndices))
+	for i, validatorIndex := range validatorIndices {
+		indices[i] = fmt.Sprintf("(%d)", validatorIndex)
+	}
+
+	dbEpochs := make([]uint64, len(epochs))
+	for i, epoch := range epochs {
+		dbEpochs[i] = uint64(epoch)
+	}
+	rows, err := tx.Query(ctx, fmt.Sprintf(`
+      SELECT f_validator_index
+            ,f_epoch
+            ,f_balance
+            ,f_effective_balance
+      FROM t_validator_balances
+	  JOIN (VALUES %s)
+	           AS x(id)
+	           ON x.id = t_validator_balances.f_validator_index
+      WHERE f_epoch = ANY($1)
+      ORDER BY f_validator_index
+              ,f_epoch`, strings.Join(indices, ",")),
+		dbEpochs,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	validatorBalances := make(map[spec.ValidatorIndex][]*chaindb.ValidatorBalance, len(validatorIndices))
+	for rows.Next() {
+		validatorBalance := &chaindb.ValidatorBalance{}
+		err := rows.Scan(
+			&validatorBalance.Index,
+			&validatorBalance.Epoch,
+			&validatorBalance.Balance,
+			&validatorBalance.EffectiveBalance,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		_, exists := validatorBalances[validatorBalance.Index]
+		if !exists {
+			validatorBalances[validatorBalance.Index] = make([]*chaindb.ValidatorBalance, 0, len(epochs))
+		}
+		validatorBalances[validatorBalance.Index] = append(validatorBalances[validatorBalance.Index], validatorBalance)
+	}
+
+	return validatorBalances, nil
+}
+
 func padValidatorBalances(ctx context.Context, validatorBalances map[spec.ValidatorIndex][]*chaindb.ValidatorBalance, entries int, startEpoch spec.Epoch) {
 	for validatorIndex, balances := range validatorBalances {
 		if len(balances) != entries {
