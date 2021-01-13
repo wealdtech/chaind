@@ -541,6 +541,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochs(
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	validatorBalances := make(map[spec.ValidatorIndex][]*chaindb.ValidatorBalance, len(validatorIndices))
 	for rows.Next() {

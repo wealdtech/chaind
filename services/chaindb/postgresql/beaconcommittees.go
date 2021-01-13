@@ -112,6 +112,7 @@ func (s *Service) AttesterDuties(ctx context.Context, startSlot spec.Slot, endSl
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	res := make([]*chaindb.AttesterDuty, 0)
 
