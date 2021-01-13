@@ -127,6 +127,7 @@ func (s *Service) ProposerSlashingsForSlotRange(ctx context.Context, minSlot uin
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	proposerSlashings := make([]*chaindb.ProposerSlashing, 0)
 

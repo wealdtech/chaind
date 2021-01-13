@@ -100,6 +100,7 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot spec.Slot) ([]*chaindb.
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	blocks := make([]*chaindb.Block, 0)
 
@@ -293,6 +294,7 @@ func (s *Service) EmptySlots(ctx context.Context, minSlot spec.Slot, maxSlot spe
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	missedSlots := make([]spec.Slot, 0)
 	for rows.Next() {

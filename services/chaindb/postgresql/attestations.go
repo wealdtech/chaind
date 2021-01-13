@@ -106,6 +106,7 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	attestations := make([]*chaindb.Attestation, 0)
 
@@ -176,6 +177,7 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	attestations := make([]*chaindb.Attestation, 0)
 
@@ -248,6 +250,7 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, minSlot spec.Slo
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	attestations := make([]*chaindb.Attestation, 0)
 
