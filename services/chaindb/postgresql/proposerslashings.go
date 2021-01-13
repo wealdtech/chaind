@@ -31,12 +31,14 @@ func (s *Service) SetProposerSlashing(ctx context.Context, proposerSlashing *cha
       INSERT INTO t_proposer_slashings(f_inclusion_slot
                                       ,f_inclusion_block_root
                                       ,f_inclusion_index
+                                      ,f_block_1_root
                                       ,f_header_1_slot
                                       ,f_header_1_proposer_index
                                       ,f_header_1_parent_root
                                       ,f_header_1_state_root
                                       ,f_header_1_body_root
                                       ,f_header_1_signature
+                                      ,f_block_2_root
                                       ,f_header_2_slot
                                       ,f_header_2_proposer_index
                                       ,f_header_2_parent_root
@@ -44,15 +46,17 @@ func (s *Service) SetProposerSlashing(ctx context.Context, proposerSlashing *cha
                                       ,f_header_2_body_root
                                       ,f_header_2_signature
       )
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       ON CONFLICT (f_inclusion_slot,f_inclusion_block_root,f_inclusion_index) DO
       UPDATE
-      SET f_header_1_slot = excluded.f_header_1_slot
+      SET f_block_1_root = excluded.f_block_1_root
+         ,f_header_1_slot = excluded.f_header_1_slot
          ,f_header_1_proposer_index = excluded.f_header_1_proposer_index
          ,f_header_1_parent_root = excluded.f_header_1_parent_root
          ,f_header_1_state_root = excluded.f_header_1_state_root
          ,f_header_1_body_root = excluded.f_header_1_body_root
          ,f_header_1_signature = excluded.f_header_1_signature
+         ,f_block_2_root = excluded.f_block_2_root
          ,f_header_2_slot = excluded.f_header_2_slot
          ,f_header_2_proposer_index = excluded.f_header_2_proposer_index
          ,f_header_2_parent_root = excluded.f_header_2_parent_root
@@ -63,12 +67,14 @@ func (s *Service) SetProposerSlashing(ctx context.Context, proposerSlashing *cha
 		proposerSlashing.InclusionSlot,
 		proposerSlashing.InclusionBlockRoot[:],
 		proposerSlashing.InclusionIndex,
+		proposerSlashing.Block1Root[:],
 		proposerSlashing.Header1Slot,
 		proposerSlashing.Header1ProposerIndex,
 		proposerSlashing.Header1ParentRoot[:],
 		proposerSlashing.Header1StateRoot[:],
 		proposerSlashing.Header1BodyRoot[:],
 		proposerSlashing.Header1Signature[:],
+		proposerSlashing.Block2Root[:],
 		proposerSlashing.Header2Slot,
 		proposerSlashing.Header2ProposerIndex,
 		proposerSlashing.Header2ParentRoot[:],
@@ -96,12 +102,14 @@ func (s *Service) ProposerSlashingsForSlotRange(ctx context.Context, minSlot uin
       SELECT f_inclusion_slot
             ,f_inclusion_block_root
             ,f_inclusion_index
+            ,f_block_1_root
             ,f_header_1_slot
             ,f_header_1_proposer_index
             ,f_header_1_parent_root
             ,f_header_1_state_root
             ,f_header_1_body_root
             ,f_header_1_signature
+            ,f_block_2_root
             ,f_header_2_slot
             ,f_header_2_proposer_index
             ,f_header_2_parent_root
@@ -122,28 +130,52 @@ func (s *Service) ProposerSlashingsForSlotRange(ctx context.Context, minSlot uin
 
 	proposerSlashings := make([]*chaindb.ProposerSlashing, 0)
 
+	var inclusionBlockRoot []byte
+	var block1Root []byte
+	var header1ParentRoot []byte
+	var header1StateRoot []byte
+	var header1BodyRoot []byte
+	var header1Signature []byte
+	var block2Root []byte
+	var header2ParentRoot []byte
+	var header2StateRoot []byte
+	var header2BodyRoot []byte
+	var header2Signature []byte
 	for rows.Next() {
 		proposerSlashing := &chaindb.ProposerSlashing{}
 		err := rows.Scan(
 			&proposerSlashing.InclusionSlot,
-			&proposerSlashing.InclusionBlockRoot,
+			&inclusionBlockRoot,
 			&proposerSlashing.InclusionIndex,
+			&block1Root,
 			&proposerSlashing.Header1Slot,
 			&proposerSlashing.Header1ProposerIndex,
-			&proposerSlashing.Header1ParentRoot,
-			&proposerSlashing.Header1StateRoot,
-			&proposerSlashing.Header1BodyRoot,
-			&proposerSlashing.Header1Signature,
+			&header1ParentRoot,
+			&header1StateRoot,
+			&header1BodyRoot,
+			&header1Signature,
+			&block2Root,
 			&proposerSlashing.Header2Slot,
 			&proposerSlashing.Header2ProposerIndex,
-			&proposerSlashing.Header2ParentRoot,
-			&proposerSlashing.Header2StateRoot,
-			&proposerSlashing.Header2BodyRoot,
-			&proposerSlashing.Header2Signature,
+			&header2ParentRoot,
+			&header2StateRoot,
+			&header2BodyRoot,
+			&header2Signature,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
+		copy(proposerSlashing.InclusionBlockRoot[:], inclusionBlockRoot)
+		copy(proposerSlashing.Block1Root[:], block1Root)
+		copy(proposerSlashing.Header1ParentRoot[:], header1ParentRoot)
+		copy(proposerSlashing.Header1StateRoot[:], header1StateRoot)
+		copy(proposerSlashing.Header1BodyRoot[:], header1BodyRoot)
+		copy(proposerSlashing.Header1Signature[:], header1Signature)
+		copy(proposerSlashing.Block2Root[:], block2Root)
+		copy(proposerSlashing.Header2ParentRoot[:], header2ParentRoot)
+		copy(proposerSlashing.Header2StateRoot[:], header2StateRoot)
+		copy(proposerSlashing.Header2BodyRoot[:], header2BodyRoot)
+		copy(proposerSlashing.Header2Signature[:], header2Signature)
 		proposerSlashings = append(proposerSlashings, proposerSlashing)
 	}
 
