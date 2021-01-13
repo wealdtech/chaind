@@ -1,4 +1,5 @@
 Development:
+  - add f_block_1_root and f_block_2_root to t_proposer_slashings table
   - make log level configuration hierarchical; if a log level is not present it will use the next one up the hierarchy
   - add t_chain_spec table, holding the chain specification
   - add t_genesis table, holding the chain genesis information

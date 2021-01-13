@@ -138,12 +138,14 @@ type ProposerSlashing struct {
 	InclusionSlot        spec.Slot
 	InclusionBlockRoot   spec.Root
 	InclusionIndex       uint64
+	Block1Root           spec.Root
 	Header1Slot          spec.Slot
 	Header1ProposerIndex spec.ValidatorIndex
 	Header1ParentRoot    spec.Root
 	Header1StateRoot     spec.Root
 	Header1BodyRoot      spec.Root
 	Header1Signature     spec.BLSSignature
+	Block2Root           spec.Root
 	Header2Slot          spec.Slot
 	Header2ProposerIndex spec.ValidatorIndex
 	Header2ParentRoot    spec.Root

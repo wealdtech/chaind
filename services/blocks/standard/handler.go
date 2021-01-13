@@ -339,16 +339,42 @@ func (s *Service) dbProposerSlashing(
 	index uint64,
 	proposerSlashing *spec.ProposerSlashing,
 ) (*chaindb.ProposerSlashing, error) {
+	header1 := &spec.BeaconBlockHeader{
+		Slot:          proposerSlashing.SignedHeader1.Message.Slot,
+		ProposerIndex: proposerSlashing.SignedHeader1.Message.ProposerIndex,
+		ParentRoot:    proposerSlashing.SignedHeader1.Message.ParentRoot,
+		StateRoot:     proposerSlashing.SignedHeader1.Message.StateRoot,
+		BodyRoot:      proposerSlashing.SignedHeader1.Message.BodyRoot,
+	}
+	block1Root, err := header1.HashTreeRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to calculate hash tree root of header 1")
+	}
+
+	header2 := &spec.BeaconBlockHeader{
+		Slot:          proposerSlashing.SignedHeader2.Message.Slot,
+		ProposerIndex: proposerSlashing.SignedHeader2.Message.ProposerIndex,
+		ParentRoot:    proposerSlashing.SignedHeader2.Message.ParentRoot,
+		StateRoot:     proposerSlashing.SignedHeader2.Message.StateRoot,
+		BodyRoot:      proposerSlashing.SignedHeader2.Message.BodyRoot,
+	}
+	block2Root, err := header2.HashTreeRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to calculate hash tree root of header 2")
+	}
+
 	dbProposerSlashing := &chaindb.ProposerSlashing{
 		InclusionSlot:        slot,
 		InclusionBlockRoot:   blockRoot,
 		InclusionIndex:       index,
+		Block1Root:           block1Root,
 		Header1Slot:          proposerSlashing.SignedHeader1.Message.Slot,
 		Header1ProposerIndex: proposerSlashing.SignedHeader1.Message.ProposerIndex,
 		Header1ParentRoot:    proposerSlashing.SignedHeader1.Message.ParentRoot,
 		Header1StateRoot:     proposerSlashing.SignedHeader1.Message.StateRoot,
 		Header1BodyRoot:      proposerSlashing.SignedHeader1.Message.BodyRoot,
 		Header1Signature:     proposerSlashing.SignedHeader1.Signature,
+		Block2Root:           block2Root,
 		Header2Slot:          proposerSlashing.SignedHeader2.Message.Slot,
 		Header2ProposerIndex: proposerSlashing.SignedHeader2.Message.ProposerIndex,
 		Header2ParentRoot:    proposerSlashing.SignedHeader2.Message.ParentRoot,

@@ -132,12 +132,14 @@ CREATE TABLE t_proposer_slashings (
   f_inclusion_slot          BIGINT NOT NULL
  ,f_inclusion_block_root    BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
  ,f_inclusion_index         BIGINT NOT NULL
+ ,f_block_1_root            BYTEA NOT NULL
  ,f_header_1_slot           BIGINT NOT NULL
  ,f_header_1_proposer_index BIGINT NOT NULL
  ,f_header_1_parent_root    BYTEA NOT NULL
  ,f_header_1_state_root     BYTEA NOT NULL
  ,f_header_1_body_root      BYTEA NOT NULL
  ,f_header_1_signature      BYTEA NOT NULL
+ ,f_block_2_root            BYTEA NOT NULL
  ,f_header_2_slot           BIGINT NOT NULL
  ,f_header_2_proposer_index BIGINT NOT NULL
  ,f_header_2_parent_root    BYTEA NOT NULL

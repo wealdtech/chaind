@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 
+	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 )
 
@@ -32,6 +33,7 @@ var upgradeFunctions = map[uint64][]func(context.Context, *Service) error{
 		createDeposits,
 		createChainSpec,
 		createGenesis,
+		addProposerSlashingBlockRoots,
 	},
 }
 
@@ -54,7 +56,8 @@ func (s *Service) Upgrade(ctx context.Context) error {
 
 	for i := version; i <= currentVersion; i++ {
 		if upgradeFuncs, exists := upgradeFunctions[i]; exists {
-			for _, upgradeFunc := range upgradeFuncs {
+			for i, upgradeFunc := range upgradeFuncs {
+				log.Info().Int("current", i+1).Int("total", len(upgradeFuncs)).Msg("Running upgrade function")
 				if err := upgradeFunc(ctx, s); err != nil {
 					cancel()
 					return errors.Wrap(err, "failed to upgrade")
@@ -168,6 +171,79 @@ func createGenesis(ctx context.Context, s *Service) error {
  ,f_fork_version BYTEA NOT NULL
 )`); err != nil {
 		return errors.Wrap(err, "failed to create genesis table")
+	}
+
+	return nil
+}
+
+// addProposerSlashingBlockRoots adds calculated block roots to the t_proposer_slashings table.
+func addProposerSlashingBlockRoots(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	// Start by altering the table to add the columns, but allow them to be NULL.
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_proposer_slashings
+ADD COLUMN f_block_1_root BYTEA
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_block_1_root to proposer slashings table")
+	}
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_proposer_slashings
+ADD COLUMN f_block_2_root BYTEA
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_block_2_root to proposer slashings table")
+	}
+
+	// Need to update all of the existing slashings so that they have the block root populated.
+	// Using hard-coded maximum values for slots to catch all proposer slashings.
+	proposerSlashings, err := s.ProposerSlashingsForSlotRange(ctx, 0, 0x7fffffffffffffff)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain current proposer slashings")
+	}
+
+	for _, proposerSlashing := range proposerSlashings {
+		header1 := &spec.BeaconBlockHeader{
+			Slot:          proposerSlashing.Header1Slot,
+			ProposerIndex: proposerSlashing.Header1ProposerIndex,
+			ParentRoot:    proposerSlashing.Header1ParentRoot,
+			StateRoot:     proposerSlashing.Header1StateRoot,
+			BodyRoot:      proposerSlashing.Header1BodyRoot,
+		}
+		proposerSlashing.Block1Root, err = header1.HashTreeRoot()
+		if err != nil {
+			return errors.Wrap(err, "failed to calculate proposer slashing block 1 root")
+		}
+		header2 := &spec.BeaconBlockHeader{
+			Slot:          proposerSlashing.Header2Slot,
+			ProposerIndex: proposerSlashing.Header2ProposerIndex,
+			ParentRoot:    proposerSlashing.Header2ParentRoot,
+			StateRoot:     proposerSlashing.Header2StateRoot,
+			BodyRoot:      proposerSlashing.Header2BodyRoot,
+		}
+		proposerSlashing.Block2Root, err = header2.HashTreeRoot()
+		if err != nil {
+			return errors.Wrap(err, "failed to calculate proposer slashing block 2 root")
+		}
+		if err := s.SetProposerSlashing(ctx, proposerSlashing); err != nil {
+			return errors.Wrap(err, "failed to update proposer slashing")
+		}
+	}
+
+	// Add the NOT NULL constraint to the created columns.
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_proposer_slashings
+ALTER COLUMN f_block_1_root SET NOT NULL
+`); err != nil {
+		return errors.Wrap(err, "failed to add NOT NULL constraint for f_block_1_root to proposer slashings table")
+	}
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_proposer_slashings
+ALTER COLUMN f_block_2_root SET NOT NULL
+`); err != nil {
+		return errors.Wrap(err, "failed to add NOT NULL constraint for f_block_2_root to proposer slashings table")
 	}
 
 	return nil
