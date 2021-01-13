@@ -380,10 +380,9 @@ func (s *Service) ValidatorBalancesByIndexAndEpoch(
             ,f_balance
             ,f_effective_balance
       FROM t_validator_balances
-      WHERE f_validator_index = ANY($1)
-		AND f_epoch = $2::BIGINT
-      ORDER BY f_validator_index
-	  `,
+      WHERE f_epoch = $2::BIGINT
+        AND f_validator_index = ANY($1)
+      ORDER BY f_validator_index`,
 		validatorIndices,
 		uint64(epoch),
 	)

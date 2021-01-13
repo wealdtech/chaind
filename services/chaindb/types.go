@@ -14,6 +14,8 @@
 package chaindb
 
 import (
+	"time"
+
 	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
@@ -96,6 +98,24 @@ type Deposit struct {
 	InclusionIndex        uint64
 	ValidatorPubKey       spec.BLSPubKey
 	WithdrawalCredentials []byte
+	Amount                spec.Gwei
+}
+
+// ETH1Deposit holds information about an Ethereum 2 deposit made on the Ethereum 1 chain.
+type ETH1Deposit struct {
+	ETH1BlockNumber       uint64
+	ETH1BlockHash         []byte
+	ETH1BlockTimestamp    time.Time
+	ETH1TxHash            []byte
+	ETH1LogIndex          uint64
+	ETH1Sender            []byte
+	ETH1Recipient         []byte
+	ETH1GasUsed           uint64
+	ETH1GasPrice          uint64
+	DepositIndex          uint64
+	ValidatorPubKey       spec.BLSPubKey
+	WithdrawalCredentials []byte
+	Signature             spec.BLSSignature
 	Amount                spec.Gwei
 }
 
