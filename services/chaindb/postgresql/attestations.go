@@ -35,18 +35,20 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
                                 ,f_slot
                                 ,f_committee_index
                                 ,f_aggregation_bits
+                                ,f_aggregation_indices
                                 ,f_beacon_block_root
                                 ,f_source_epoch
                                 ,f_source_root
                                 ,f_target_epoch
                                 ,f_target_root
 						  )
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
       ON CONFLICT (f_inclusion_slot,f_inclusion_block_root,f_inclusion_index) DO
       UPDATE
       SET f_slot = excluded.f_slot
          ,f_committee_index = excluded.f_committee_index
          ,f_aggregation_bits = excluded.f_aggregation_bits
+         ,f_aggregation_indices = excluded.f_aggregation_indices
          ,f_beacon_block_root = excluded.f_beacon_block_root
          ,f_source_epoch = excluded.f_source_epoch
          ,f_source_root = excluded.f_source_root
@@ -59,6 +61,7 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
 		attestation.Slot,
 		attestation.CommitteeIndex,
 		attestation.AggregationBits,
+		attestation.AggregationIndices,
 		attestation.BeaconBlockRoot[:],
 		attestation.SourceEpoch,
 		attestation.SourceRoot[:],
@@ -88,6 +91,7 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
             ,f_slot
             ,f_committee_index
             ,f_aggregation_bits
+            ,f_aggregation_indices
             ,f_beacon_block_root
             ,f_source_epoch
             ,f_source_root
@@ -118,6 +122,7 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
 			&attestation.Slot,
 			&attestation.CommitteeIndex,
 			&attestation.AggregationBits,
+			&attestation.AggregationIndices,
 			&beaconBlockRoot,
 			&attestation.SourceEpoch,
 			&sourceRoot,
@@ -156,6 +161,7 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
             ,f_slot
             ,f_committee_index
             ,f_aggregation_bits
+            ,f_aggregation_indices
             ,f_beacon_block_root
             ,f_source_epoch
             ,f_source_root
@@ -186,6 +192,7 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 			&attestation.Slot,
 			&attestation.CommitteeIndex,
 			&attestation.AggregationBits,
+			&attestation.AggregationIndices,
 			&beaconBlockRoot,
 			&attestation.SourceEpoch,
 			&sourceRoot,
@@ -224,6 +231,7 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, minSlot spec.Slo
             ,f_slot
             ,f_committee_index
             ,f_aggregation_bits
+            ,f_aggregation_indices
             ,f_beacon_block_root
             ,f_source_epoch
             ,f_source_root
@@ -256,6 +264,7 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, minSlot spec.Slo
 			&attestation.Slot,
 			&attestation.CommitteeIndex,
 			&attestation.AggregationBits,
+			&attestation.AggregationIndices,
 			&beaconBlockRoot,
 			&attestation.SourceEpoch,
 			&sourceRoot,

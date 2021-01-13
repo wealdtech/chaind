@@ -89,6 +89,7 @@ CREATE TABLE t_attestations (
  ,f_slot                 BIGINT NOT NULL
  ,f_committee_index      BIGINT NOT NULL
  ,f_aggregation_bits     BYTEA NOT NULL
+ ,f_aggregation_indices  BIGINT[] -- REFERENCES t_validators(f_index)
  ,f_beacon_block_root    BYTEA NOT NULL -- we don't reference this because the block may not exist in the canonical chain
  ,f_source_epoch         BIGINT NOT NULL
  ,f_source_root          BYTEA NOT NULL

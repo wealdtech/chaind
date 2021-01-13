@@ -84,6 +84,7 @@ type Attestation struct {
 	Slot               spec.Slot
 	CommitteeIndex     spec.CommitteeIndex
 	AggregationBits    []byte
+	AggregationIndices []spec.ValidatorIndex
 	BeaconBlockRoot    spec.Root
 	SourceEpoch        spec.Epoch
 	SourceRoot         spec.Root

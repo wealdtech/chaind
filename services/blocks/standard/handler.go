@@ -234,6 +234,40 @@ func (s *Service) dbAttestation(
 	index uint64,
 	attestation *spec.Attestation,
 ) (*chaindb.Attestation, error) {
+	var aggregationIndices []spec.ValidatorIndex
+	committee, err := s.beaconCommitteesProvider.BeaconCommitteeBySlotAndIndex(ctx, attestation.Data.Slot, attestation.Data.Index)
+	if err != nil {
+		// Try to fetch from the chain.
+		beaconCommittees, err := s.eth2Client.(eth2client.BeaconCommitteesProvider).BeaconCommittees(ctx, fmt.Sprintf("%d", attestation.Data.Slot))
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to fetch beacon committees")
+		}
+		found := false
+		for _, beaconCommittee := range beaconCommittees {
+			if beaconCommittee.Slot == attestation.Data.Slot && beaconCommittee.Index == attestation.Data.Index {
+				committee = &chaindb.BeaconCommittee{
+					Slot:      beaconCommittee.Slot,
+					Index:     beaconCommittee.Index,
+					Committee: beaconCommittee.Validators,
+				}
+				log.Warn().Uint64("slot", uint64(slot)).Uint64("index", index).Msg("Obtained beacon committee from API")
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, errors.Wrap(err, "failed to obtain beacon committees")
+		}
+	}
+	if committee != nil {
+		aggregationIndices = make([]spec.ValidatorIndex, 0, len(committee.Committee))
+		for i := uint64(0); i < attestation.AggregationBits.Len(); i++ {
+			if attestation.AggregationBits.BitAt(i) {
+				aggregationIndices = append(aggregationIndices, committee.Committee[i])
+			}
+		}
+	}
+
 	dbAttestation := &chaindb.Attestation{
 		InclusionSlot:      slot,
 		InclusionBlockRoot: blockRoot,
@@ -242,6 +276,7 @@ func (s *Service) dbAttestation(
 		CommitteeIndex:     attestation.Data.Index,
 		BeaconBlockRoot:    attestation.Data.BeaconBlockRoot,
 		AggregationBits:    []byte(attestation.AggregationBits),
+		AggregationIndices: aggregationIndices,
 		SourceEpoch:        attestation.Data.Source.Epoch,
 		SourceRoot:         attestation.Data.Source.Root,
 		TargetEpoch:        attestation.Data.Target.Epoch,

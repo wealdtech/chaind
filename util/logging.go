@@ -36,9 +36,8 @@ func LogLevel(path string) zerolog.Level {
 	lastPeriod := strings.LastIndex(path, ".")
 	if lastPeriod == -1 {
 		return LogLevel("")
-	} else {
-		return LogLevel(path[0:lastPeriod])
 	}
+	return LogLevel(path[0:lastPeriod])
 }
 
 // stringtoLevel converts a string to a log level.
