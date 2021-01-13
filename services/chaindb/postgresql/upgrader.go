@@ -16,6 +16,7 @@ package postgresql
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
@@ -42,6 +43,7 @@ var upgrades = map[uint64]*upgrade{
 			createGenesis,
 			addProposerSlashingBlockRoots,
 			createETH1Deposits,
+			addAttestationAggregationIndices,
 		},
 	},
 }
@@ -153,8 +155,6 @@ func createDeposits(ctx context.Context, s *Service) error {
 	if _, err := tx.Exec(ctx, "CREATE UNIQUE INDEX i_deposits_1 ON t_deposits(f_inclusion_slot,f_inclusion_block_root,f_inclusion_index)"); err != nil {
 		return errors.Wrap(err, "failed to create deposits index")
 	}
-
-	// TODO reset blocks fetch metadata counter to 0.
 
 	return nil
 }
@@ -311,6 +311,68 @@ CREATE TABLE IF NOT EXISTS t_eth1_deposits (
 	}
 
 	return nil
+}
+
+// addAttestationAggregationIndices adds aggregation indices to the t_attestations table.
+func addAttestationAggregationIndices(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	// Earlier versions of the upgrade carried this out manually; check if it's already present.
+	alreadyPresent, err := s.columnExists(ctx, "t_attestations", "f_aggregation_indices")
+	if err != nil {
+		return errors.Wrap(err, "failed to check if f_aggregation_indices is present in t_attestations")
+	}
+	if alreadyPresent {
+		// Nothing more to do.
+		return nil
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_attestations
+ADD COLUMN f_aggregation_indices BIGINT[]
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_aggregation_indices to attestations table")
+	}
+
+	return nil
+}
+
+// columnExists returns true if the given clumn exists in the given table.
+func (s *Service) columnExists(ctx context.Context, tableName string, columnName string) (bool, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return false, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	query := fmt.Sprintf(`SELECT true
+FROM pg_attribute
+WHERE attrelid = '%s'::regclass
+  AND attname = '%s'
+  AND NOT attisdropped`, tableName, columnName)
+
+	rows, err := tx.Query(ctx, query)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	found := false
+	rows.Next()
+	err = rows.Scan(
+		&found,
+	)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to scan row")
+	}
+	return found, nil
 }
 
 // version obtains the version of the schema.

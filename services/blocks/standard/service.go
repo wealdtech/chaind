@@ -28,17 +28,18 @@ import (
 
 // Service is a chain database service.
 type Service struct {
-	eth2Client              eth2client.Service
-	chainDB                 chaindb.Service
-	blocksSetter            chaindb.BlocksSetter
-	attestationsSetter      chaindb.AttestationsSetter
-	attesterSlashingsSetter chaindb.AttesterSlashingsSetter
-	proposerSlashingsSetter chaindb.ProposerSlashingsSetter
-	depositsSetter          chaindb.DepositsSetter
-	voluntaryExitsSetter    chaindb.VoluntaryExitsSetter
-	chainTime               chaintime.Service
-	refetch                 bool
-	lastHandledBlockRoot    spec.Root
+	eth2Client               eth2client.Service
+	chainDB                  chaindb.Service
+	blocksSetter             chaindb.BlocksSetter
+	attestationsSetter       chaindb.AttestationsSetter
+	attesterSlashingsSetter  chaindb.AttesterSlashingsSetter
+	proposerSlashingsSetter  chaindb.ProposerSlashingsSetter
+	depositsSetter           chaindb.DepositsSetter
+	voluntaryExitsSetter     chaindb.VoluntaryExitsSetter
+	beaconCommitteesProvider chaindb.BeaconCommitteesProvider
+	chainTime                chaintime.Service
+	refetch                  bool
+	lastHandledBlockRoot     spec.Root
 }
 
 // module-wide log.
@@ -84,17 +85,23 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		return nil, errors.New("chain DB does not support voluntary exit setting")
 	}
 
+	beaconCommitteesProvider, isBeaconCommitteesProvider := parameters.chainDB.(chaindb.BeaconCommitteesProvider)
+	if !isBeaconCommitteesProvider {
+		return nil, errors.New("chain DB does not support beacon committee providing")
+	}
+
 	s := &Service{
-		eth2Client:              parameters.eth2Client,
-		chainDB:                 parameters.chainDB,
-		blocksSetter:            blocksSetter,
-		attestationsSetter:      attestationsSetter,
-		attesterSlashingsSetter: attesterSlashingsSetter,
-		proposerSlashingsSetter: proposerSlashingsSetter,
-		depositsSetter:          depositsSetter,
-		voluntaryExitsSetter:    voluntaryExitsSetter,
-		chainTime:               parameters.chainTime,
-		refetch:                 parameters.refetch,
+		eth2Client:               parameters.eth2Client,
+		chainDB:                  parameters.chainDB,
+		blocksSetter:             blocksSetter,
+		attestationsSetter:       attestationsSetter,
+		attesterSlashingsSetter:  attesterSlashingsSetter,
+		proposerSlashingsSetter:  proposerSlashingsSetter,
+		depositsSetter:           depositsSetter,
+		voluntaryExitsSetter:     voluntaryExitsSetter,
+		beaconCommitteesProvider: beaconCommitteesProvider,
+		chainTime:                parameters.chainTime,
+		refetch:                  parameters.refetch,
 	}
 
 	// Update to current epoch before starting (in the background).
