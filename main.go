@@ -178,8 +178,15 @@ func startServices(ctx context.Context) error {
 	}
 
 	log.Trace().Msg("Checking for schema upgrades")
-	if err := chainDB.Upgrade(ctx); err != nil {
+	requiresRefetch, err := chainDB.Upgrade(ctx)
+	if err != nil {
 		return errors.Wrap(err, "failed to upgrade chain database")
+	}
+	if requiresRefetch {
+		// The upgrade requires us to refetch blocks, so set up the options accordingly.
+		// These will be picked up by the blocks service.
+		viper.Set("blocks.start-slot", 0)
+		viper.Set("blocks.refetch", true)
 	}
 
 	log.Trace().Msg("Starting Ethereum 2 client service")

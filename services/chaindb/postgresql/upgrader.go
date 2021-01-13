@@ -27,56 +27,71 @@ type schemaMetadata struct {
 
 var currentVersion = uint64(1)
 
-var upgradeFunctions = map[uint64][]func(context.Context, *Service) error{
+type upgrade struct {
+	requiresRefetch bool
+	funcs           []func(context.Context, *Service) error
+}
+
+var upgrades = map[uint64]*upgrade{
 	1: {
-		validatorsEpochNull,
-		createDeposits,
-		createChainSpec,
-		createGenesis,
-		addProposerSlashingBlockRoots,
+		requiresRefetch: true,
+		funcs: []func(context.Context, *Service) error{
+			validatorsEpochNull,
+			createDeposits,
+			createChainSpec,
+			createGenesis,
+			addProposerSlashingBlockRoots,
+			createETH1Deposits,
+		},
 	},
 }
 
 // Upgrade upgrades the database.
-func (s *Service) Upgrade(ctx context.Context) error {
+// Returns true if the upgrade requires blocks to be refetched.
+func (s *Service) Upgrade(ctx context.Context) (bool, error) {
 	version, err := s.version(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to obtain version")
+		return false, errors.Wrap(err, "failed to obtain version")
 	}
 
 	if version == currentVersion {
 		// Nothing to do.
-		return nil
+		return false, nil
 	}
 
 	ctx, cancel, err := s.BeginTx(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to begin upgrade transaction")
+		return false, errors.Wrap(err, "failed to begin upgrade transaction")
 	}
 
+	requiresRefetch := false
 	for i := version; i <= currentVersion; i++ {
-		if upgradeFuncs, exists := upgradeFunctions[i]; exists {
-			for i, upgradeFunc := range upgradeFuncs {
-				log.Info().Int("current", i+1).Int("total", len(upgradeFuncs)).Msg("Running upgrade function")
+		log.Info().Uint64("version", i).Msg("Upgrading database")
+		if upgrade, exists := upgrades[i]; exists {
+			for i, upgradeFunc := range upgrade.funcs {
+				log.Info().Int("current", i+1).Int("total", len(upgrade.funcs)).Msg("Running upgrade function")
 				if err := upgradeFunc(ctx, s); err != nil {
 					cancel()
-					return errors.Wrap(err, "failed to upgrade")
+					return false, errors.Wrap(err, "failed to upgrade")
 				}
 			}
+			requiresRefetch = requiresRefetch || upgrade.requiresRefetch
 		}
 	}
 
 	if err := s.setVersion(ctx, currentVersion); err != nil {
 		cancel()
-		return errors.Wrap(err, "failed to set latest schema version")
+		return false, errors.Wrap(err, "failed to set latest schema version")
 	}
 
 	if err := s.CommitTx(ctx); err != nil {
 		cancel()
-		return errors.Wrap(err, "failed to commit upgrade transaction")
+		return false, errors.Wrap(err, "failed to commit upgrade transaction")
 	}
 
-	return nil
+	log.Info().Msg("Upgrade complete")
+
+	return requiresRefetch, nil
 }
 
 // validatorsEpochNull allows epochs in the t_validators table to be NULL.
@@ -138,6 +153,9 @@ func createDeposits(ctx context.Context, s *Service) error {
 	if _, err := tx.Exec(ctx, "CREATE UNIQUE INDEX i_deposits_1 ON t_deposits(f_inclusion_slot,f_inclusion_block_root,f_inclusion_index)"); err != nil {
 		return errors.Wrap(err, "failed to create deposits index")
 	}
+
+	// TODO reset blocks fetch metadata counter to 0.
+
 	return nil
 }
 
@@ -244,6 +262,52 @@ ALTER TABLE t_proposer_slashings
 ALTER COLUMN f_block_2_root SET NOT NULL
 `); err != nil {
 		return errors.Wrap(err, "failed to add NOT NULL constraint for f_block_2_root to proposer slashings table")
+	}
+
+	return nil
+}
+
+// createETH1Deposits creates the t_et1_deposits table.
+func createETH1Deposits(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE IF NOT EXISTS t_eth1_deposits (
+  f_eth1_block_number      BIGINT NOT NULL
+ ,f_eth1_block_hash        BYTEA NOT NULL
+ ,f_eth1_block_timestamp   TIMESTAMPTZ NOT NULL
+ ,f_eth1_tx_hash           BYTEA NOT NULL
+ ,f_eth1_log_index         BIGINT NOT NULL
+ ,f_eth1_sender            BYTEA NOT NULL
+ ,f_eth1_recipient         BYTEA NOT NULL
+ ,f_eth1_gas_used          BIGINT NOT NULL
+ ,f_eth1_gas_price         BIGINT NOT NULL
+ ,f_deposit_index          BIGINT UNIQUE NOT NULL
+ ,f_validator_pubkey       BYTEA NOT NULL
+ ,f_withdrawal_credentials BYTEA NOT NULL
+ ,f_signature              BYTEA NOT NULL
+ ,f_amount                 BIGINT NOT NULL
+)`); err != nil {
+		return errors.Wrap(err, "failed to create Ethereum 1 deposits table")
+	}
+
+	if _, err := tx.Exec(ctx, "CREATE UNIQUE INDEX IF NOT EXISTS i_eth1_deposits_1 ON t_eth1_deposits(f_eth1_block_hash, f_eth1_tx_hash, f_eth1_log_index)"); err != nil {
+		return errors.Wrap(err, "failed to create Ethereum 1 deposits index 1")
+	}
+	if _, err := tx.Exec(ctx, "CREATE INDEX IF NOT EXISTS i_eth1_deposits_2 ON t_eth1_deposits(f_validator_pubkey)"); err != nil {
+		return errors.Wrap(err, "failed to create Ethereum 1 deposits index 2")
+	}
+	if _, err := tx.Exec(ctx, "CREATE INDEX IF NOT EXISTS i_eth1_deposits_3 ON t_eth1_deposits(f_withdrawal_credentials)"); err != nil {
+		return errors.Wrap(err, "failed to create Ethereum 1 deposits index 3")
+	}
+	if _, err := tx.Exec(ctx, "CREATE INDEX IF NOT EXISTS i_eth1_deposits_4 ON t_eth1_deposits(f_eth1_sender)"); err != nil {
+		return errors.Wrap(err, "failed to create Ethereum 1 deposits index 4")
+	}
+	if _, err := tx.Exec(ctx, "CREATE INDEX IF NOT EXISTS i_eth1_deposits_5 ON t_eth1_deposits(f_eth1_recipient)"); err != nil {
+		return errors.Wrap(err, "failed to create Ethereum 1 deposits index 5")
 	}
 
 	return nil

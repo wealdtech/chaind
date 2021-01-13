@@ -107,6 +107,18 @@ type GenesisSetter interface {
 	SetGenesis(ctx context.Context, genesis *api.Genesis) error
 }
 
+// ETH1DepositsProvider defines functions to access Ethereum 1 deposits.
+type ETH1DepositsProvider interface {
+	// ETH1DepositsByPublicKey fetches Ethereum 1 deposits for a given set of validator public keys.
+	ETH1DepositsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) ([]*ETH1Deposit, error)
+}
+
+// ETH1DepositsSetter defines functions to create and update Ethereum 1 deposits.
+type ETH1DepositsSetter interface {
+	// SetETH1Deposit sets an Ethereum 1 deposit.
+	SetETH1Deposit(ctx context.Context, deposit *ETH1Deposit) error
+}
+
 // ProposerDutiesSetter defines the functions to create and update proposer duties.
 type ProposerDutiesSetter interface {
 	// SetProposerDuty sets a proposer duty.
