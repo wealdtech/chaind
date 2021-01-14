@@ -250,7 +250,7 @@ func (s *Service) dbAttestation(
 					Index:     beaconCommittee.Index,
 					Committee: beaconCommittee.Validators,
 				}
-				log.Warn().Uint64("slot", uint64(slot)).Uint64("index", index).Msg("Obtained beacon committee from API")
+				log.Debug().Uint64("slot", uint64(slot)).Uint64("index", index).Msg("Obtained beacon committee from API")
 				found = true
 				break
 			}
