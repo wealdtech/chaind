@@ -54,6 +54,13 @@ type ValidatorBalance struct {
 	EffectiveBalance spec.Gwei
 }
 
+// AggregateValidatorBalance holds aggreated information about validators' balances at a given epoch.
+type AggregateValidatorBalance struct {
+	Epoch            spec.Epoch
+	Balance          spec.Gwei
+	EffectiveBalance spec.Gwei
+}
+
 // BeaconCommittee holds information for beacon committees.
 type BeaconCommittee struct {
 	Slot      spec.Slot
