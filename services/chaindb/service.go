@@ -184,6 +184,43 @@ type ValidatorsProvider interface {
 	)
 }
 
+// AggregateValidatorBalancesProvider defines functions to access aggregate validator balances.
+type AggregateValidatorBalancesProvider interface {
+	// AggregateValidatorBalancesByIndexAndEpoch fetches the aggregate validator balances for the given validators and epoch.
+	AggregateValidatorBalancesByIndexAndEpoch(
+		ctx context.Context,
+		indices []spec.ValidatorIndex,
+		epoch spec.Epoch,
+	) (
+		*AggregateValidatorBalance,
+		error,
+	)
+
+	// AggregateValidatorBalancesByIndexAndEpochRange fetches the aggregate validator balances for the given validators and
+	// epoch range.
+	// Ranges are inclusive of start and exclusive of end i.e. a request with startEpoch 2 and endEpoch 4 will provide
+	// balances for epochs 2 and 3.
+	AggregateValidatorBalancesByIndexAndEpochRange(
+		ctx context.Context,
+		indices []spec.ValidatorIndex,
+		startEpoch spec.Epoch,
+		endEpoch spec.Epoch,
+	) (
+		[]*AggregateValidatorBalance,
+		error,
+	)
+
+	// AggregateValidatorBalancesByIndexAndEpochs fetches the validator balances for the given validators at the specified epochs.
+	AggregateValidatorBalancesByIndexAndEpochs(
+		ctx context.Context,
+		indices []spec.ValidatorIndex,
+		epochs []spec.Epoch,
+	) (
+		[]*AggregateValidatorBalance,
+		error,
+	)
+}
+
 // ValidatorsSetter defines functions to create and update validator information.
 type ValidatorsSetter interface {
 	// SetValidator sets a validator.
