@@ -44,15 +44,18 @@ GO111MODULE=on go get github.com/wealdtech/chaind
 # Usage
 Data gathers four pieces of information from the beacon node, broken down by the modules that obtain the information:
 
-  - **Proposer duties** The proposer duties module provides information on the validator expected to propose a beacon block at a given slot.
+  - **Proposer duties** The proposer duties module provides information on the validator expected to propose a beacon block at a given slot;
   - **Beacon committees** The beacon committees module provides information on the validators expected to attest to a beacon block at a given slot;
-  - **Validators** The validators module provides information on the current statue of validators.  It can also obtain information on the validators' balances and effective balances at a given epoch; and
+  - **Validators** The validators module provides information on the current statue of validators.  It can also obtain information on the validators' balances and effective balances at a given epoch;
   - **Blocks** The blocks module provides information on blocks proposed for each slot.  This includes:
     - the block structure
     - attestations
     - proposer slashings
     - attester slashings
-    - voluntary exits
+    - deposits
+    - voluntary exits; and
+  - **Finalizer** The finalizer module augments the information prsent in the database from finalized states.  This includes:
+    - the canonical state of blocks.
 
 # Requirements to run `chaind`
 ## Database
@@ -132,6 +135,9 @@ beacon-committees:
 # proposer-duties contains configuration for obtaining proposer duty-related
 # information.
 proposer-duties:
+  enable: true
+# finalizer updates tables with information available for finalized states.
+finalizer:
   enable: true
 ```
 

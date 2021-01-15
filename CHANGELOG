@@ -1,4 +1,5 @@
 Development:
+  - add f_canonical to t_blocks to state if a block is canonical (true), non-canonical (false) or not yet sure (NULL)
   - add provider functions to fetch aggregate validator balances
   - add f_aggregation_indices to t_attestations to provide explicit indices for attestations
   - add t_eth1_deposits table to hold data about deposits on the Ethereum 1 chain (N.B. not currently populated)

@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2021 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,6 +15,7 @@ package postgresql
 
 import (
 	"context"
+	"database/sql"
 
 	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
@@ -28,6 +29,11 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 		return ErrNoTransaction
 	}
 
+	var canonical sql.NullBool
+	if block.Canonical != nil {
+		canonical.Valid = true
+		canonical.Bool = *block.Canonical
+	}
 	_, err := tx.Exec(ctx, `
       INSERT INTO t_blocks(f_slot
                           ,f_proposer_index
@@ -37,11 +43,12 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
                           ,f_body_root
                           ,f_parent_root
                           ,f_state_root
+                          ,f_canonical
                           ,f_eth1_block_hash
                           ,f_eth1_deposit_count
                           ,f_eth1_deposit_root
 						  )
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
       ON CONFLICT (f_slot,f_root) DO
       UPDATE
       SET f_proposer_index = excluded.f_proposer_index
@@ -49,6 +56,7 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
          ,f_graffiti = excluded.f_graffiti
          ,f_randao_reveal = excluded.f_randao_reveal
          ,f_state_root = excluded.f_state_root
+         ,f_canonical = excluded.f_canonical
          ,f_eth1_block_hash = excluded.f_eth1_block_hash
          ,f_eth1_deposit_count = excluded.f_eth1_deposit_count
          ,f_eth1_deposit_root = excluded.f_eth1_deposit_root
@@ -61,10 +69,15 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 		block.BodyRoot[:],
 		block.ParentRoot[:],
 		block.StateRoot[:],
+		canonical,
 		block.ETH1BlockHash,
 		block.ETH1DepositCount,
 		block.ETH1DepositRoot[:],
 	)
+	if canonical.Valid {
+		val := canonical.Bool
+		block.Canonical = &val
+	}
 
 	return err
 }
@@ -90,6 +103,7 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot spec.Slot) ([]*chaindb.
             ,f_body_root
             ,f_parent_root
             ,f_state_root
+            ,f_canonical
             ,f_eth1_block_hash
             ,f_eth1_deposit_count
             ,f_eth1_deposit_root
@@ -111,6 +125,7 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot spec.Slot) ([]*chaindb.
 		var bodyRoot []byte
 		var parentRoot []byte
 		var stateRoot []byte
+		var canonical sql.NullBool
 		var eth1DepositRoot []byte
 		err := rows.Scan(
 			&block.Slot,
@@ -121,6 +136,7 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot spec.Slot) ([]*chaindb.
 			&bodyRoot,
 			&parentRoot,
 			&stateRoot,
+			&canonical,
 			&block.ETH1BlockHash,
 			&block.ETH1DepositCount,
 			&eth1DepositRoot,
@@ -133,6 +149,10 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot spec.Slot) ([]*chaindb.
 		copy(block.BodyRoot[:], bodyRoot)
 		copy(block.ParentRoot[:], parentRoot)
 		copy(block.StateRoot[:], stateRoot)
+		if canonical.Valid {
+			val := canonical.Bool
+			block.Canonical = &val
+		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
 		blocks = append(blocks, block)
 	}
@@ -158,6 +178,7 @@ func (s *Service) BlockByRoot(ctx context.Context, root spec.Root) (*chaindb.Blo
 	var bodyRoot []byte
 	var parentRoot []byte
 	var stateRoot []byte
+	var canonical sql.NullBool
 	var eth1DepositRoot []byte
 
 	err := tx.QueryRow(ctx, `
@@ -169,6 +190,7 @@ func (s *Service) BlockByRoot(ctx context.Context, root spec.Root) (*chaindb.Blo
             ,f_body_root
             ,f_parent_root
             ,f_state_root
+            ,f_canonical
             ,f_eth1_block_hash
             ,f_eth1_deposit_count
             ,f_eth1_deposit_root
@@ -184,6 +206,7 @@ func (s *Service) BlockByRoot(ctx context.Context, root spec.Root) (*chaindb.Blo
 		&bodyRoot,
 		&parentRoot,
 		&stateRoot,
+		&canonical,
 		&block.ETH1BlockHash,
 		&block.ETH1DepositCount,
 		&eth1DepositRoot,
@@ -196,6 +219,10 @@ func (s *Service) BlockByRoot(ctx context.Context, root spec.Root) (*chaindb.Blo
 	copy(block.BodyRoot[:], bodyRoot)
 	copy(block.ParentRoot[:], parentRoot)
 	copy(block.StateRoot[:], stateRoot)
+	if canonical.Valid {
+		val := canonical.Bool
+		block.Canonical = &val
+	}
 	copy(block.ETH1DepositRoot[:], eth1DepositRoot)
 	return block, nil
 }
@@ -221,6 +248,7 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot spec.Root) 
             ,f_body_root
             ,f_parent_root
             ,f_state_root
+            ,f_canonical
             ,f_eth1_block_hash
             ,f_eth1_deposit_count
             ,f_eth1_deposit_root
@@ -241,6 +269,7 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot spec.Root) 
 		var bodyRoot []byte
 		var parentRoot []byte
 		var stateRoot []byte
+		var canonical sql.NullBool
 		var eth1DepositRoot []byte
 		err := rows.Scan(
 			&block.Slot,
@@ -251,6 +280,7 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot spec.Root) 
 			&bodyRoot,
 			&parentRoot,
 			&stateRoot,
+			&canonical,
 			&block.ETH1BlockHash,
 			&block.ETH1DepositCount,
 			&eth1DepositRoot,
@@ -263,6 +293,10 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot spec.Root) 
 		copy(block.BodyRoot[:], bodyRoot)
 		copy(block.ParentRoot[:], parentRoot)
 		copy(block.StateRoot[:], stateRoot)
+		if canonical.Valid {
+			val := canonical.Bool
+			block.Canonical = &val
+		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
 		blocks = append(blocks, block)
 	}
@@ -307,4 +341,46 @@ func (s *Service) EmptySlots(ctx context.Context, minSlot spec.Slot, maxSlot spe
 	}
 
 	return missedSlots, nil
+}
+
+// IndeterminateBlocks fetches the blocks in the given range that do not have a canonical status.
+func (s *Service) IndeterminateBlocks(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Root, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_root
+      FROM t_blocks
+      WHERE f_slot >= $1
+        AND f_slot < $2
+        AND f_canonical IS NULL
+	  ORDER BY f_slot`,
+		minSlot,
+		maxSlot,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	indeterminateRoots := make([]spec.Root, 0)
+	var missedRootBytes []byte
+	for rows.Next() {
+		err := rows.Scan(&missedRootBytes)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		var missedRoot spec.Root
+		copy(missedRoot[:], missedRootBytes)
+		indeterminateRoots = append(indeterminateRoots, missedRoot)
+	}
+
+	return indeterminateRoots, nil
 }
