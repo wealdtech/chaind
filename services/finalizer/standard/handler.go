@@ -62,11 +62,11 @@ func (s *Service) updateCanonicalBlocks(ctx context.Context, root spec.Root) err
 	}
 
 	if err := s.canonicalizeBlocks(ctx, root); err != nil {
-		return err
+		return errors.Wrap(err, "failed to update canonical blocks from canonical root")
 	}
 
 	if err := s.noncanonicalizeBlocks(ctx, block.Slot); err != nil {
-		return err
+		return errors.Wrap(err, "failed to update non-canonical blocks from canonical root")
 	}
 
 	return nil
