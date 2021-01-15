@@ -72,6 +72,9 @@ type BlocksProvider interface {
 
 	// EmptySlots fetches the slots in the given range without a block in the database.
 	EmptySlots(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Slot, error)
+
+	// IndeterminateBlocks fetches the blocks in the given range that do not have a canonical status.
+	IndeterminateBlocks(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Root, error)
 }
 
 // BlocksSetter defines functions to create and update blocks.

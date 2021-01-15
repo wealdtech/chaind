@@ -44,6 +44,7 @@ var upgrades = map[uint64]*upgrade{
 			addProposerSlashingBlockRoots,
 			createETH1Deposits,
 			addAttestationAggregationIndices,
+			addBlocksCanonical,
 		},
 	},
 }
@@ -335,6 +336,23 @@ ALTER TABLE t_attestations
 ADD COLUMN f_aggregation_indices BIGINT[]
 `); err != nil {
 		return errors.Wrap(err, "failed to add f_aggregation_indices to attestations table")
+	}
+
+	return nil
+}
+
+// addBlocksCanonical adds canonical status to the t_blocks table.
+func addBlocksCanonical(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_blocks
+ADD COLUMN f_canonical BOOL
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_canonical to blocks table")
 	}
 
 	return nil

@@ -53,6 +53,11 @@ CREATE TABLE t_blocks (
  ,f_body_root          BYTEA NOT NULL
  ,f_parent_root        BYTEA NOT NULL
  ,f_state_root         BYTEA NOT NULL
+  -- f_canonical can have one of the following values:
+  -- - true if it is canonical
+  -- - false if it is not canonical
+  -- - NULL if it has yet to be determined
+ ,f_canonical          BOOL
  ,f_eth1_block_hash    BYTEA NOT NULL
  ,f_eth1_deposit_count BIGINT NOT NULL
  ,f_eth1_deposit_root  BYTEA NOT NULL

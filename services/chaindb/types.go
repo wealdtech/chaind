@@ -29,6 +29,7 @@ type Block struct {
 	BodyRoot         spec.Root
 	ParentRoot       spec.Root
 	StateRoot        spec.Root
+	Canonical        *bool
 	ETH1BlockHash    []byte
 	ETH1DepositCount uint64
 	ETH1DepositRoot  spec.Root

@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2021 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -38,6 +38,7 @@ import (
 	postgresqlchaindb "github.com/wealdtech/chaind/services/chaindb/postgresql"
 	"github.com/wealdtech/chaind/services/chaintime"
 	standardchaintime "github.com/wealdtech/chaind/services/chaintime/standard"
+	standardfinalizer "github.com/wealdtech/chaind/services/finalizer/standard"
 	standardproposerduties "github.com/wealdtech/chaind/services/proposerduties/standard"
 	standardspec "github.com/wealdtech/chaind/services/spec/standard"
 	standardvalidators "github.com/wealdtech/chaind/services/validators/standard"
@@ -114,6 +115,7 @@ func fetchConfig() error {
 	pflag.Bool("blocks.enable", true, "Enable fetching of block-related information")
 	pflag.Int32("blocks.start-slot", -1, "Slot from which to start fetching blocks")
 	pflag.Bool("blocks.refetch", false, "Refetch all blocks even if they are already in the database")
+	pflag.Bool("finalizer.enable", true, "Enable additional information on receipt of finality checkpoint")
 	pflag.Bool("validators.enable", true, "Enable fetching of validator-related information")
 	pflag.Bool("validators.balances.enable", false, "Enable fetching of validator balances")
 	pflag.Bool("beacon-committees.enable", true, "Enable fetching of beacom committee-related information")
@@ -219,6 +221,11 @@ func startServices(ctx context.Context) error {
 		return errors.Wrap(err, "failed to start blocks service")
 	}
 
+	log.Trace().Msg("Starting finalizer service")
+	if err := startFinalizer(ctx, eth2Client, chainDB, chainTime); err != nil {
+		return errors.Wrap(err, "failed to start finalizer service")
+	}
+
 	log.Trace().Msg("Starting validators service")
 	if err := startValidators(ctx, eth2Client, chainDB, chainTime); err != nil {
 		return errors.Wrap(err, "failed to start validators service")
@@ -322,6 +329,37 @@ func startBlocks(
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create blocks service")
+	}
+
+	return nil
+}
+
+func startFinalizer(
+	ctx context.Context,
+	eth2Client eth2client.Service,
+	chainDB chaindb.Service,
+	chainTime chaintime.Service,
+) error {
+	if !viper.GetBool("finalizer.enable") {
+		return nil
+	}
+
+	var err error
+	if viper.GetString("finalizer.address") != "" {
+		eth2Client, err = fetchClient(ctx, viper.GetString("finalizer.address"))
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to fetch client %q", viper.GetString("finalizer.address")))
+		}
+	}
+
+	_, err = standardfinalizer.New(ctx,
+		standardfinalizer.WithLogLevel(util.LogLevel("finalizer")),
+		standardfinalizer.WithETH2Client(eth2Client),
+		standardfinalizer.WithChainTime(chainTime),
+		standardfinalizer.WithChainDB(chainDB),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to create finalizer service")
 	}
 
 	return nil
