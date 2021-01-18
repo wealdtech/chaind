@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2021 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,6 +15,7 @@ package postgresql
 
 import (
 	"context"
+	"database/sql"
 
 	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
@@ -28,6 +29,16 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
 		return ErrNoTransaction
 	}
 
+	var targetCorrect sql.NullBool
+	if attestation.TargetCorrect != nil {
+		targetCorrect.Valid = true
+		targetCorrect.Bool = *attestation.TargetCorrect
+	}
+	var headCorrect sql.NullBool
+	if attestation.HeadCorrect != nil {
+		headCorrect.Valid = true
+		headCorrect.Bool = *attestation.HeadCorrect
+	}
 	_, err := tx.Exec(ctx, `
       INSERT INTO t_attestations(f_inclusion_slot
                                 ,f_inclusion_block_root
@@ -41,8 +52,10 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
                                 ,f_source_root
                                 ,f_target_epoch
                                 ,f_target_root
+                                ,f_target_correct
+                                ,f_head_correct
 						  )
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       ON CONFLICT (f_inclusion_slot,f_inclusion_block_root,f_inclusion_index) DO
       UPDATE
       SET f_slot = excluded.f_slot
@@ -54,6 +67,8 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
          ,f_source_root = excluded.f_source_root
          ,f_target_epoch = excluded.f_target_epoch
          ,f_target_root = excluded.f_target_root
+         ,f_target_correct = excluded.f_target_correct
+         ,f_head_correct = excluded.f_head_correct
 	  `,
 		attestation.InclusionSlot,
 		attestation.InclusionBlockRoot[:],
@@ -67,6 +82,8 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
 		attestation.SourceRoot[:],
 		attestation.TargetEpoch,
 		attestation.TargetRoot[:],
+		targetCorrect,
+		headCorrect,
 	)
 
 	return err
@@ -97,6 +114,8 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
             ,f_source_root
             ,f_target_epoch
             ,f_target_root
+            ,f_target_correct
+            ,f_head_correct
       FROM t_attestations
       WHERE f_beacon_block_root = $1
       ORDER BY f_inclusion_slot
@@ -113,9 +132,12 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
 	for rows.Next() {
 		attestation := &chaindb.Attestation{}
 		var inclusionBlockRoot []byte
+		var aggregationIndices []uint64
 		var beaconBlockRoot []byte
 		var sourceRoot []byte
 		var targetRoot []byte
+		var targetCorrect sql.NullBool
+		var headCorrect sql.NullBool
 		err := rows.Scan(
 			&attestation.InclusionSlot,
 			&inclusionBlockRoot,
@@ -123,20 +145,34 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
 			&attestation.Slot,
 			&attestation.CommitteeIndex,
 			&attestation.AggregationBits,
-			&attestation.AggregationIndices,
+			&aggregationIndices,
 			&beaconBlockRoot,
 			&attestation.SourceEpoch,
 			&sourceRoot,
 			&attestation.TargetEpoch,
 			&targetRoot,
+			&targetCorrect,
+			&headCorrect,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
 		copy(attestation.InclusionBlockRoot[:], inclusionBlockRoot)
+		attestation.AggregationIndices = make([]spec.ValidatorIndex, len(aggregationIndices))
+		for i := range aggregationIndices {
+			attestation.AggregationIndices[i] = spec.ValidatorIndex(aggregationIndices[i])
+		}
 		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
 		copy(attestation.SourceRoot[:], sourceRoot)
 		copy(attestation.TargetRoot[:], targetRoot)
+		if targetCorrect.Valid {
+			val := targetCorrect.Bool
+			attestation.TargetCorrect = &val
+		}
+		if headCorrect.Valid {
+			val := headCorrect.Bool
+			attestation.HeadCorrect = &val
+		}
 		attestations = append(attestations, attestation)
 	}
 
@@ -168,6 +204,8 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
             ,f_source_root
             ,f_target_epoch
             ,f_target_root
+            ,f_target_correct
+            ,f_head_correct
       FROM t_attestations
       WHERE f_inclusion_block_root = $1
       ORDER BY f_inclusion_slot
@@ -184,9 +222,12 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 	for rows.Next() {
 		attestation := &chaindb.Attestation{}
 		var inclusionBlockRoot []byte
+		var aggregationIndices []uint64
 		var beaconBlockRoot []byte
 		var sourceRoot []byte
 		var targetRoot []byte
+		var targetCorrect sql.NullBool
+		var headCorrect sql.NullBool
 		err := rows.Scan(
 			&attestation.InclusionSlot,
 			&inclusionBlockRoot,
@@ -194,20 +235,34 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 			&attestation.Slot,
 			&attestation.CommitteeIndex,
 			&attestation.AggregationBits,
-			&attestation.AggregationIndices,
+			&aggregationIndices,
 			&beaconBlockRoot,
 			&attestation.SourceEpoch,
 			&sourceRoot,
 			&attestation.TargetEpoch,
 			&targetRoot,
+			&targetCorrect,
+			&headCorrect,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
 		copy(attestation.InclusionBlockRoot[:], inclusionBlockRoot)
+		attestation.AggregationIndices = make([]spec.ValidatorIndex, len(aggregationIndices))
+		for i := range aggregationIndices {
+			attestation.AggregationIndices[i] = spec.ValidatorIndex(aggregationIndices[i])
+		}
 		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
 		copy(attestation.SourceRoot[:], sourceRoot)
 		copy(attestation.TargetRoot[:], targetRoot)
+		if targetCorrect.Valid {
+			val := targetCorrect.Bool
+			attestation.TargetCorrect = &val
+		}
+		if headCorrect.Valid {
+			val := headCorrect.Bool
+			attestation.HeadCorrect = &val
+		}
 		attestations = append(attestations, attestation)
 	}
 
@@ -215,7 +270,9 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 }
 
 // AttestationsForSlotRange fetches all attestations made for the given slot range.
-func (s *Service) AttestationsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*chaindb.Attestation, error) {
+// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
+// attestations for slots 2 and 3.
+func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*chaindb.Attestation, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -239,13 +296,15 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, minSlot spec.Slo
             ,f_source_root
             ,f_target_epoch
             ,f_target_root
+            ,f_target_correct
+            ,f_head_correct
       FROM t_attestations
       WHERE f_slot >= $1
         AND f_slot < $2
       ORDER BY f_inclusion_slot
 	          ,f_inclusion_index`,
-		minSlot,
-		maxSlot,
+		startSlot,
+		endSlot,
 	)
 	if err != nil {
 		return nil, err
@@ -257,9 +316,12 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, minSlot spec.Slo
 	for rows.Next() {
 		attestation := &chaindb.Attestation{}
 		var inclusionBlockRoot []byte
+		var aggregationIndices []uint64
 		var beaconBlockRoot []byte
 		var sourceRoot []byte
 		var targetRoot []byte
+		var targetCorrect sql.NullBool
+		var headCorrect sql.NullBool
 		err := rows.Scan(
 			&attestation.InclusionSlot,
 			&inclusionBlockRoot,
@@ -267,22 +329,77 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, minSlot spec.Slo
 			&attestation.Slot,
 			&attestation.CommitteeIndex,
 			&attestation.AggregationBits,
-			&attestation.AggregationIndices,
+			&aggregationIndices,
 			&beaconBlockRoot,
 			&attestation.SourceEpoch,
 			&sourceRoot,
 			&attestation.TargetEpoch,
 			&targetRoot,
+			&targetCorrect,
+			&headCorrect,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
 		copy(attestation.InclusionBlockRoot[:], inclusionBlockRoot)
+		attestation.AggregationIndices = make([]spec.ValidatorIndex, len(aggregationIndices))
+		for i := range aggregationIndices {
+			attestation.AggregationIndices[i] = spec.ValidatorIndex(aggregationIndices[i])
+		}
 		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
 		copy(attestation.SourceRoot[:], sourceRoot)
 		copy(attestation.TargetRoot[:], targetRoot)
+		if targetCorrect.Valid {
+			val := targetCorrect.Bool
+			attestation.TargetCorrect = &val
+		}
+		if headCorrect.Valid {
+			val := headCorrect.Bool
+			attestation.HeadCorrect = &val
+		}
 		attestations = append(attestations, attestation)
 	}
 
 	return attestations, nil
+}
+
+// IndeterminateAttestationSlots fetches the slots in the given range with attestations that do not have a canonical status.
+func (s *Service) IndeterminateAttestationSlots(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Slot, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT DISTINCT f_slot
+      FROM t_attestations
+      WHERE f_slot >= $1
+        AND f_slot < $2
+        AND f_target_correct IS NULL
+      ORDER BY f_slot`,
+		minSlot,
+		maxSlot,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	slots := make([]spec.Slot, 0)
+
+	for rows.Next() {
+		var slot spec.Slot
+		err := rows.Scan(&slot)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		slots = append(slots, slot)
+	}
+
+	return slots, nil
 }

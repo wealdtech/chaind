@@ -98,6 +98,8 @@ type Attestation struct {
 	SourceRoot         spec.Root
 	TargetEpoch        spec.Epoch
 	TargetRoot         spec.Root
+	TargetCorrect      *bool
+	HeadCorrect        *bool
 }
 
 // Deposit holds information about an Ethereum 2 deposit included by a block.

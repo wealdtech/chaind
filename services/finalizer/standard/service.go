@@ -15,9 +15,11 @@ package standard
 
 import (
 	"context"
+	"fmt"
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	api "github.com/attestantio/go-eth2-client/api/v1"
+	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
@@ -68,6 +70,56 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		activitySem:    semaphore.NewWeighted(1),
 	}
 
+	// Update to current epoch before starting (in the background).
+	go s.updateAfterRestart(ctx)
+
+	return s, nil
+}
+
+func (s *Service) updateAfterRestart(ctx context.Context) {
+	log.Info().Msg("Catching up")
+
+	md, err := s.getMetadata(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to obtain metadata")
+	}
+
+	finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(md.LastFinalizedEpoch)))
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to obtain finality")
+	}
+
+	// Find any indeterminate blocks and finalized them.
+	log.Trace().Msg("Updating canonical blocks")
+	if err := s.updateCanonicalBlocks(ctx, finality.Finalized.Root, false /* incremental */); err != nil {
+		log.Fatal().Err(err).Msg("Failed to update canonical blocks after restart")
+	}
+
+	// Find any epochs with indeterminate attestations and finalize them.
+	log.Trace().Msg("Updating attestation votes")
+	slots, err := s.chainDB.(chaindb.AttestationsProvider).IndeterminateAttestationSlots(ctx, 0, s.chainTime.FirstSlotOfEpoch(md.LastFinalizedEpoch))
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to fetch indeterminate attestations after restart")
+	}
+	epochs := make(map[spec.Epoch]bool)
+	for _, slot := range slots {
+		epochs[s.chainTime.SlotToEpoch(slot)] = true
+	}
+	for epoch := range epochs {
+		ctx, cancel, err := s.chainDB.BeginTx(ctx)
+		if err != nil {
+			cancel()
+			log.Fatal().Err(err).Msg("Failed to begin transaction")
+		}
+		if err := s.updateAttestationsForEpoch(ctx, epoch); err != nil {
+			log.Fatal().Uint64("epoch", uint64(epoch)).Err(err).Msg("Failed to update attestations for epoch after restart")
+		}
+		if err := s.chainDB.CommitTx(ctx); err != nil {
+			cancel()
+			log.Fatal().Err(err).Msg("Failed to commit transaction")
+		}
+	}
+
 	// Set up the handler for new chain head updates.
 	if err := s.eth2Client.(eth2client.EventsProvider).Events(ctx, []string{"finalized_checkpoint"}, func(event *api.Event) {
 		if event.Data == nil {
@@ -75,10 +127,11 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 			return
 		}
 		eventData := event.Data.(*api.FinalizedCheckpointEvent)
+		log.Trace().Str("event", eventData.String()).Msg("Received event")
 		s.OnFinalityCheckpointReceived(ctx, eventData.Epoch, eventData.Block, eventData.State)
 	}); err != nil {
 		log.Fatal().Err(err).Msg("Failed to add finality checkpoint received handler")
 	}
 
-	return s, nil
+	log.Info().Msg("Caught up")
 }

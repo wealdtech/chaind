@@ -45,6 +45,7 @@ var upgrades = map[uint64]*upgrade{
 			createETH1Deposits,
 			addAttestationAggregationIndices,
 			addBlocksCanonical,
+			addAttestationsVoteFields,
 		},
 	},
 }
@@ -358,6 +359,30 @@ ADD COLUMN f_canonical BOOL
 	return nil
 }
 
+// addAttestationsVoteFields adds vote-related fields the t_attestations table.
+func addAttestationsVoteFields(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_attestations
+ADD COLUMN f_target_correct BOOL
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_target_correct to attestations table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_attestations
+ADD COLUMN f_head_correct BOOL
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_head_correct to attestations table")
+	}
+
+	return nil
+}
+
 // columnExists returns true if the given clumn exists in the given table.
 func (s *Service) columnExists(ctx context.Context, tableName string, columnName string) (bool, error) {
 	tx := s.tx(ctx)
@@ -383,12 +408,13 @@ WHERE attrelid = '%s'::regclass
 	defer rows.Close()
 
 	found := false
-	rows.Next()
-	err = rows.Scan(
-		&found,
-	)
-	if err != nil {
-		return false, errors.Wrap(err, "failed to scan row")
+	if rows.Next() {
+		err = rows.Scan(
+			&found,
+		)
+		if err != nil {
+			return false, errors.Wrap(err, "failed to scan row")
+		}
 	}
 	return found, nil
 }
