@@ -100,6 +100,8 @@ CREATE TABLE t_attestations (
  ,f_source_root          BYTEA NOT NULL
  ,f_target_epoch         BIGINT NOT NULL
  ,f_target_root          BYTEA NOT NULL
+ ,f_target_correct       BOOL
+ ,f_head_correct         BOOL
 );
 CREATE UNIQUE INDEX i_attestations_1 ON t_attestations(f_inclusion_slot,f_inclusion_block_root,f_inclusion_index);
 CREATE INDEX i_attestations_2 ON t_attestations(f_slot);
