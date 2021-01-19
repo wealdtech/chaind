@@ -15,6 +15,7 @@ package postgresql
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"sort"
 	"strings"
@@ -33,22 +34,26 @@ func (s *Service) SetValidator(ctx context.Context, validator *chaindb.Validator
 		return ErrNoTransaction
 	}
 
-	var activationEligibilityEpoch *uint64
-	var activationEpoch *uint64
-	var exitEpoch *uint64
-	var withdrawableEpoch *uint64
+	var activationEligibilityEpoch sql.NullInt64
+	var activationEpoch sql.NullInt64
+	var exitEpoch sql.NullInt64
+	var withdrawableEpoch sql.NullInt64
 
 	if validator.ActivationEligibilityEpoch != farFutureEpoch {
-		activationEligibilityEpoch = (*uint64)(&validator.ActivationEligibilityEpoch)
+		activationEligibilityEpoch.Valid = true
+		activationEligibilityEpoch.Int64 = (int64)(validator.ActivationEligibilityEpoch)
 	}
 	if validator.ActivationEpoch != farFutureEpoch {
-		activationEpoch = (*uint64)(&validator.ActivationEpoch)
+		activationEpoch.Valid = true
+		activationEpoch.Int64 = (int64)(validator.ActivationEpoch)
 	}
 	if validator.ExitEpoch != farFutureEpoch {
-		exitEpoch = (*uint64)(&validator.ExitEpoch)
+		exitEpoch.Valid = true
+		exitEpoch.Int64 = (int64)(validator.ExitEpoch)
 	}
 	if validator.WithdrawableEpoch != farFutureEpoch {
-		withdrawableEpoch = (*uint64)(&validator.WithdrawableEpoch)
+		withdrawableEpoch.Valid = true
+		withdrawableEpoch.Int64 = (int64)(validator.WithdrawableEpoch)
 	}
 
 	_, err := tx.Exec(ctx, `
@@ -144,10 +149,10 @@ func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) 
 	validators := make([]*chaindb.Validator, 0)
 
 	var publicKey []byte
-	var activationEligibilityEpoch *uint64
-	var activationEpoch *uint64
-	var exitEpoch *uint64
-	var withdrawableEpoch *uint64
+	var activationEligibilityEpoch sql.NullInt64
+	var activationEpoch sql.NullInt64
+	var exitEpoch sql.NullInt64
+	var withdrawableEpoch sql.NullInt64
 	for rows.Next() {
 		validator := &chaindb.Validator{}
 		err := rows.Scan(
@@ -164,25 +169,25 @@ func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) 
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
 		copy(validator.PublicKey[:], publicKey)
-		if activationEligibilityEpoch == nil {
+		if !activationEligibilityEpoch.Valid {
 			validator.ActivationEligibilityEpoch = farFutureEpoch
 		} else {
-			validator.ActivationEligibilityEpoch = spec.Epoch(*activationEligibilityEpoch)
+			validator.ActivationEligibilityEpoch = spec.Epoch(activationEligibilityEpoch.Int64)
 		}
-		if activationEpoch == nil {
+		if !activationEpoch.Valid {
 			validator.ActivationEpoch = farFutureEpoch
 		} else {
-			validator.ActivationEpoch = spec.Epoch(*activationEpoch)
+			validator.ActivationEpoch = spec.Epoch(activationEpoch.Int64)
 		}
-		if exitEpoch == nil {
+		if !exitEpoch.Valid {
 			validator.ExitEpoch = farFutureEpoch
 		} else {
-			validator.ExitEpoch = spec.Epoch(*exitEpoch)
+			validator.ExitEpoch = spec.Epoch(exitEpoch.Int64)
 		}
-		if withdrawableEpoch == nil {
+		if !withdrawableEpoch.Valid {
 			validator.WithdrawableEpoch = farFutureEpoch
 		} else {
-			validator.WithdrawableEpoch = spec.Epoch(*withdrawableEpoch)
+			validator.WithdrawableEpoch = spec.Epoch(withdrawableEpoch.Int64)
 		}
 		validators = append(validators, validator)
 	}
@@ -229,10 +234,10 @@ func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []spec.BLSP
 
 	validators := make(map[spec.BLSPubKey]*chaindb.Validator)
 	var publicKey []byte
-	var activationEligibilityEpoch *uint64
-	var activationEpoch *uint64
-	var exitEpoch *uint64
-	var withdrawableEpoch *uint64
+	var activationEligibilityEpoch sql.NullInt64
+	var activationEpoch sql.NullInt64
+	var exitEpoch sql.NullInt64
+	var withdrawableEpoch sql.NullInt64
 	for rows.Next() {
 		validator := &chaindb.Validator{}
 		err := rows.Scan(
@@ -249,25 +254,25 @@ func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []spec.BLSP
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
 		copy(validator.PublicKey[:], publicKey)
-		if activationEligibilityEpoch == nil {
+		if !activationEligibilityEpoch.Valid {
 			validator.ActivationEligibilityEpoch = farFutureEpoch
 		} else {
-			validator.ActivationEligibilityEpoch = spec.Epoch(*activationEligibilityEpoch)
+			validator.ActivationEligibilityEpoch = spec.Epoch(activationEligibilityEpoch.Int64)
 		}
-		if activationEpoch == nil {
+		if !activationEpoch.Valid {
 			validator.ActivationEpoch = farFutureEpoch
 		} else {
-			validator.ActivationEpoch = spec.Epoch(*activationEpoch)
+			validator.ActivationEpoch = spec.Epoch(activationEpoch.Int64)
 		}
-		if exitEpoch == nil {
+		if !exitEpoch.Valid {
 			validator.ExitEpoch = farFutureEpoch
 		} else {
-			validator.ExitEpoch = spec.Epoch(*exitEpoch)
+			validator.ExitEpoch = spec.Epoch(exitEpoch.Int64)
 		}
-		if withdrawableEpoch == nil {
+		if !withdrawableEpoch.Valid {
 			validator.WithdrawableEpoch = farFutureEpoch
 		} else {
-			validator.WithdrawableEpoch = spec.Epoch(*withdrawableEpoch)
+			validator.WithdrawableEpoch = spec.Epoch(withdrawableEpoch.Int64)
 		}
 		validators[validator.PublicKey] = validator
 	}
@@ -309,10 +314,10 @@ func (s *Service) ValidatorsByIndex(ctx context.Context, indices []spec.Validato
 
 	validators := make(map[spec.ValidatorIndex]*chaindb.Validator)
 	var publicKey []byte
-	var activationEligibilityEpoch *uint64
-	var activationEpoch *uint64
-	var exitEpoch *uint64
-	var withdrawableEpoch *uint64
+	var activationEligibilityEpoch sql.NullInt64
+	var activationEpoch sql.NullInt64
+	var exitEpoch sql.NullInt64
+	var withdrawableEpoch sql.NullInt64
 	for rows.Next() {
 		validator := &chaindb.Validator{}
 		err := rows.Scan(
@@ -329,25 +334,25 @@ func (s *Service) ValidatorsByIndex(ctx context.Context, indices []spec.Validato
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
 		copy(validator.PublicKey[:], publicKey)
-		if activationEligibilityEpoch == nil {
+		if !activationEligibilityEpoch.Valid {
 			validator.ActivationEligibilityEpoch = farFutureEpoch
 		} else {
-			validator.ActivationEligibilityEpoch = spec.Epoch(*activationEligibilityEpoch)
+			validator.ActivationEligibilityEpoch = spec.Epoch(activationEligibilityEpoch.Int64)
 		}
-		if activationEpoch == nil {
+		if !activationEpoch.Valid {
 			validator.ActivationEpoch = farFutureEpoch
 		} else {
-			validator.ActivationEpoch = spec.Epoch(*activationEpoch)
+			validator.ActivationEpoch = spec.Epoch(activationEpoch.Int64)
 		}
-		if exitEpoch == nil {
+		if !exitEpoch.Valid {
 			validator.ExitEpoch = farFutureEpoch
 		} else {
-			validator.ExitEpoch = spec.Epoch(*exitEpoch)
+			validator.ExitEpoch = spec.Epoch(exitEpoch.Int64)
 		}
-		if withdrawableEpoch == nil {
+		if !withdrawableEpoch.Valid {
 			validator.WithdrawableEpoch = farFutureEpoch
 		} else {
-			validator.WithdrawableEpoch = spec.Epoch(*withdrawableEpoch)
+			validator.WithdrawableEpoch = spec.Epoch(withdrawableEpoch.Int64)
 		}
 		validators[validator.Index] = validator
 	}
