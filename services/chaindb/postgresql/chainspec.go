@@ -164,7 +164,7 @@ func dbValToSpec(ctx context.Context, key string, val string) interface{} {
 	}
 
 	// Handle durations.
-	if strings.HasPrefix(key, "SECONDS_PER_") {
+	if strings.HasPrefix(key, "SECONDS_PER_") || strings.HasSuffix(key, "_DELAY") {
 		intVal, err := strconv.ParseUint(val, 10, 64)
 		if err == nil && intVal != 0 {
 			return time.Duration(intVal) * time.Second

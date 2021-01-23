@@ -45,3 +45,8 @@ func (s *Service) SlotsPerEpoch(ctx context.Context) (uint64, error) {
 	}
 	return specVal, nil
 }
+
+// Spec provides the spec information of the chain.
+func (s *Service) Spec(ctx context.Context) (map[string]interface{}, error) {
+	return s.ChainSpec(ctx)
+}

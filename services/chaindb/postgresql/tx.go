@@ -49,12 +49,19 @@ func (s *Service) BeginTx(ctx context.Context) (context.Context, context.CancelF
 
 // hasTx returns true if the context has a transaction.
 func (s *Service) hasTx(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
 	_, ok := ctx.Value(&Tx{}).(pgx.Tx)
 	return ok
 }
 
 // tx returns the transaction; nil if no transaction
 func (s *Service) tx(ctx context.Context) pgx.Tx {
+	if ctx == nil {
+		return nil
+	}
+
 	if tx, ok := ctx.Value(&Tx{}).(pgx.Tx); ok {
 		return tx
 	}
@@ -63,6 +70,10 @@ func (s *Service) tx(ctx context.Context) pgx.Tx {
 
 // CommitTx commits a transaction on the ops datastore.
 func (s *Service) CommitTx(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("no context")
+	}
+
 	tx, ok := ctx.Value(&Tx{}).(pgx.Tx)
 	if !ok {
 		return errors.New("no transaction")

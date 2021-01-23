@@ -384,3 +384,79 @@ func (s *Service) IndeterminateBlocks(ctx context.Context, minSlot spec.Slot, ma
 
 	return indeterminateRoots, nil
 }
+
+// LatestBlocks fetches the blocks with the highest slot number for in the database.
+func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_slot
+            ,f_proposer_index
+            ,f_root
+            ,f_graffiti
+            ,f_randao_reveal
+            ,f_body_root
+            ,f_parent_root
+            ,f_state_root
+            ,f_canonical
+            ,f_eth1_block_hash
+            ,f_eth1_deposit_count
+            ,f_eth1_deposit_root
+      FROM t_blocks
+      WHERE f_slot = (SELECT MAX(f_slot) FROM t_blocks)`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	blocks := make([]*chaindb.Block, 0)
+
+	for rows.Next() {
+		block := &chaindb.Block{}
+		var blockRoot []byte
+		var randaoReveal []byte
+		var bodyRoot []byte
+		var parentRoot []byte
+		var stateRoot []byte
+		var canonical sql.NullBool
+		var eth1DepositRoot []byte
+		err := rows.Scan(
+			&block.Slot,
+			&block.ProposerIndex,
+			&blockRoot,
+			&block.Graffiti,
+			&randaoReveal,
+			&bodyRoot,
+			&parentRoot,
+			&stateRoot,
+			&canonical,
+			&block.ETH1BlockHash,
+			&block.ETH1DepositCount,
+			&eth1DepositRoot,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		copy(block.Root[:], blockRoot)
+		copy(block.RANDAOReveal[:], randaoReveal)
+		copy(block.BodyRoot[:], bodyRoot)
+		copy(block.ParentRoot[:], parentRoot)
+		copy(block.StateRoot[:], stateRoot)
+		if canonical.Valid {
+			val := canonical.Bool
+			block.Canonical = &val
+		}
+		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+		blocks = append(blocks, block)
+	}
+
+	return blocks, nil
+}
