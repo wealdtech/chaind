@@ -204,6 +204,7 @@ func (s *Service) catchupOnRestart(ctx context.Context, md *metadata) {
 			cancel()
 			return
 		}
+		log.Trace().Msg("Updated block")
 	}
 }
 

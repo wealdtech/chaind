@@ -96,7 +96,12 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot spec.Slot) error 
 		log.Debug().Msg("No beacon block obtained for slot")
 		return nil
 	}
+	return s.OnBlock(ctx, signedBlock)
+}
 
+// OnBlock handles a block.
+// This requires the context to hold an active transaction.
+func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock) error {
 	// Update the block in the database.
 	dbBlock, err := s.dbBlock(ctx, signedBlock.Message)
 	if err != nil {
