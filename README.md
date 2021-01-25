@@ -66,8 +66,6 @@ At current the only supported backend is PostgreSQL.  Once you have a  PostgreSQ
 createuser chain -P
 # This command creates a database named 'chain' owned by the 'chain' user.
 createdb -E UTF8 --owner=chain chain
-# This sets up the database schema
-psql -h localhost -U chain chain <schema.sql
 ```
 
 ### Beacon node
@@ -76,6 +74,9 @@ psql -h localhost -U chain chain <schema.sql
   - Teku: must be run in [archive mode](https://docs.teku.consensys.net/en/latest/Reference/CLI/CLI-Syntax/#data-storage-mode) to allow `chaind` to obtain historical data
   - Prysm: beacon committee information is not available.  Run `chaind` with `--beacon-committees.enable=false` to disabled fetching this information
   - Lighthouse: beacon committee information is not available.  Run `chaind` with `--beacon-committees.enable=false` to disabled fetching this information
+
+## Upgrading `chaind`
+`chaind` should upgrade automatically from earlier versions.  Note that the upgrade process can take a long time to complete, especially where data needs to be refetched or recalculated.  `chaind` should be left to complete the upgrade, to avoid the situation where additional fields are not fully populated.  If this does occur then `chaind` can be run with the options `--blocks.start-slot=0 --blocks.refetch=true` to force `chaind` to refetch all blocks.
 
 ## Configuring `chaind`
 The minimal requirements for `chaind` are references to the database and beacon node, for example:

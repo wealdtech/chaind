@@ -1,4 +1,5 @@
 Development:
+  - automatically create initial tables if the database does not contain them
   - add f_target_correct and f_head_correct to t_attestations; NULL if not yet sure
   - add f_canonical to t_blocks to state if a block is canonical (true), non-canonical (false) or not yet sure (NULL)
   - add provider functions to fetch aggregate validator balances
