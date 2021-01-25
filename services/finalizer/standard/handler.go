@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	eth2client "github.com/attestantio/go-eth2-client"
 	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
@@ -45,118 +46,125 @@ func (s *Service) OnFinalityCheckpointReceived(
 	}
 	defer s.activitySem.Release(1)
 
-	log.Trace().Msg("Updating canonical blocks")
-	if err := s.updateCanonicalBlocks(ctx, blockRoot, true /* incremental */); err != nil {
-		log.Warn().Err(err).Msg("Failed to update canonical blocks")
+	ctx, cancel, err := s.chainDB.BeginTx(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to begin transaction on finality")
+		return
 	}
 
-	log.Trace().Msg("Updating attestation votes")
+	md, err := s.getMetadata(ctx)
+	if err != nil {
+		cancel()
+		log.Error().Err(err).Msg("Failed to obtain metadata on finality")
+		return
+	}
+
+	log.Trace().Msg("Updating canonical blocks on finality")
+	md.LatestCanonicalSlot, err = s.updateCanonicalBlocks(ctx, blockRoot, md.LatestCanonicalSlot)
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to update canonical blocks on finality")
+	}
+	if err := s.setMetadata(ctx, md); err != nil {
+		cancel()
+		log.Error().Err(err).Msg("Failed to update metadata on finality")
+		return
+	}
+
+	log.Trace().Msg("Updating attestation votes on finality")
 	if err := s.updateAttestations(ctx, epoch); err != nil {
-		log.Warn().Err(err).Msg("Failed to update attestations")
+		log.Warn().Err(err).Msg("Failed to update attestations on finality")
+	}
+
+	if err := s.chainDB.CommitTx(ctx); err != nil {
+		cancel()
+		log.Error().Err(err).Msg("Failed to commit transaction on finality")
+		return
 	}
 
 	log.Trace().Msg("Finished handling finality checkpoint")
 }
 
 // updateCanonicalBlocks updates all canonical blocks given a canonical block root.
-func (s *Service) updateCanonicalBlocks(ctx context.Context, root spec.Root, incremental bool) error {
-	block, err := s.blocksProvider.BlockByRoot(ctx, root)
+func (s *Service) updateCanonicalBlocks(ctx context.Context, root spec.Root, limit spec.Slot) (spec.Slot, error) {
+	// Fetch the block from either the database or the chain.
+	block, err := s.fetchBlock(ctx, root)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			// If the block is not present in the database we cannot use it as a canonical
-			// head, so nothing to do.
-			return nil
-		}
-		return errors.Wrap(err, "failed to obtain block supplied by finalized checkpoint")
+		return 0, errors.Wrap(err, "failed to obtain block")
+	}
+	if block == nil {
+		// No block to update; return without error.
+		return limit, nil
 	}
 
-	if err := s.canonicalizeBlocks(ctx, root, incremental); err != nil {
-		return errors.Wrap(err, "failed to update canonical blocks from canonical root")
+	if err := s.canonicalizeBlocks(ctx, root, limit); err != nil {
+		return 0, errors.Wrap(err, "failed to update canonical blocks from canonical root")
 	}
 
 	if err := s.noncanonicalizeBlocks(ctx, block.Slot); err != nil {
-		return errors.Wrap(err, "failed to update non-canonical blocks from canonical root")
+		return 0, errors.Wrap(err, "failed to update non-canonical blocks from canonical root")
+	}
+
+	return block.Slot, nil
+}
+
+// canonicalizeBlocks marks the given block and all its parents as canonical.
+func (s *Service) canonicalizeBlocks(ctx context.Context, root spec.Root, limit spec.Slot) error {
+	log.Trace().Str("root", fmt.Sprintf("%#x", root)).Uint64("limit", uint64(limit)).Msg("Canonicalizing blocks")
+
+	for {
+		block, err := s.fetchBlock(ctx, root)
+		if err != nil {
+			return err
+		}
+
+		if block == nil {
+			log.Error().Str("block_root", fmt.Sprintf("%#x", root)).Msg("Block not found for root")
+			return errors.New("block not found for root")
+		}
+
+		if limit != 0 && block.Slot == limit {
+			break
+		}
+
+		// Update if the current status is either indeterminate or non-canonical.
+		if block.Canonical == nil || !*block.Canonical {
+			canonical := true
+			block.Canonical = &canonical
+			if err := s.blocksSetter.SetBlock(ctx, block); err != nil {
+				return errors.Wrap(err, "failed to set block to canonical")
+			}
+			log.Trace().Uint64("slot", uint64(block.Slot)).Str("root", fmt.Sprintf("%#x", block.Root)).Msg("Block is canonical")
+		}
+
+		if block.Slot == 0 {
+			// Reached the genesis block; done.
+			break
+		}
+
+		// Loop for parent.
+		root = block.ParentRoot
 	}
 
 	return nil
 }
 
-// canonicalizeBlocks marks the given block and all its parents as canonical.
-func (s *Service) canonicalizeBlocks(ctx context.Context, root spec.Root, incremental bool) error {
-	dbCtx, cancel, err := s.chainDB.BeginTx(ctx)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to begin transaction")
-	}
-
-	block, err := s.blocksProvider.BlockByRoot(dbCtx, root)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return fmt.Errorf("missing canonical block %#x; please restart chaind with --blocks.start-slot=0 and --finalizer.enable=false to catch up missing blocks, then restart again without to allow finalizer to resume", root)
-		}
-
-		cancel()
-		return errors.Wrap(err, fmt.Sprintf("failed to obtain canonical block %#x", root))
-	}
-
-	if block.Canonical != nil && *block.Canonical && incremental {
-		// Canonical chain fully linked; done.
-		cancel()
-		return nil
-	}
-
-	// Update if the current status is either indeterminate or non-canonical.
-	if block.Canonical == nil || !*block.Canonical {
-		canonical := true
-		block.Canonical = &canonical
-		if err := s.blocksSetter.SetBlock(dbCtx, block); err != nil {
-			cancel()
-			return errors.Wrap(err, "failed to set block to canonical")
-		}
-	}
-
-	if err := s.chainDB.CommitTx(dbCtx); err != nil {
-		cancel()
-		return errors.Wrap(err, "failed to commit transaction")
-	}
-
-	if block.Slot == 0 {
-		// Reached the genesis block; done.
-		return nil
-	}
-
-	// Recurse.
-	return s.canonicalizeBlocks(ctx, block.ParentRoot, incremental)
-}
-
 // noncanonicalizeBlocks marks all indeterminate blocks before the given slot as non-canonical.
 func (s *Service) noncanonicalizeBlocks(ctx context.Context, slot spec.Slot) error {
-	ctx, cancel, err := s.chainDB.BeginTx(ctx)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to begin transaction")
-	}
-
 	nonCanonicalRoots, err := s.blocksProvider.IndeterminateBlocks(ctx, 0, slot)
 	if err != nil {
-		cancel()
 		return errors.Wrap(err, "failed to obtain indeterminate blocks")
 	}
 	canonical := false
 	for _, nonCanonicalRoot := range nonCanonicalRoots {
 		nonCanonicalBlock, err := s.blocksProvider.BlockByRoot(ctx, nonCanonicalRoot)
 		if err != nil {
-			cancel()
 			return err
 		}
 		nonCanonicalBlock.Canonical = &canonical
 		if err := s.blocksSetter.SetBlock(ctx, nonCanonicalBlock); err != nil {
-			cancel()
 			return err
 		}
-	}
-
-	if err := s.chainDB.CommitTx(ctx); err != nil {
-		cancel()
-		return errors.Wrap(err, "failed to commit transaction")
+		log.Trace().Uint64("slot", uint64(nonCanonicalBlock.Slot)).Str("root", fmt.Sprintf("%#x", nonCanonicalBlock.Root)).Msg("Block is non-canonical")
 	}
 
 	return nil
@@ -164,10 +172,32 @@ func (s *Service) noncanonicalizeBlocks(ctx context.Context, slot spec.Slot) err
 
 // updateAttestations updates attestations given a finalized epoch.
 func (s *Service) updateAttestations(ctx context.Context, epoch spec.Epoch) error {
-
 	md, err := s.getMetadata(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain metadata")
+	}
+
+	// We need to ensure the finalizer is not running ahead of the blocks service.  To do so, we compare the slot of the block
+	// we fetched with the highest known slot in the database.  If our block is higher than that already stored it means that
+	// we are waiting on the blocks service, so bow out.
+	latestBlocks, err := s.blocksProvider.LatestBlocks(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain latest blocks")
+	}
+	if len(latestBlocks) == 0 {
+		// No blocks yet; bow out but no error.
+		return nil
+	}
+	earliestAllowableSlot := s.chainTime.FirstSlotOfEpoch(epoch)
+	if earliestAllowableSlot < 1024 {
+		earliestAllowableSlot = 0
+	} else {
+		earliestAllowableSlot -= 1024
+	}
+	if latestBlocks[0].Slot < earliestAllowableSlot {
+		// Bow out, but no error.
+		log.Trace().Msg("Not enough blocks in the database; not updating attestations")
+		return nil
 	}
 
 	// Obtain all attestations since the last finalized epoch, and update them.
@@ -180,23 +210,12 @@ func (s *Service) updateAttestations(ctx context.Context, epoch spec.Epoch) erro
 	}
 
 	for curEpoch := firstEpoch; curEpoch < epoch; curEpoch++ {
-		ctx, cancel, err := s.chainDB.BeginTx(ctx)
-		if err != nil {
-			cancel()
-			return errors.Wrap(err, "failed to begin transaction")
-		}
 		if err := s.updateAttestationsForEpoch(ctx, curEpoch); err != nil {
-			cancel()
 			return errors.Wrap(err, "failed to update attestations for epoch")
 		}
 		md.LastFinalizedEpoch = curEpoch
 		if err := s.setMetadata(ctx, md); err != nil {
-			cancel()
 			return errors.Wrap(err, "failed to update metadata for epoch")
-		}
-		if err := s.chainDB.CommitTx(ctx); err != nil {
-			cancel()
-			return errors.Wrap(err, "failed to commit transaction")
 		}
 	}
 
@@ -226,7 +245,12 @@ func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch spec.Epo
 		if err := s.chainDB.(chaindb.AttestationsSetter).SetAttestation(ctx, attestation); err != nil {
 			return errors.Wrap(err, "failed to update attestation")
 		}
-		log.Trace().Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Uint64("inclusion_index", attestation.InclusionIndex).Msg("Updated attestation")
+		log.Trace().
+			Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).
+			Uint64("inclusion_index", attestation.InclusionIndex).
+			Bool("target_correct", *attestation.TargetCorrect).
+			Bool("head_correct", *attestation.HeadCorrect).
+			Msg("Updated attestation")
 	}
 
 	return nil
@@ -242,6 +266,7 @@ func (s *Service) updateAttestationTargetCorrect(ctx context.Context, attestatio
 	} else {
 		// Start with first slot of the target epoch.
 		startSlot := s.chainTime.FirstSlotOfEpoch(attestation.TargetEpoch)
+
 		// Work backwards until we find a canonical block.
 		canonicalBlockFound := false
 		for slot := startSlot; !canonicalBlockFound; slot-- {
@@ -264,7 +289,7 @@ func (s *Service) updateAttestationTargetCorrect(ctx context.Context, attestatio
 			}
 		}
 		if !canonicalBlockFound {
-			return errors.New("failed to obtain canonical block, cannot update attestation")
+			return errors.New("failed to obtain canonical block")
 		}
 	}
 
@@ -315,4 +340,56 @@ func (s *Service) updateAttestationHeadCorrect(ctx context.Context,
 	attestation.HeadCorrect = &headCorrect
 
 	return nil
+}
+
+// fetchBlock fetches the block from the database, and if not found attempts to fetch it from the chain.
+func (s *Service) fetchBlock(ctx context.Context, root spec.Root) (*chaindb.Block, error) {
+	// Start with a simple fetch from the database.
+	block, err := s.blocksProvider.BlockByRoot(ctx, root)
+	if err != nil {
+		if err != pgx.ErrNoRows {
+			// Real error.
+			return nil, errors.Wrap(err, "failed to obtain block from provider")
+		}
+		// Not found in the database, try fetching it from the chain.
+		log.Debug().Str("block_root", fmt.Sprintf("%#x", root)).Msg("Failed to obtain block from provider; fetching from chain")
+		signedBlock, err := s.eth2Client.(eth2client.SignedBeaconBlockProvider).SignedBeaconBlock(ctx, fmt.Sprintf("%#x", root))
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to obtain block from chain")
+		}
+
+		// We need to ensure the finalizer is not running ahead of the blocks service.  To do so, we compare the slot of the block
+		// we fetched with the highest known slot in the database.  If our block is higher than that already stored it means that
+		// we are waiting on the blocks service, so bow out.
+		latestBlocks, err := s.blocksProvider.LatestBlocks(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to obtain latest blocks")
+		}
+		if len(latestBlocks) == 0 {
+			// No blocks yet; bow out but no error.
+			return nil, nil
+		}
+		earliestAllowableSlot := signedBlock.Message.Slot
+		if earliestAllowableSlot < 1024 {
+			earliestAllowableSlot = 0
+		} else {
+			earliestAllowableSlot -= 1024
+		}
+		if latestBlocks[0].Slot < earliestAllowableSlot {
+			// Bow out, but no error.
+			log.Trace().Msg("Not enough blocks in the database; not finalizing")
+			return nil, nil
+		}
+
+		if err := s.blocks.OnBlock(ctx, signedBlock); err != nil {
+			return nil, errors.Wrap(err, "failed to store block")
+		}
+
+		// Re-fetch from the database.
+		block, err = s.blocksProvider.BlockByRoot(ctx, root)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to obtain block from provider after fetching it from chain")
+		}
+	}
+	return block, nil
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
+	"github.com/wealdtech/chaind/services/blocks"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
 	"golang.org/x/sync/semaphore"
@@ -35,6 +36,7 @@ type Service struct {
 	blocksProvider chaindb.BlocksProvider
 	blocksSetter   chaindb.BlocksSetter
 	chainTime      chaintime.Service
+	blocks         blocks.Service
 	activitySem    *semaphore.Weighted
 }
 
@@ -67,6 +69,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		blocksProvider: blocksProvider,
 		blocksSetter:   blocksSetter,
 		chainTime:      parameters.chainTime,
+		blocks:         parameters.blocks,
 		activitySem:    semaphore.NewWeighted(1),
 	}
 
@@ -79,45 +82,72 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 func (s *Service) updateAfterRestart(ctx context.Context) {
 	log.Info().Msg("Catching up")
 
+	ctx, cancel, err := s.chainDB.BeginTx(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to begin transaction")
+		return
+	}
+
 	md, err := s.getMetadata(ctx)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to obtain metadata")
+		cancel()
+		log.Error().Err(err).Msg("Failed to obtain metadata")
+		return
 	}
 
 	finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(md.LastFinalizedEpoch)))
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to obtain finality")
+		cancel()
+		log.Error().Err(err).Msg("Failed to obtain finality")
+		return
 	}
+	log.Trace().
+		Uint64("last_finalized_epoch", uint64(md.LastFinalizedEpoch)).
+		Uint64("finalzed_epoch", uint64(finality.Finalized.Epoch)).
+		Str("finalized_root", fmt.Sprintf("%#x", finality.Finalized.Root)).
+		Msg("Obtained finality")
 
-	// Find any indeterminate blocks and finalized them.
-	log.Trace().Msg("Updating canonical blocks")
-	if err := s.updateCanonicalBlocks(ctx, finality.Finalized.Root, false /* incremental */); err != nil {
-		log.Fatal().Err(err).Msg("Failed to update canonical blocks after restart")
-	}
-
-	// Find any epochs with indeterminate attestations and finalize them.
-	log.Trace().Msg("Updating attestation votes")
-	slots, err := s.chainDB.(chaindb.AttestationsProvider).IndeterminateAttestationSlots(ctx, 0, s.chainTime.FirstSlotOfEpoch(md.LastFinalizedEpoch))
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to fetch indeterminate attestations after restart")
-	}
-	epochs := make(map[spec.Epoch]bool)
-	for _, slot := range slots {
-		epochs[s.chainTime.SlotToEpoch(slot)] = true
-	}
-	for epoch := range epochs {
-		ctx, cancel, err := s.chainDB.BeginTx(ctx)
+	// Only fix indeterminate blocks if the finalizer has already run at least once.
+	if finality.Finalized.Epoch != 0 && md.LatestCanonicalSlot != 0 {
+		// Find any indeterminate blocks and finalized them.
+		log.Trace().Msg("Updating canonical blocks after restart")
+		md.LatestCanonicalSlot, err = s.updateCanonicalBlocks(ctx, finality.Finalized.Root, md.LatestCanonicalSlot)
 		if err != nil {
 			cancel()
-			log.Fatal().Err(err).Msg("Failed to begin transaction")
+			log.Error().Err(err).Msg("Failed to update canonical blocks after restart")
+			return
 		}
-		if err := s.updateAttestationsForEpoch(ctx, epoch); err != nil {
-			log.Fatal().Uint64("epoch", uint64(epoch)).Err(err).Msg("Failed to update attestations for epoch after restart")
-		}
-		if err := s.chainDB.CommitTx(ctx); err != nil {
+		if err := s.setMetadata(ctx, md); err != nil {
 			cancel()
-			log.Fatal().Err(err).Msg("Failed to commit transaction")
+			log.Error().Err(err).Msg("Failed to update metadata for epoch")
+			return
 		}
+
+		// Find any epochs with indeterminate attestations and finalize them.
+		log.Trace().Msg("Updating attestation votes after restart")
+		slots, err := s.chainDB.(chaindb.AttestationsProvider).IndeterminateAttestationSlots(ctx, 0, s.chainTime.FirstSlotOfEpoch(md.LastFinalizedEpoch))
+		if err != nil {
+			cancel()
+			log.Error().Err(err).Msg("Failed to fetch indeterminate attestations after restart")
+			return
+		}
+		epochs := make(map[spec.Epoch]bool)
+		for _, slot := range slots {
+			epochs[s.chainTime.SlotToEpoch(slot)] = true
+		}
+		for epoch := range epochs {
+			if err := s.updateAttestationsForEpoch(ctx, epoch); err != nil {
+				cancel()
+				log.Error().Uint64("epoch", uint64(epoch)).Err(err).Msg("Failed to update attestations for epoch after restart")
+				return
+			}
+		}
+	}
+
+	if err := s.chainDB.CommitTx(ctx); err != nil {
+		cancel()
+		log.Error().Err(err).Msg("Failed to commit transaction")
+		return
 	}
 
 	// Set up the handler for new chain head updates.

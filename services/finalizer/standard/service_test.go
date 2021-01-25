@@ -21,6 +21,7 @@ import (
 	autoeth2client "github.com/attestantio/go-eth2-client/auto"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	mockblocks "github.com/wealdtech/chaind/services/blocks/mock"
 	postgresqlchaindb "github.com/wealdtech/chaind/services/chaindb/postgresql"
 	standardchaintime "github.com/wealdtech/chaind/services/chaintime/standard"
 	"github.com/wealdtech/chaind/services/finalizer/standard"
@@ -42,6 +43,8 @@ func TestService(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	blocks := mockblocks.New()
+
 	eth2Client, err := autoeth2client.New(ctx,
 		autoeth2client.WithAddress(os.Getenv("ETH2CLIENT_ADDRESS")),
 	)
@@ -58,6 +61,7 @@ func TestService(t *testing.T) {
 				standard.WithLogLevel(zerolog.Disabled),
 				standard.WithChainTime(chainTime),
 				standard.WithETH2Client(eth2Client),
+				standard.WithBlocks(blocks),
 			},
 			err: "problem with parameters: no chain database specified",
 		},
@@ -67,6 +71,7 @@ func TestService(t *testing.T) {
 				standard.WithLogLevel(zerolog.Disabled),
 				standard.WithChainDB(chainDB),
 				standard.WithETH2Client(eth2Client),
+				standard.WithBlocks(blocks),
 			},
 			err: "problem with parameters: no chain time specified",
 		},
@@ -76,8 +81,19 @@ func TestService(t *testing.T) {
 				standard.WithLogLevel(zerolog.Disabled),
 				standard.WithChainDB(chainDB),
 				standard.WithChainTime(chainTime),
+				standard.WithBlocks(blocks),
 			},
 			err: "problem with parameters: no Ethereum 2 client specified",
+		},
+		{
+			name: "BlocksMissing",
+			params: []standard.Parameter{
+				standard.WithLogLevel(zerolog.Disabled),
+				standard.WithChainDB(chainDB),
+				standard.WithChainTime(chainTime),
+				standard.WithETH2Client(eth2Client),
+			},
+			err: "problem with parameters: no blocks specified",
 		},
 		{
 			name: "Good",
@@ -86,6 +102,7 @@ func TestService(t *testing.T) {
 				standard.WithChainDB(chainDB),
 				standard.WithChainTime(chainTime),
 				standard.WithETH2Client(eth2Client),
+				standard.WithBlocks(blocks),
 			},
 		},
 	}

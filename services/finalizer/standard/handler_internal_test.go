@@ -22,6 +22,7 @@ import (
 	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	standardblocks "github.com/wealdtech/chaind/services/blocks/standard"
 	postgresqlchaindb "github.com/wealdtech/chaind/services/chaindb/postgresql"
 	standardchaintime "github.com/wealdtech/chaind/services/chaintime/standard"
 )
@@ -47,10 +48,19 @@ func TestUpdateAttestationHeadCorrect(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	blocks, err := standardblocks.New(ctx,
+		standardblocks.WithChainDB(chainDB),
+		standardblocks.WithChainTime(chainTime),
+		standardblocks.WithETH2Client(eth2Client),
+	)
+	require.NoError(t, err)
+
 	s, err := New(ctx,
 		WithChainDB(chainDB),
 		WithChainTime(chainTime),
 		WithETH2Client(eth2Client),
+		WithBlocks(blocks),
+		WithLogLevel(zerolog.TraceLevel),
 	)
 	require.NoError(t, err)
 
@@ -61,7 +71,7 @@ func TestUpdateAttestationHeadCorrect(t *testing.T) {
 		headCorrect bool
 	}{
 		{
-			name:        "Nil",
+			name:        "329828-7",
 			slot:        329828,
 			validator:   7,
 			headCorrect: true,

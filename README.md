@@ -41,7 +41,7 @@ docker pull wealdtech/chaind
 GO111MODULE=on go get github.com/wealdtech/chaind
 ```
 
-# Usage
+## Usage
 Data gathers four pieces of information from the beacon node, broken down by the modules that obtain the information:
 
   - **Proposer duties** The proposer duties module provides information on the validator expected to propose a beacon block at a given slot;
@@ -57,8 +57,8 @@ Data gathers four pieces of information from the beacon node, broken down by the
   - **Finalizer** The finalizer module augments the information prsent in the database from finalized states.  This includes:
     - the canonical state of blocks.
 
-# Requirements to run `chaind`
-## Database
+## Requirements to run `chaind`
+### Database
 At current the only supported backend is PostgreSQL.  Once you have a  PostgreSQL instance you will need to create a user and database that `chaind` can use, for example run the following commands as the PostgreSQL superuser (`postgres` on most linux installations):
 
 ```
@@ -70,14 +70,14 @@ createdb -E UTF8 --owner=chain chain
 psql -h localhost -U chain chain <schema.sql
 ```
 
-## Beacon node
+### Beacon node
 `chaind` supports Teku, Prysm and Lighthouse beacon nodes.  The current state of obtaining data from beacon nodes is as follows:
 
   - Teku: must be run in [archive mode](https://docs.teku.consensys.net/en/latest/Reference/CLI/CLI-Syntax/#data-storage-mode) to allow `chaind` to obtain historical data
   - Prysm: beacon committee information is not available.  Run `chaind` with `--beacon-committees.enable=false` to disabled fetching this information
   - Lighthouse: beacon committee information is not available.  Run `chaind` with `--beacon-committees.enable=false` to disabled fetching this information
 
-# Configuring `chaind`
+## Configuring `chaind`
 The minimal requirements for `chaind` are references to the database and beacon node, for example:
 
 ```

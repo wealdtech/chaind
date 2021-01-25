@@ -17,6 +17,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+
+	// #nosec G108
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -33,6 +36,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	standardbeaconcommittees "github.com/wealdtech/chaind/services/beaconcommittees/standard"
+	"github.com/wealdtech/chaind/services/blocks"
 	standardblocks "github.com/wealdtech/chaind/services/blocks/standard"
 	"github.com/wealdtech/chaind/services/chaindb"
 	postgresqlchaindb "github.com/wealdtech/chaind/services/chaindb/postgresql"
@@ -217,12 +221,13 @@ func startServices(ctx context.Context) error {
 	}
 
 	log.Trace().Msg("Starting blocks service")
-	if err := startBlocks(ctx, eth2Client, chainDB, chainTime); err != nil {
+	blocks, err := startBlocks(ctx, eth2Client, chainDB, chainTime)
+	if err != nil {
 		return errors.Wrap(err, "failed to start blocks service")
 	}
 
 	log.Trace().Msg("Starting finalizer service")
-	if err := startFinalizer(ctx, eth2Client, chainDB, chainTime); err != nil {
+	if err := startFinalizer(ctx, eth2Client, chainDB, chainTime, blocks); err != nil {
 		return errors.Wrap(err, "failed to start finalizer service")
 	}
 
@@ -306,20 +311,23 @@ func startBlocks(
 	eth2Client eth2client.Service,
 	chainDB chaindb.Service,
 	chainTime chaintime.Service,
-) error {
+) (
+	blocks.Service,
+	error,
+) {
 	if !viper.GetBool("blocks.enable") {
-		return nil
+		return nil, nil
 	}
 
 	var err error
 	if viper.GetString("blocks.address") != "" {
 		eth2Client, err = fetchClient(ctx, viper.GetString("blocks.address"))
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to fetch client %q", viper.GetString("blocks.address")))
+			return nil, errors.Wrap(err, fmt.Sprintf("failed to fetch client %q", viper.GetString("blocks.address")))
 		}
 	}
 
-	_, err = standardblocks.New(ctx,
+	s, err := standardblocks.New(ctx,
 		standardblocks.WithLogLevel(util.LogLevel("blocks")),
 		standardblocks.WithETH2Client(eth2Client),
 		standardblocks.WithChainTime(chainTime),
@@ -328,10 +336,10 @@ func startBlocks(
 		standardblocks.WithRefetch(viper.GetBool("blocks.refetch")),
 	)
 	if err != nil {
-		return errors.Wrap(err, "failed to create blocks service")
+		return nil, errors.Wrap(err, "failed to create blocks service")
 	}
 
-	return nil
+	return s, nil
 }
 
 func startFinalizer(
@@ -339,6 +347,7 @@ func startFinalizer(
 	eth2Client eth2client.Service,
 	chainDB chaindb.Service,
 	chainTime chaintime.Service,
+	blocks blocks.Service,
 ) error {
 	if !viper.GetBool("finalizer.enable") {
 		return nil
@@ -357,6 +366,7 @@ func startFinalizer(
 		standardfinalizer.WithETH2Client(eth2Client),
 		standardfinalizer.WithChainTime(chainTime),
 		standardfinalizer.WithChainDB(chainDB),
+		standardfinalizer.WithBlocks(blocks),
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create finalizer service")
