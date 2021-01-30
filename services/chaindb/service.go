@@ -33,6 +33,11 @@ type AttestationsProvider interface {
 	// attestations for slots 2 and 3.
 	AttestationsForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*Attestation, error)
 
+	// AttestationsInSlotRange fetches all attestations made in the given slot range.
+	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
+	// attestations in slots 2 and 3.
+	AttestationsInSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*Attestation, error)
+
 	// IndeterminateAttestationSlots fetches the slots in the given range with attestations that do not have a canonical status.
 	IndeterminateAttestationSlots(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Slot, error)
 }

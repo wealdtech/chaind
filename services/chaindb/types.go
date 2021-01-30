@@ -98,6 +98,7 @@ type Attestation struct {
 	SourceRoot         spec.Root
 	TargetEpoch        spec.Epoch
 	TargetRoot         spec.Root
+	Canonical          *bool
 	TargetCorrect      *bool
 	HeadCorrect        *bool
 }

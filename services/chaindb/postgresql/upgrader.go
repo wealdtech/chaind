@@ -377,6 +377,13 @@ func addAttestationsVoteFields(ctx context.Context, s *Service) error {
 
 	if _, err := tx.Exec(ctx, `
 ALTER TABLE t_attestations
+ADD COLUMN f_canonical BOOL
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_canonical to attestations table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_attestations
 ADD COLUMN f_target_correct BOOL
 `); err != nil {
 		return errors.Wrap(err, "failed to add f_target_correct to attestations table")
@@ -606,6 +613,7 @@ CREATE TABLE t_attestations (
  ,f_source_root          BYTEA NOT NULL
  ,f_target_epoch         BIGINT NOT NULL
  ,f_target_root          BYTEA NOT NULL
+ ,f_canonical            BOOL
  ,f_target_correct       BOOL
  ,f_head_correct         BOOL
 );

@@ -29,6 +29,11 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
 		return ErrNoTransaction
 	}
 
+	var canonical sql.NullBool
+	if attestation.Canonical != nil {
+		canonical.Valid = true
+		canonical.Bool = *attestation.Canonical
+	}
 	var targetCorrect sql.NullBool
 	if attestation.TargetCorrect != nil {
 		targetCorrect.Valid = true
@@ -52,10 +57,11 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
                                 ,f_source_root
                                 ,f_target_epoch
                                 ,f_target_root
+                                ,f_canonical
                                 ,f_target_correct
                                 ,f_head_correct
 						  )
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       ON CONFLICT (f_inclusion_slot,f_inclusion_block_root,f_inclusion_index) DO
       UPDATE
       SET f_slot = excluded.f_slot
@@ -67,6 +73,7 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
          ,f_source_root = excluded.f_source_root
          ,f_target_epoch = excluded.f_target_epoch
          ,f_target_root = excluded.f_target_root
+         ,f_canonical = excluded.f_canonical
          ,f_target_correct = excluded.f_target_correct
          ,f_head_correct = excluded.f_head_correct
 	  `,
@@ -82,6 +89,7 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
 		attestation.SourceRoot[:],
 		attestation.TargetEpoch,
 		attestation.TargetRoot[:],
+		canonical,
 		targetCorrect,
 		headCorrect,
 	)
@@ -114,6 +122,7 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
             ,f_source_root
             ,f_target_epoch
             ,f_target_root
+            ,f_canonical
             ,f_target_correct
             ,f_head_correct
       FROM t_attestations
@@ -136,6 +145,7 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
 		var beaconBlockRoot []byte
 		var sourceRoot []byte
 		var targetRoot []byte
+		var canonical sql.NullBool
 		var targetCorrect sql.NullBool
 		var headCorrect sql.NullBool
 		err := rows.Scan(
@@ -151,6 +161,7 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
 			&sourceRoot,
 			&attestation.TargetEpoch,
 			&targetRoot,
+			&canonical,
 			&targetCorrect,
 			&headCorrect,
 		)
@@ -165,6 +176,10 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
 		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
 		copy(attestation.SourceRoot[:], sourceRoot)
 		copy(attestation.TargetRoot[:], targetRoot)
+		if canonical.Valid {
+			val := canonical.Bool
+			attestation.Canonical = &val
+		}
 		if targetCorrect.Valid {
 			val := targetCorrect.Bool
 			attestation.TargetCorrect = &val
@@ -204,6 +219,7 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
             ,f_source_root
             ,f_target_epoch
             ,f_target_root
+            ,f_canonical
             ,f_target_correct
             ,f_head_correct
       FROM t_attestations
@@ -226,6 +242,7 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 		var beaconBlockRoot []byte
 		var sourceRoot []byte
 		var targetRoot []byte
+		var canonical sql.NullBool
 		var targetCorrect sql.NullBool
 		var headCorrect sql.NullBool
 		err := rows.Scan(
@@ -241,6 +258,7 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 			&sourceRoot,
 			&attestation.TargetEpoch,
 			&targetRoot,
+			&canonical,
 			&targetCorrect,
 			&headCorrect,
 		)
@@ -255,6 +273,10 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
 		copy(attestation.SourceRoot[:], sourceRoot)
 		copy(attestation.TargetRoot[:], targetRoot)
+		if canonical.Valid {
+			val := canonical.Bool
+			attestation.Canonical = &val
+		}
 		if targetCorrect.Valid {
 			val := targetCorrect.Bool
 			attestation.TargetCorrect = &val
@@ -296,6 +318,7 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot spec.S
             ,f_source_root
             ,f_target_epoch
             ,f_target_root
+            ,f_canonical
             ,f_target_correct
             ,f_head_correct
       FROM t_attestations
@@ -320,6 +343,7 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot spec.S
 		var beaconBlockRoot []byte
 		var sourceRoot []byte
 		var targetRoot []byte
+		var canonical sql.NullBool
 		var targetCorrect sql.NullBool
 		var headCorrect sql.NullBool
 		err := rows.Scan(
@@ -335,6 +359,7 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot spec.S
 			&sourceRoot,
 			&attestation.TargetEpoch,
 			&targetRoot,
+			&canonical,
 			&targetCorrect,
 			&headCorrect,
 		)
@@ -349,6 +374,111 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot spec.S
 		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
 		copy(attestation.SourceRoot[:], sourceRoot)
 		copy(attestation.TargetRoot[:], targetRoot)
+		if canonical.Valid {
+			val := canonical.Bool
+			attestation.Canonical = &val
+		}
+		if targetCorrect.Valid {
+			val := targetCorrect.Bool
+			attestation.TargetCorrect = &val
+		}
+		if headCorrect.Valid {
+			val := headCorrect.Bool
+			attestation.HeadCorrect = &val
+		}
+		attestations = append(attestations, attestation)
+	}
+
+	return attestations, nil
+}
+
+// AttestationsInSlotRange fetches all attestations made in the given slot range.
+// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
+// attestations in slots 2 and 3.
+func (s *Service) AttestationsInSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*chaindb.Attestation, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_inclusion_slot
+            ,f_inclusion_block_root
+            ,f_inclusion_index
+            ,f_slot
+            ,f_committee_index
+            ,f_aggregation_bits
+            ,f_aggregation_indices
+            ,f_beacon_block_root
+            ,f_source_epoch
+            ,f_source_root
+            ,f_target_epoch
+            ,f_target_root
+            ,f_canonical
+            ,f_target_correct
+            ,f_head_correct
+      FROM t_attestations
+      WHERE f_inclusion_slot >= $1
+        AND f_inclusion_slot < $2
+      ORDER BY f_inclusion_slot
+	          ,f_inclusion_index`,
+		startSlot,
+		endSlot,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	attestations := make([]*chaindb.Attestation, 0)
+
+	for rows.Next() {
+		attestation := &chaindb.Attestation{}
+		var inclusionBlockRoot []byte
+		var aggregationIndices []uint64
+		var beaconBlockRoot []byte
+		var sourceRoot []byte
+		var targetRoot []byte
+		var canonical sql.NullBool
+		var targetCorrect sql.NullBool
+		var headCorrect sql.NullBool
+		err := rows.Scan(
+			&attestation.InclusionSlot,
+			&inclusionBlockRoot,
+			&attestation.InclusionIndex,
+			&attestation.Slot,
+			&attestation.CommitteeIndex,
+			&attestation.AggregationBits,
+			&aggregationIndices,
+			&beaconBlockRoot,
+			&attestation.SourceEpoch,
+			&sourceRoot,
+			&attestation.TargetEpoch,
+			&targetRoot,
+			&canonical,
+			&targetCorrect,
+			&headCorrect,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		copy(attestation.InclusionBlockRoot[:], inclusionBlockRoot)
+		attestation.AggregationIndices = make([]spec.ValidatorIndex, len(aggregationIndices))
+		for i := range aggregationIndices {
+			attestation.AggregationIndices[i] = spec.ValidatorIndex(aggregationIndices[i])
+		}
+		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
+		copy(attestation.SourceRoot[:], sourceRoot)
+		copy(attestation.TargetRoot[:], targetRoot)
+		if canonical.Valid {
+			val := canonical.Bool
+			attestation.Canonical = &val
+		}
 		if targetCorrect.Valid {
 			val := targetCorrect.Bool
 			attestation.TargetCorrect = &val
@@ -380,7 +510,7 @@ func (s *Service) IndeterminateAttestationSlots(ctx context.Context, minSlot spe
       FROM t_attestations
       WHERE f_slot >= $1
         AND f_slot < $2
-        AND f_target_correct IS NULL
+        AND f_canonical IS NULL
       ORDER BY f_slot`,
 		minSlot,
 		maxSlot,

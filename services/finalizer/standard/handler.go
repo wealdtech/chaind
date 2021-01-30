@@ -224,10 +224,13 @@ func (s *Service) updateAttestations(ctx context.Context, epoch spec.Epoch) erro
 
 func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch spec.Epoch) error {
 	// epoch is a finalized epoch, so fetch all attestations for the epoch.
-	attestations, err := s.chainDB.(chaindb.AttestationsProvider).AttestationsForSlotRange(ctx, s.chainTime.FirstSlotOfEpoch(epoch), s.chainTime.FirstSlotOfEpoch(epoch+1))
+	attestations, err := s.chainDB.(chaindb.AttestationsProvider).AttestationsInSlotRange(ctx, s.chainTime.FirstSlotOfEpoch(epoch), s.chainTime.FirstSlotOfEpoch(epoch+1))
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain attestations for epoch")
 	}
+
+	// Keep track of block canonical state for slots to reduce lookups.
+	blockCanonicals := make(map[spec.Slot]bool)
 
 	// Keep track of roots for epochs to reduce lookups.
 	epochRoots := make(map[spec.Epoch]spec.Root)
@@ -236,6 +239,9 @@ func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch spec.Epo
 	headRoots := make(map[spec.Slot]spec.Root)
 
 	for _, attestation := range attestations {
+		if err := s.updateCanonical(ctx, attestation, blockCanonicals); err != nil {
+			return errors.Wrap(err, "failed to update canonical state")
+		}
 		if err := s.updateAttestationTargetCorrect(ctx, attestation, epochRoots); err != nil {
 			return errors.Wrap(err, "failed to update attestation target vote state")
 		}
@@ -248,9 +254,33 @@ func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch spec.Epo
 		log.Trace().
 			Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).
 			Uint64("inclusion_index", attestation.InclusionIndex).
+			Bool("canonical", *attestation.Canonical).
 			Bool("target_correct", *attestation.TargetCorrect).
 			Bool("head_correct", *attestation.HeadCorrect).
 			Msg("Updated attestation")
+	}
+
+	return nil
+}
+
+// updateCanonical updates the attestation to confirm if it is canonical.
+// An attestation is canonical if it is in a canonical block.
+func (s *Service) updateCanonical(ctx context.Context, attestation *chaindb.Attestation, blockCanonicals map[spec.Slot]bool) error {
+	if canonical, exists := blockCanonicals[attestation.InclusionSlot]; exists {
+		attestation.Canonical = &canonical
+	} else {
+		block, err := s.chainDB.(chaindb.BlocksProvider).BlockByRoot(ctx, attestation.InclusionBlockRoot)
+		if err != nil {
+			return errors.Wrap(err, "failed to obtain block")
+		}
+		if block == nil {
+			return fmt.Errorf("failed to find block %#x when updating canonical attestations", attestation.InclusionBlockRoot)
+		}
+		if block.Canonical == nil {
+			return fmt.Errorf("found indeterminate block %#x when updating canonical attestations", attestation.InclusionBlockRoot)
+		}
+		blockCanonicals[block.Slot] = *block.Canonical
+		attestation.Canonical = block.Canonical
 	}
 
 	return nil
