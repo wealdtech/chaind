@@ -13,6 +13,6 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.6.1
-	github.com/wealdtech/go-eth2-types/v2 v2.5.1
-	golang.org/x/sync v0.0.0-20190423024810-112230192c58
+	github.com/wealdtech/go-eth2-types/v2 v2.5.2
+	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 )

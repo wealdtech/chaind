@@ -85,3 +85,15 @@ func TestSetValidators(t *testing.T) {
 	require.Len(t, res, 1)
 	require.Equal(t, validator2, res[validator2.PublicKey])
 }
+
+func TestValidators(t *testing.T) {
+	ctx := context.Background()
+	s, err := postgresql.New(ctx,
+		postgresql.WithConnectionURL(os.Getenv("CHAINDB_DATABASE_URL")),
+	)
+	require.NoError(t, err)
+
+	validators, err := s.Validators(ctx)
+	require.NoError(t, err)
+	require.True(t, len(validators) > 0)
+}
