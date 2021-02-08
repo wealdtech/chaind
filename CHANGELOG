@@ -1,4 +1,4 @@
-Development:
+0.2.0:
   - automatically create initial tables if the database does not contain them
   - add f_canonical, f_target_correct and f_head_correct to t_attestations; NULL if not yet sure
   - add f_canonical to t_blocks to state if a block is canonical (true), non-canonical (false) or not yet sure (NULL)
