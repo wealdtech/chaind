@@ -88,7 +88,7 @@ jobs:
         prerelease: false
 
     - name: Upload windows checksum file
-      id: upload-release-asset-windows
+      id: upload-release-asset-windows-checksum
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -110,7 +110,7 @@ jobs:
         asset_content_type: application/zip
 
     - name: Upload linux AMD64 checksum file
-      id: upload-release-asset-linux-amd64
+      id: upload-release-asset-linux-amd64-checksum
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -132,7 +132,7 @@ jobs:
         asset_content_type: application/gzip
 
     - name: Upload linux ARM64 checksum file
-      id: upload-release-asset-linux-arm64
+      id: upload-release-asset-linux-arm64-checksum
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
