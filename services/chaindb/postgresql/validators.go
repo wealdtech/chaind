@@ -369,7 +369,9 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 
 	// If a validator is not present until after the beginning of the range, for example we ask for epochs 5->10 and
 	// the validator is first present at epoch 7, we need to front-pad the data for that validator with 0s.
-	padValidatorBalances(ctx, validatorBalances, int(uint64(endEpoch)-uint64(startEpoch)), startEpoch)
+	if err := padValidatorBalances(ctx, validatorBalances, int(uint64(endEpoch)-uint64(startEpoch)), startEpoch); err != nil {
+		return nil, err
+	}
 
 	return validatorBalances, nil
 }
@@ -443,7 +445,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochs(
 	return validatorBalances, nil
 }
 
-func padValidatorBalances(ctx context.Context, validatorBalances map[spec.ValidatorIndex][]*chaindb.ValidatorBalance, entries int, startEpoch spec.Epoch) {
+func padValidatorBalances(ctx context.Context, validatorBalances map[spec.ValidatorIndex][]*chaindb.ValidatorBalance, entries int, startEpoch spec.Epoch) error {
 	for validatorIndex, balances := range validatorBalances {
 		if len(balances) != entries {
 			paddedBalances := make([]*chaindb.ValidatorBalance, entries)
@@ -456,10 +458,16 @@ func padValidatorBalances(ctx context.Context, validatorBalances map[spec.Valida
 					EffectiveBalance: 0,
 				}
 			}
+			if len(balances) > 0 && balances[0].Epoch != startEpoch+spec.Epoch(padding) {
+				return fmt.Errorf("data missing in chaindb for validator %d", validatorIndex)
+			}
+
 			copy(paddedBalances[padding:], balances)
 			validatorBalances[validatorIndex] = paddedBalances
 		}
 	}
+
+	return nil
 }
 
 // validatorFromRow converts a SQL row in to a validator.
