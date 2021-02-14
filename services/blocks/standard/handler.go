@@ -71,6 +71,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	}
 
 	s.lastHandledBlockRoot = blockRoot
+	monitorBlockProcessed(slot)
 
 	log.Trace().Msg("Stored block")
 }

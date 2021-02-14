@@ -47,6 +47,10 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	// Set logging.
 	log = zerologger.With().Str("service", "proposerduties").Str("impl", "standard").Logger().Level(parameters.logLevel)
 
+	if err := registerMetrics(ctx, parameters.monitor); err != nil {
+		return nil, errors.New("failed to register metrics")
+	}
+
 	proposerDutiesSetter, isProposerDutiesSetter := parameters.chainDB.(chaindb.ProposerDutiesSetter)
 	if !isProposerDutiesSetter {
 		return nil, errors.New("chain DB does not support proposer duty setting")

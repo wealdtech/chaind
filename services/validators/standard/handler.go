@@ -73,6 +73,11 @@ func (s *Service) updateValidatorsForState(ctx context.Context, stateID string) 
 		return errors.Wrap(err, "failed to obtain validators")
 	}
 
+	epoch, err := s.eth2Client.(eth2client.EpochFromStateIDProvider).EpochFromStateID(ctx, stateID)
+	if err != nil {
+		return errors.Wrap(err, "failed to calculate epoch from state ID")
+	}
+
 	for index, validator := range validators {
 		dbValidator := &chaindb.Validator{
 			PublicKey:                  validator.Validator.PublicKey,
@@ -88,10 +93,6 @@ func (s *Service) updateValidatorsForState(ctx context.Context, stateID string) 
 			return errors.Wrap(err, "failed to set validator")
 		}
 		if s.balances {
-			epoch, err := s.eth2Client.(eth2client.EpochFromStateIDProvider).EpochFromStateID(ctx, stateID)
-			if err != nil {
-				return errors.Wrap(err, "failed to calculate epoch from state ID")
-			}
 			dbValidatorBalance := &chaindb.ValidatorBalance{
 				Index:            index,
 				Epoch:            epoch,
@@ -103,6 +104,11 @@ func (s *Service) updateValidatorsForState(ctx context.Context, stateID string) 
 			}
 		}
 	}
+	monitorEpochProcessed(epoch)
+	if s.balances {
+		monitorBalancesEpochProcessed(epoch)
+	}
+
 	return nil
 }
 

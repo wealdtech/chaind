@@ -8,6 +8,7 @@ require (
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v0.9.3
 	github.com/prysmaticlabs/go-bitfield v0.0.0-20201217222627-a48494c940af // indirect
 	github.com/rs/zerolog v1.20.0
 	github.com/spf13/pflag v1.0.5

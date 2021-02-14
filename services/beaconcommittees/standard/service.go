@@ -47,6 +47,10 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	// Set logging.
 	log = zerologger.With().Str("service", "beaconcommittees").Str("impl", "standard").Logger().Level(parameters.logLevel)
 
+	if err := registerMetrics(ctx, parameters.monitor); err != nil {
+		return nil, errors.New("failed to register metrics")
+	}
+
 	beaconCommitteesSetter, isBeaconCommitteesSetter := parameters.chainDB.(chaindb.BeaconCommitteesSetter)
 	if !isBeaconCommitteesSetter {
 		return nil, errors.New("chain DB does not support beacon committee setting")
