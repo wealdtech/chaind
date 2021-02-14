@@ -20,10 +20,12 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
+	"github.com/wealdtech/chaind/services/metrics"
 )
 
 type parameters struct {
 	logLevel   zerolog.Level
+	monitor    metrics.Service
 	eth2Client eth2client.Service
 	chainDB    chaindb.Service
 	chainTime  chaintime.Service
@@ -45,6 +47,13 @@ func (f parameterFunc) apply(p *parameters) {
 func WithLogLevel(logLevel zerolog.Level) Parameter {
 	return parameterFunc(func(p *parameters) {
 		p.logLevel = logLevel
+	})
+}
+
+// WithMonitor sets the monitor for the module.
+func WithMonitor(monitor metrics.Service) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.monitor = monitor
 	})
 }
 

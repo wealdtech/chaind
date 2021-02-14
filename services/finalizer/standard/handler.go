@@ -81,6 +81,7 @@ func (s *Service) OnFinalityCheckpointReceived(
 		return
 	}
 
+	monitorEpochProcessed(epoch)
 	log.Trace().Msg("Finished handling finality checkpoint")
 }
 

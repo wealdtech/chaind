@@ -51,6 +51,10 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	// Set logging.
 	log = zerologger.With().Str("service", "finalizer").Str("impl", "standard").Logger().Level(parameters.logLevel)
 
+	if err := registerMetrics(ctx, parameters.monitor); err != nil {
+		return nil, errors.New("failed to register metrics")
+	}
+
 	blocksProvider, isBlocksProvider := parameters.chainDB.(chaindb.BlocksProvider)
 	if !isBlocksProvider {
 		return nil, errors.New("chain DB does not support block providing")

@@ -65,7 +65,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 		return
 	}
 
-	log.Trace().Msg("Stored attester duties")
+	log.Trace().Msg("Stored proposer duties")
 }
 
 func (s *Service) updateProposerDutiesForEpoch(ctx context.Context, epoch spec.Epoch) error {
@@ -83,5 +83,7 @@ func (s *Service) updateProposerDutiesForEpoch(ctx context.Context, epoch spec.E
 			return errors.Wrap(err, "failed to set proposer duty")
 		}
 	}
+
+	monitorEpochProcessed(epoch)
 	return nil
 }

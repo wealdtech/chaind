@@ -43,6 +43,9 @@ import (
 	"github.com/wealdtech/chaind/services/chaintime"
 	standardchaintime "github.com/wealdtech/chaind/services/chaintime/standard"
 	standardfinalizer "github.com/wealdtech/chaind/services/finalizer/standard"
+	"github.com/wealdtech/chaind/services/metrics"
+	nullmetrics "github.com/wealdtech/chaind/services/metrics/null"
+	prometheusmetrics "github.com/wealdtech/chaind/services/metrics/prometheus"
 	standardproposerduties "github.com/wealdtech/chaind/services/proposerduties/standard"
 	standardspec "github.com/wealdtech/chaind/services/spec/standard"
 	standardvalidators "github.com/wealdtech/chaind/services/validators/standard"
@@ -86,10 +89,24 @@ func main2() int {
 		return 1
 	}
 
-	if err := startServices(ctx); err != nil {
+	log.Trace().Msg("Starting metrics service")
+	monitor, err := startMonitor(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to start metrics service")
+		return 1
+	}
+	if err := registerMetrics(ctx, monitor); err != nil {
+		log.Error().Err(err).Msg("Failed to register metrics")
+		return 1
+	}
+	setRelease(ctx, ReleaseVersion)
+	setReady(ctx, false)
+
+	if err := startServices(ctx, monitor); err != nil {
 		log.Error().Err(err).Msg("Failed to initialise services")
 		return 1
 	}
+	setReady(ctx, true)
 
 	log.Info().Msg("All services operational")
 
@@ -173,7 +190,26 @@ func initProfiling() error {
 	return nil
 }
 
-func startServices(ctx context.Context) error {
+func startMonitor(ctx context.Context) (metrics.Service, error) {
+	var monitor metrics.Service
+	if viper.Get("metrics.prometheus.listen-address") != nil {
+		var err error
+		monitor, err = prometheusmetrics.New(ctx,
+			prometheusmetrics.WithLogLevel(util.LogLevel("metrics.prometheus")),
+			prometheusmetrics.WithAddress(viper.GetString("metrics.prometheus.listen-address")),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to start prometheus metrics service")
+		}
+		log.Info().Str("listen_address", viper.GetString("metrics.prometheus.listen-address")).Msg("Started prometheus metrics service")
+	} else {
+		log.Debug().Msg("No metrics service supplied; monitor not starting")
+		monitor = &nullmetrics.Service{}
+	}
+	return monitor, nil
+}
+
+func startServices(ctx context.Context, monitor metrics.Service) error {
 	log.Trace().Msg("Starting chain database service")
 	chainDB, err := postgresqlchaindb.New(ctx,
 		postgresqlchaindb.WithLogLevel(util.LogLevel("chaindb")),
@@ -221,28 +257,28 @@ func startServices(ctx context.Context) error {
 	}
 
 	log.Trace().Msg("Starting blocks service")
-	blocks, err := startBlocks(ctx, eth2Client, chainDB, chainTime)
+	blocks, err := startBlocks(ctx, eth2Client, chainDB, chainTime, monitor)
 	if err != nil {
 		return errors.Wrap(err, "failed to start blocks service")
 	}
 
 	log.Trace().Msg("Starting finalizer service")
-	if err := startFinalizer(ctx, eth2Client, chainDB, chainTime, blocks); err != nil {
+	if err := startFinalizer(ctx, eth2Client, chainDB, chainTime, blocks, monitor); err != nil {
 		return errors.Wrap(err, "failed to start finalizer service")
 	}
 
 	log.Trace().Msg("Starting validators service")
-	if err := startValidators(ctx, eth2Client, chainDB, chainTime); err != nil {
+	if err := startValidators(ctx, eth2Client, chainDB, chainTime, monitor); err != nil {
 		return errors.Wrap(err, "failed to start validators service")
 	}
 
 	log.Trace().Msg("Starting beacon committees service")
-	if err := startBeaconCommittees(ctx, eth2Client, chainDB, chainTime); err != nil {
+	if err := startBeaconCommittees(ctx, eth2Client, chainDB, chainTime, monitor); err != nil {
 		return errors.Wrap(err, "failed to start beacon committees service")
 	}
 
 	log.Trace().Msg("Starting proposer duties service")
-	if err := startProposerDuties(ctx, eth2Client, chainDB, chainTime); err != nil {
+	if err := startProposerDuties(ctx, eth2Client, chainDB, chainTime, monitor); err != nil {
 		return errors.Wrap(err, "failed to start proposer duties service")
 	}
 
@@ -311,6 +347,7 @@ func startBlocks(
 	eth2Client eth2client.Service,
 	chainDB chaindb.Service,
 	chainTime chaintime.Service,
+	monitor metrics.Service,
 ) (
 	blocks.Service,
 	error,
@@ -329,6 +366,7 @@ func startBlocks(
 
 	s, err := standardblocks.New(ctx,
 		standardblocks.WithLogLevel(util.LogLevel("blocks")),
+		standardblocks.WithMonitor(monitor),
 		standardblocks.WithETH2Client(eth2Client),
 		standardblocks.WithChainTime(chainTime),
 		standardblocks.WithChainDB(chainDB),
@@ -348,6 +386,7 @@ func startFinalizer(
 	chainDB chaindb.Service,
 	chainTime chaintime.Service,
 	blocks blocks.Service,
+	monitor metrics.Service,
 ) error {
 	if !viper.GetBool("finalizer.enable") {
 		return nil
@@ -363,6 +402,7 @@ func startFinalizer(
 
 	_, err = standardfinalizer.New(ctx,
 		standardfinalizer.WithLogLevel(util.LogLevel("finalizer")),
+		standardfinalizer.WithMonitor(monitor),
 		standardfinalizer.WithETH2Client(eth2Client),
 		standardfinalizer.WithChainTime(chainTime),
 		standardfinalizer.WithChainDB(chainDB),
@@ -380,6 +420,7 @@ func startValidators(
 	eth2Client eth2client.Service,
 	chainDB chaindb.Service,
 	chainTime chaintime.Service,
+	monitor metrics.Service,
 ) error {
 	if !viper.GetBool("validators.enable") {
 		return nil
@@ -395,6 +436,7 @@ func startValidators(
 
 	_, err = standardvalidators.New(ctx,
 		standardvalidators.WithLogLevel(util.LogLevel("validators")),
+		standardvalidators.WithMonitor(monitor),
 		standardvalidators.WithETH2Client(eth2Client),
 		standardvalidators.WithChainTime(chainTime),
 		standardvalidators.WithChainDB(chainDB),
@@ -412,6 +454,7 @@ func startBeaconCommittees(
 	eth2Client eth2client.Service,
 	chainDB chaindb.Service,
 	chainTime chaintime.Service,
+	monitor metrics.Service,
 ) error {
 	if !viper.GetBool("beacon-committees.enable") {
 		return nil
@@ -427,6 +470,7 @@ func startBeaconCommittees(
 
 	_, err = standardbeaconcommittees.New(ctx,
 		standardbeaconcommittees.WithLogLevel(util.LogLevel("beacon-committees")),
+		standardbeaconcommittees.WithMonitor(monitor),
 		standardbeaconcommittees.WithETH2Client(eth2Client),
 		standardbeaconcommittees.WithChainTime(chainTime),
 		standardbeaconcommittees.WithChainDB(chainDB),
@@ -443,6 +487,7 @@ func startProposerDuties(
 	eth2Client eth2client.Service,
 	chainDB chaindb.Service,
 	chainTime chaintime.Service,
+	monitor metrics.Service,
 ) error {
 	if !viper.GetBool("proposer-duties.enable") {
 		return nil
@@ -458,6 +503,7 @@ func startProposerDuties(
 
 	_, err = standardproposerduties.New(ctx,
 		standardproposerduties.WithLogLevel(util.LogLevel("proposer-duties")),
+		standardproposerduties.WithMonitor(monitor),
 		standardproposerduties.WithETH2Client(eth2Client),
 		standardproposerduties.WithChainTime(chainTime),
 		standardproposerduties.WithChainDB(chainDB),

@@ -87,5 +87,7 @@ func (s *Service) updateBeaconCommitteesForEpoch(ctx context.Context, epoch spec
 			return errors.Wrap(err, "failed to set beacon committee")
 		}
 	}
+	monitorEpochProcessed(epoch)
+
 	return nil
 }
