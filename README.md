@@ -75,6 +75,19 @@ createdb -E UTF8 --owner=chain chain
   - Prysm: beacon committee information is not available.  Run `chaind` with `--beacon-committees.enable=false` to disabled fetching this information
   - Lighthouse: beacon committee information is not available.  Run `chaind` with `--beacon-committees.enable=false` to disabled fetching this information
 
+### Example
+To start a Teku node suitable for `chaind` download teku and run the following command:
+
+```sh
+teku --rest-api-enabled --data-storage-mode=archive
+```
+
+Once Teku has finished syncing, run:
+
+```sh
+chaind --ethclient-address=http://localhost:5051/
+```
+
 ## Upgrading `chaind`
 `chaind` should upgrade automatically from earlier versions.  Note that the upgrade process can take a long time to complete, especially where data needs to be refetched or recalculated.  `chaind` should be left to complete the upgrade, to avoid the situation where additional fields are not fully populated.  If this does occur then `chaind` can be run with the options `--blocks.start-slot=0 --blocks.refetch=true` to force `chaind` to refetch all blocks.
 
