@@ -50,7 +50,6 @@ import (
 	standardspec "github.com/wealdtech/chaind/services/spec/standard"
 	standardvalidators "github.com/wealdtech/chaind/services/validators/standard"
 	"github.com/wealdtech/chaind/util"
-	e2types "github.com/wealdtech/go-eth2-types/v2"
 )
 
 // ReleaseVersion is the release version for the code.
@@ -83,11 +82,6 @@ func main2() int {
 	}
 
 	runtime.GOMAXPROCS(runtime.NumCPU() * 8)
-
-	if err := e2types.InitBLS(); err != nil {
-		log.Error().Err(err).Msg("Failed to initialise BLS library")
-		return 1
-	}
 
 	log.Trace().Msg("Starting metrics service")
 	monitor, err := startMonitor(ctx)

@@ -37,6 +37,8 @@ github.com/attestantio/go-eth2-client v0.6.18 h1:8Oa3Cd8/+MPQkU35khV+QlcLUosyAUT
 github.com/attestantio/go-eth2-client v0.6.18/go.mod h1:Hya4fp1ZLWAFI64qMhNbQgfY4StWiHulW4CFwu+vP3s=
 github.com/attestantio/go-eth2-client v0.6.21 h1:omtOkQ0iu8dXjlQdHGZdESJYT9zOu9YnYMFMGF1Xjv4=
 github.com/attestantio/go-eth2-client v0.6.21/go.mod h1:Hya4fp1ZLWAFI64qMhNbQgfY4StWiHulW4CFwu+vP3s=
+github.com/attestantio/go-eth2-client v0.6.23 h1:8ZlH29bjzjwRUFqGLTUJD1Ocl8QQ7pEtLfIMFFzl08k=
+github.com/attestantio/go-eth2-client v0.6.23/go.mod h1:Hya4fp1ZLWAFI64qMhNbQgfY4StWiHulW4CFwu+vP3s=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0 h1:HWo1m869IqiPhD389kmkxeTalrjNbbJTC8LXupb+sl0=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
