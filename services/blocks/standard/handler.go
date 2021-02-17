@@ -47,25 +47,35 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to begin transaction")
+		return
 	}
 
 	md, err := s.getMetadata(ctx)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to obtain metadata")
+		log.Error().Err(err).Msg("Failed to obtain metadata")
+		md.MissedSlots = append(md.MissedSlots, slot)
+		cancel()
+		return
 	}
 
 	if err := s.updateBlockForSlot(ctx, slot); err != nil {
 		log.Error().Err(err).Msg("Failed to update block on chain head updated")
 		md.MissedSlots = append(md.MissedSlots, slot)
+		cancel()
+		return
 	}
 
 	md.LatestSlot = slot
 	if err := s.setMetadata(ctx, md); err != nil {
 		log.Error().Err(err).Msg("Failed to set metadata")
+		md.MissedSlots = append(md.MissedSlots, slot)
+		cancel()
+		return
 	}
 
 	if err := s.chainDB.CommitTx(ctx); err != nil {
 		log.Error().Err(err).Msg("Failed to commit transaction")
+		md.MissedSlots = append(md.MissedSlots, slot)
 		cancel()
 		return
 	}
