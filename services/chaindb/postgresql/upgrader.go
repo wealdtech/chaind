@@ -48,6 +48,11 @@ var upgrades = map[uint64]*upgrade{
 			addAttestationsVoteFields,
 		},
 	},
+	2: {
+		funcs: []func(context.Context, *Service) error{
+			createSummaryTables,
+		},
+	},
 }
 
 // Upgrade upgrades the database.
@@ -504,6 +509,32 @@ func (s *Service) setVersion(ctx context.Context, version uint64) error {
 	}
 
 	return s.SetMetadata(ctx, "schema", data)
+}
+
+// createSummaryTables creates the summary tables.
+func createSummaryTables(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `CREATE TABLE t_validator_epoch_summaries (
+  f_validator_index             BIGINT NOT NULL REFERENCES t_validators(f_index) ON DELETE CASCADE
+ ,f_epoch                       BIGINT NOT NULL
+ ,f_proposer_duties             INTEGER NOT NULL
+ ,f_proposals_included          INTEGER NOT NULL
+ ,f_attestation_included        BOOL NOT NULL
+ ,f_attestation_target_correct  BOOL
+ ,f_attestation_head_correct    BOOL
+ ,f_attestation_inclusion_delay INTEGER
+)`); err != nil {
+		return errors.Wrap(err, "failed to create validator epoch summaries table")
+	}
+	if _, err := tx.Exec(ctx, "CREATE UNIQUE INDEX IF NOT EXISTS i_validator_epoch_summaries_1 ON t_validator_epoch_summaries(f_validator_index, f_epoch)"); err != nil {
+		return errors.Wrap(err, "failed to create validator epoch summaries index 1")
+	}
+
+	return nil
 }
 
 // Init initialises the database.

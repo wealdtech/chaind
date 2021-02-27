@@ -185,3 +185,15 @@ type ProposerSlashing struct {
 	Header2BodyRoot      spec.Root
 	Header2Signature     spec.BLSSignature
 }
+
+// ValidatorEpochSummary provides a summary of a validator's operations for an epoch.
+type ValidatorEpochSummary struct {
+	Index                     spec.ValidatorIndex
+	Epoch                     spec.Epoch
+	ProposerDuties            int
+	ProposalsIncluded         int
+	AttestationIncluded       bool
+	AttestationTargetCorrect  *bool
+	AttestationHeadCorrect    *bool
+	AttestationInclusionDelay *int
+}

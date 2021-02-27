@@ -74,6 +74,11 @@ type BlocksProvider interface {
 	// BlocksBySlot fetches all blocks with the given slot.
 	BlocksBySlot(ctx context.Context, slot spec.Slot) ([]*Block, error)
 
+	// BlocksForSlotRange fetches all blocks with the given slot range.
+	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
+	// blocks duties for slots 2 and 3.
+	BlocksForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*Block, error)
+
 	// BlockByRoot fetches the block with the given root.
 	BlockByRoot(ctx context.Context, root spec.Root) (*Block, error)
 
@@ -88,6 +93,12 @@ type BlocksProvider interface {
 
 	// IndeterminateBlocks fetches the blocks in the given range that do not have a canonical status.
 	IndeterminateBlocks(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Root, error)
+
+	// CanonicalBlockPresenceForSlotRange returns a boolean for each slot in the range for the presence
+	// of a canonical block.
+	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
+	// presence duties for slots 2 and 3.
+	CanonicalBlockPresenceForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]bool, error)
 }
 
 // BlocksSetter defines functions to create and update blocks.
@@ -133,6 +144,14 @@ type ETH1DepositsProvider interface {
 type ETH1DepositsSetter interface {
 	// SetETH1Deposit sets an Ethereum 1 deposit.
 	SetETH1Deposit(ctx context.Context, deposit *ETH1Deposit) error
+}
+
+// ProposerDutiesProvider defines functions to access proposer duties.
+type ProposerDutiesProvider interface {
+	// ProposerDutiesForSlotRange fetches all proposer duties for the given slot range.
+	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
+	// proposer duties for slots 2 and 3.
+	ProposerDutiesForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*ProposerDuty, error)
 }
 
 // ProposerDutiesSetter defines the functions to create and update proposer duties.
@@ -262,6 +281,12 @@ type DepositsSetter interface {
 type VoluntaryExitsSetter interface {
 	// SetVoluntaryExit sets a voluntary exit.
 	SetVoluntaryExit(ctx context.Context, voluntaryExit *VoluntaryExit) error
+}
+
+// ValidatorEpochSummariesSetter defines functions to create and update validator epoch summaries.
+type ValidatorEpochSummariesSetter interface {
+	// SetValidatorEpochSummary sets a validator epoch summary.
+	SetValidatorEpochSummary(ctx context.Context, summary *ValidatorEpochSummary) error
 }
 
 // Service defines a minimal chain database service.
