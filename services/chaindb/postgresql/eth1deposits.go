@@ -44,11 +44,19 @@ func (s *Service) SetETH1Deposit(ctx context.Context, deposit *chaindb.ETH1Depos
                                  ,f_signature
                                  ,f_amount)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-      ON CONFLICT (f_eth1_block_hash,f_eth1_tx_hash,f_eth1_log_index) DO
+      ON CONFLICT (f_deposit_index) DO
       UPDATE
-      SET f_deposit_index = excluded.f_deposit_index
+      SET f_eth1_block_number = excluded.f_eth1_block_number
+         ,f_eth1_block_hash = excluded.f_eth1_block_hash
+         ,f_eth1_block_timestamp = excluded.f_eth1_block_timestamp
+         ,f_eth1_tx_hash = excluded.f_eth1_tx_hash
+         ,f_eth1_log_index = excluded.f_eth1_log_index
+         ,f_eth1_sender = excluded.f_eth1_sender
+         ,f_eth1_recipient = excluded.f_eth1_recipient
+         ,f_eth1_gas_used = excluded.f_eth1_gas_used
          ,f_validator_pubkey = excluded.f_validator_pubkey
          ,f_withdrawal_credentials = excluded.f_withdrawal_credentials
+         ,f_signature = excluded.f_signature
          ,f_amount = excluded.f_amount
       `,
 		deposit.ETH1BlockNumber,

@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package standard_test
+package getlogs_test
 
 import (
 	"os"
@@ -22,8 +22,7 @@ import (
 
 func TestMain(m *testing.M) {
 	zerolog.SetGlobalLevel(zerolog.Disabled)
-	if os.Getenv("CHAINDB_DATABASE_URL") != "" &&
-		os.Getenv("ETH2CLIENT_ADDRESS") != "" {
+	if os.Getenv("CHAINDB_DATABASE_URL") != "" {
 		os.Exit(m.Run())
 	}
 }

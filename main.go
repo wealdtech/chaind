@@ -42,6 +42,7 @@ import (
 	postgresqlchaindb "github.com/wealdtech/chaind/services/chaindb/postgresql"
 	"github.com/wealdtech/chaind/services/chaintime"
 	standardchaintime "github.com/wealdtech/chaind/services/chaintime/standard"
+	getlogseth1deposits "github.com/wealdtech/chaind/services/eth1deposits/getlogs"
 	standardfinalizer "github.com/wealdtech/chaind/services/finalizer/standard"
 	"github.com/wealdtech/chaind/services/metrics"
 	nullmetrics "github.com/wealdtech/chaind/services/metrics/null"
@@ -135,6 +136,9 @@ func fetchConfig() error {
 	pflag.Bool("validators.balances.enable", false, "Enable fetching of validator balances")
 	pflag.Bool("beacon-committees.enable", true, "Enable fetching of beacom committee-related information")
 	pflag.Bool("proposer-duties.enable", true, "Enable fetching of proposer duty-related information")
+	pflag.Bool("eth1deposits.enable", false, "Enable fetching of Ethereum 1 deposit information")
+	pflag.String("eth1deposits.start-block", "", "Ethereum 1 block from which to start fetching deposits")
+	pflag.String("eth1client.address", "", "Address for Ethereum 1 node")
 	pflag.String("chaindb.url", "", "URL for database")
 	pflag.Parse()
 	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
@@ -245,6 +249,8 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 		return errors.Wrap(err, "failed to start chain time service")
 	}
 
+	// Spec should be the first service that starts.  This adds configuration data to
+	// chaindb so it is accessible to other services.
 	log.Trace().Msg("Starting spec service")
 	if err := startSpec(ctx, eth2Client, chainDB); err != nil {
 		return errors.Wrap(err, "failed to start spec service")
@@ -274,6 +280,11 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 	log.Trace().Msg("Starting proposer duties service")
 	if err := startProposerDuties(ctx, eth2Client, chainDB, chainTime, monitor); err != nil {
 		return errors.Wrap(err, "failed to start proposer duties service")
+	}
+
+	log.Trace().Msg("Starting Ethereum 1 deposits service")
+	if err := startETH1Deposits(ctx, eth2Client, chainDB, chainTime, monitor); err != nil {
+		return errors.Wrap(err, "failed to start Ethereum 1 deposits service")
 	}
 
 	return nil
@@ -504,6 +515,34 @@ func startProposerDuties(
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create proposer duties service")
+	}
+
+	return nil
+}
+
+func startETH1Deposits(
+	ctx context.Context,
+	eth2Client eth2client.Service,
+	chainDB chaindb.Service,
+	chainTime chaintime.Service,
+	monitor metrics.Service,
+) error {
+	if !viper.GetBool("eth1deposits.enable") {
+		return nil
+	}
+
+	log.Trace().Msg("Starting Ethereum 1 deposits service")
+	_, err := getlogseth1deposits.New(ctx,
+		getlogseth1deposits.WithLogLevel(util.LogLevel(viper.GetString("eth1deposits.log-level"))),
+		getlogseth1deposits.WithMonitor(monitor),
+		getlogseth1deposits.WithChainDB(chainDB),
+		getlogseth1deposits.WithConnectionURL(viper.GetString("eth1client.address")),
+		getlogseth1deposits.WithStartBlock(viper.GetString("eth1deposits.start-block")),
+		getlogseth1deposits.WithETH1DepositsSetter(chainDB.(chaindb.ETH1DepositsSetter)),
+		getlogseth1deposits.WithETH1Confirmations(viper.GetUint64("eth1deposits.confirmations")),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to start Ethereum 1 deposits service")
 	}
 
 	return nil
