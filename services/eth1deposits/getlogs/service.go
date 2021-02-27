@@ -167,7 +167,7 @@ func (s *Service) updateAfterRestart(ctx context.Context, startBlock int64) {
 				s.checkLatestBlock(ctx)
 			case <-ctx.Done():
 				log.Debug().Msg("Context done")
-				break
+				return
 			}
 		}
 	}(ctx, s)
