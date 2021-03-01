@@ -170,6 +170,10 @@ eth1deposits:
   # start-block: 500
 ```
 
+## Support
+
+We gratefully acknowledge the Ethereum Foundation for supporting chaind through their grant FY21-0360, which allowed collection of Ethereum 1 deposits.
+
 ## Maintainers
 
 Jim McDonald: [@mcdee](https://github.com/mcdee).
