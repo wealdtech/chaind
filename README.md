@@ -54,6 +54,7 @@ Data gathers four pieces of information from the beacon node, broken down by the
     - attester slashings
     - deposits
     - voluntary exits; and
+  - **Ethereum 1 deposits** The Ethereum 1 deposits module provides information on deposits made on the Ethereum 1 network;
   - **Finalizer** The finalizer module augments the information prsent in the database from finalized states.  This includes:
     - the canonical state of blocks.
 
@@ -73,7 +74,6 @@ createdb -E UTF8 --owner=chain chain
 
   - Teku: must be run in [archive mode](https://docs.teku.consensys.net/en/latest/Reference/CLI/CLI-Syntax/#data-storage-mode) to allow `chaind` to obtain historical data
   - Prysm: beacon committee information is not available.  Run `chaind` with `--beacon-committees.enable=false` to disabled fetching this information
-  - Lighthouse: beacon committee information is not available.  Run `chaind` with `--beacon-committees.enable=false` to disabled fetching this information
 
 ### Example
 To start a Teku node suitable for `chaind` download teku and run the following command:
@@ -90,6 +90,9 @@ chaind --ethclient-address=http://localhost:5051/
 
 ## Upgrading `chaind`
 `chaind` should upgrade automatically from earlier versions.  Note that the upgrade process can take a long time to complete, especially where data needs to be refetched or recalculated.  `chaind` should be left to complete the upgrade, to avoid the situation where additional fields are not fully populated.  If this does occur then `chaind` can be run with the options `--blocks.start-slot=0 --blocks.refetch=true` to force `chaind` to refetch all blocks.
+
+## Querying `chaind`
+`chaind` attempts to lay its data out in a standard fashion for a SQL database, mirroring the data structures that are present in Ethereum 2.  There are some places where the structure or data deviates from the specification, commonly to provide additional information or to make the data easier to query with SQL.  It is recommended that the [notes on the tables](docs/tables.md) are read before attempting to write any complicated queries.
 
 ## Configuring `chaind`
 The minimal requirements for `chaind` are references to the database and beacon node, for example:
@@ -120,6 +123,10 @@ eth2client:
   log-level: debug
   # address is the address of the beacon node.
   address: localhost:5051
+# eth1client contains configuration for the Ethereum 1 client.
+eth1client:
+  # address is the address of the Ethereum 1 node.
+  address: localhost:8545
 # blocks contains configuration for obtaining block-related information.
 blocks:
   # enable states if this module will be operational.
@@ -153,6 +160,14 @@ proposer-duties:
 # finalizer updates tables with information available for finalized states.
 finalizer:
   enable: true
+# eth1deposits contains information about transacations made to the deposit contract
+# on the Ethereum 1 network.
+eth1deposits:
+  enable: false
+  # start-block is the block from which to start fetching deposits.  chaind should
+  # keep track of this itself, however if you wish to start from a different block this
+  # can be set.
+  # start-block: 500
 ```
 
 ## Maintainers

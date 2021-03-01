@@ -64,8 +64,9 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		genesisSetter:   genesisSetter,
 	}
 
-	// Update spec in the background
-	go s.updateAfterRestart(ctx)
+	// Update spec in the _foreground_.  This ensures that spec information
+	// is available to other modules when they start.
+	s.updateAfterRestart(ctx)
 
 	return s, nil
 }

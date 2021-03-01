@@ -18,6 +18,8 @@ Operations metrics provide information about numbers of operations performed.  T
   - `chaind_beaconcommittees_latest_epoch` latest epoch processed by the beacon committees module this run of chaind
   - `chaind_blocks_blocks_processed` number of blocks processed by the blocks module this run of chaind
   - `chaind_blocks_latest_block` latest block processed by the blocks module this run of chaind
+  - `chaind_eth1deposits_blocks_processed` number of blocks processed by the Ethereum 1 deposits module this run of chaind
+  - `chaind_eth1deposits_latest_block` latest block processed by the Ethereum 1 deposits module this run of chaind
   - `chaind_finalizer_epochs_processed` number of epochs processed by the finalizer module this run of chaind
   - `chaind_finalizer_latest_epoch` latest epoch processed by the finalizer module this run of chaind
   - `chaind_proposerduties_epochs_processed` number of epochs processed by the proposer duties module this run of chaind
