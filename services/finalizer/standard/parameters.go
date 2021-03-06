@@ -18,6 +18,7 @@ import (
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/rs/zerolog"
+	"github.com/wealdtech/chaind/handlers"
 	"github.com/wealdtech/chaind/services/blocks"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
@@ -25,12 +26,13 @@ import (
 )
 
 type parameters struct {
-	logLevel   zerolog.Level
-	monitor    metrics.Service
-	eth2Client eth2client.Service
-	chainDB    chaindb.Service
-	chainTime  chaintime.Service
-	blocks     blocks.Service
+	logLevel         zerolog.Level
+	monitor          metrics.Service
+	eth2Client       eth2client.Service
+	chainDB          chaindb.Service
+	chainTime        chaintime.Service
+	blocks           blocks.Service
+	finalityHandlers []handlers.FinalityHandler
 }
 
 // Parameter is the interface for service parameters.
@@ -83,6 +85,13 @@ func WithChainTime(chainTime chaintime.Service) Parameter {
 func WithBlocks(blocks blocks.Service) Parameter {
 	return parameterFunc(func(p *parameters) {
 		p.blocks = blocks
+	})
+}
+
+// WithFinalityHandlers sets the finality handlers for this module.
+func WithFinalityHandlers(handlers []handlers.FinalityHandler) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.finalityHandlers = handlers
 	})
 }
 

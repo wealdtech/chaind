@@ -35,6 +35,7 @@ import (
 	zerologger "github.com/rs/zerolog/log"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/wealdtech/chaind/handlers"
 	standardbeaconcommittees "github.com/wealdtech/chaind/services/beaconcommittees/standard"
 	"github.com/wealdtech/chaind/services/blocks"
 	standardblocks "github.com/wealdtech/chaind/services/blocks/standard"
@@ -49,6 +50,7 @@ import (
 	prometheusmetrics "github.com/wealdtech/chaind/services/metrics/prometheus"
 	standardproposerduties "github.com/wealdtech/chaind/services/proposerduties/standard"
 	standardspec "github.com/wealdtech/chaind/services/spec/standard"
+	"github.com/wealdtech/chaind/services/summarizer"
 	standardsummarizer "github.com/wealdtech/chaind/services/summarizer/standard"
 	standardvalidators "github.com/wealdtech/chaind/services/validators/standard"
 	"github.com/wealdtech/chaind/util"
@@ -133,9 +135,12 @@ func fetchConfig() error {
 	pflag.Int32("blocks.start-slot", -1, "Slot from which to start fetching blocks")
 	pflag.Bool("blocks.refetch", false, "Refetch all blocks even if they are already in the database")
 	pflag.Bool("finalizer.enable", true, "Enable additional information on receipt of finality checkpoint")
-	pflag.Bool("summarizer.enable", true, "Enable summary information for validators and epochs")
+	pflag.Bool("summarizer.enable", true, "Enable summary information")
+	pflag.Bool("summarizer.epochs.enable", true, "Enable summary information for epochs")
+	pflag.Bool("summarizer.blocks.enable", true, "Enable summary information for blocks")
+	pflag.Bool("summarizer.validators.enable", false, "Enable summary information for validators (warning: creates a lot of data)")
 	pflag.Bool("validators.enable", true, "Enable fetching of validator-related information")
-	pflag.Bool("validators.balances.enable", false, "Enable fetching of validator balances")
+	pflag.Bool("validators.balances.enable", false, "Enable fetching of validator balances (warning: creates a lot of data)")
 	pflag.Bool("beacon-committees.enable", true, "Enable fetching of beacom committee-related information")
 	pflag.Bool("proposer-duties.enable", true, "Enable fetching of proposer duty-related information")
 	pflag.Bool("eth1deposits.enable", false, "Enable fetching of Ethereum 1 deposit information")
@@ -264,14 +269,19 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 		return errors.Wrap(err, "failed to start blocks service")
 	}
 
-	log.Trace().Msg("Starting finalizer service")
-	if err := startFinalizer(ctx, eth2Client, chainDB, chainTime, blocks, monitor); err != nil {
-		return errors.Wrap(err, "failed to start finalizer service")
+	log.Trace().Msg("Starting summarizer service")
+	summarizerSvc, err := startSummarizer(ctx, eth2Client, chainDB, chainTime, blocks, monitor)
+	if err != nil {
+		return errors.Wrap(err, "failed to start summarizer service")
 	}
 
-	log.Trace().Msg("Starting summarizer service")
-	if err := startSummarizer(ctx, eth2Client, chainDB, chainTime, blocks, monitor); err != nil {
-		return errors.Wrap(err, "failed to start summarizer service")
+	log.Trace().Msg("Starting finalizer service")
+	finalityHandlers := make([]handlers.FinalityHandler, 0)
+	if summarizerSvc != nil {
+		finalityHandlers = append(finalityHandlers, summarizerSvc.(handlers.FinalityHandler))
+	}
+	if err := startFinalizer(ctx, eth2Client, chainDB, chainTime, blocks, monitor, finalityHandlers); err != nil {
+		return errors.Wrap(err, "failed to start finalizer service")
 	}
 
 	log.Trace().Msg("Starting validators service")
@@ -399,6 +409,7 @@ func startFinalizer(
 	chainTime chaintime.Service,
 	blocks blocks.Service,
 	monitor metrics.Service,
+	finalityHandlers []handlers.FinalityHandler,
 ) error {
 	if !viper.GetBool("finalizer.enable") {
 		return nil
@@ -419,6 +430,7 @@ func startFinalizer(
 		standardfinalizer.WithChainTime(chainTime),
 		standardfinalizer.WithChainDB(chainDB),
 		standardfinalizer.WithBlocks(blocks),
+		standardfinalizer.WithFinalityHandlers(finalityHandlers),
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create finalizer service")
@@ -434,32 +446,30 @@ func startSummarizer(
 	chainTime chaintime.Service,
 	blocks blocks.Service,
 	monitor metrics.Service,
-) error {
+) (
+	summarizer.Service,
+	error,
+) {
 	if !viper.GetBool("summarizer.enable") {
-		return nil
+		return nil, nil
 	}
 
-	var err error
-	if viper.GetString("summarizer.address") != "" {
-		eth2Client, err = fetchClient(ctx, viper.GetString("summarizer.address"))
-		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to fetch client %q", viper.GetString("summarizer.address")))
-		}
-	}
-
-	_, err = standardsummarizer.New(ctx,
+	standardSummarizer, err := standardsummarizer.New(ctx,
 		standardsummarizer.WithLogLevel(util.LogLevel("summarizer")),
 		standardsummarizer.WithMonitor(monitor),
 		standardsummarizer.WithETH2Client(eth2Client),
 		standardsummarizer.WithChainTime(chainTime),
 		standardsummarizer.WithChainDB(chainDB),
 		standardsummarizer.WithBlocks(blocks),
+		standardsummarizer.WithEpochSummaries(viper.GetBool("summarizer.epochs.enable")),
+		standardsummarizer.WithBlockSummaries(viper.GetBool("summarizer.blocks.enable")),
+		standardsummarizer.WithValidatorSummaries(viper.GetBool("summarizer.validators.enable")),
 	)
 	if err != nil {
-		return errors.Wrap(err, "failed to create summarizer service")
+		return nil, errors.Wrap(err, "failed to create summarizer service")
 	}
 
-	return nil
+	return standardSummarizer, nil
 }
 
 func startValidators(

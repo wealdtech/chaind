@@ -25,12 +25,15 @@ import (
 )
 
 type parameters struct {
-	logLevel   zerolog.Level
-	monitor    metrics.Service
-	eth2Client eth2client.Service
-	chainDB    chaindb.Service
-	chainTime  chaintime.Service
-	blocks     blocks.Service
+	logLevel           zerolog.Level
+	monitor            metrics.Service
+	eth2Client         eth2client.Service
+	chainDB            chaindb.Service
+	chainTime          chaintime.Service
+	blocks             blocks.Service
+	epochSummaries     bool
+	blockSummaries     bool
+	validatorSummaries bool
 }
 
 // Parameter is the interface for service parameters.
@@ -83,6 +86,27 @@ func WithChainTime(chainTime chaintime.Service) Parameter {
 func WithBlocks(blocks blocks.Service) Parameter {
 	return parameterFunc(func(p *parameters) {
 		p.blocks = blocks
+	})
+}
+
+// WithEpochSummaries states if the module should generate epoch summaries.
+func WithEpochSummaries(enabled bool) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.epochSummaries = enabled
+	})
+}
+
+// WithBlockSummaries states if the module should generate block summaries.
+func WithBlockSummaries(enabled bool) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.blockSummaries = enabled
+	})
+}
+
+// WithValidatorSummaries states if the module should generate validator summaries.
+func WithValidatorSummaries(enabled bool) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.validatorSummaries = enabled
 	})
 }
 

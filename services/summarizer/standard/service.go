@@ -17,6 +17,7 @@ import (
 	"context"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	spec "github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
@@ -28,15 +29,23 @@ import (
 
 // Service is a summarizer service.
 type Service struct {
-	eth2Client             eth2client.Service
-	chainDB                chaindb.Service
-	proposerDutiesProvider chaindb.ProposerDutiesProvider
-	attestationsProvider   chaindb.AttestationsProvider
-	blocksProvider         chaindb.BlocksProvider
-	blocksSetter           chaindb.BlocksSetter
-	chainTime              chaintime.Service
-	blocks                 blocks.Service
-	activitySem            *semaphore.Weighted
+	eth2Client                eth2client.Service
+	chainDB                   chaindb.Service
+	farFutureEpoch            spec.Epoch
+	proposerDutiesProvider    chaindb.ProposerDutiesProvider
+	attestationsProvider      chaindb.AttestationsProvider
+	blocksProvider            chaindb.BlocksProvider
+	blocksSetter              chaindb.BlocksSetter
+	depositsProvider          chaindb.DepositsProvider
+	validatorsProvider        chaindb.ValidatorsProvider
+	attesterSlashingsProvider chaindb.AttesterSlashingsProvider
+	proposerSlashingsProvider chaindb.ProposerSlashingsProvider
+	chainTime                 chaintime.Service
+	blocks                    blocks.Service
+	epochSummaries            bool
+	blockSummaries            bool
+	validatorSummaries        bool
+	activitySem               *semaphore.Weighted
 }
 
 // module-wide log.
@@ -58,42 +67,63 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 
 	proposerDutiesProvider, isProvider := parameters.chainDB.(chaindb.ProposerDutiesProvider)
 	if !isProvider {
-		return nil, errors.New("chain DB does not provider proposer duties")
+		return nil, errors.New("chain DB does not provide proposer duties")
 	}
 
 	attestationsProvider, isProvider := parameters.chainDB.(chaindb.AttestationsProvider)
 	if !isProvider {
-		return nil, errors.New("chain DB does not provider attestations")
+		return nil, errors.New("chain DB does not provide attestations")
 	}
 
-	blocksProvider, isBlocksProvider := parameters.chainDB.(chaindb.BlocksProvider)
-	if !isBlocksProvider {
-		return nil, errors.New("chain DB does not support block providing")
+	blocksProvider, isProvider := parameters.chainDB.(chaindb.BlocksProvider)
+	if !isProvider {
+		return nil, errors.New("chain DB does not provide blocks")
 	}
 
-	blocksSetter, isBlocksSetter := parameters.chainDB.(chaindb.BlocksSetter)
-	if !isBlocksSetter {
+	blocksSetter, isSetter := parameters.chainDB.(chaindb.BlocksSetter)
+	if !isSetter {
 		return nil, errors.New("chain DB does not support block setting")
 	}
 
-	s := &Service{
-		eth2Client:             parameters.eth2Client,
-		chainDB:                parameters.chainDB,
-		proposerDutiesProvider: proposerDutiesProvider,
-		attestationsProvider:   attestationsProvider,
-		blocksProvider:         blocksProvider,
-		blocksSetter:           blocksSetter,
-		chainTime:              parameters.chainTime,
-		blocks:                 parameters.blocks,
-		activitySem:            semaphore.NewWeighted(1),
+	depositsProvider, isProvider := parameters.chainDB.(chaindb.DepositsProvider)
+	if !isProvider {
+		return nil, errors.New("chain DB does not provide deposits")
 	}
 
-	go s.updateOnRestart(ctx)
+	validatorsProvider, isProvider := parameters.chainDB.(chaindb.ValidatorsProvider)
+	if !isProvider {
+		return nil, errors.New("chain DB does not provide validators")
+	}
+
+	attesterSlashingsProvider, isProvider := parameters.chainDB.(chaindb.AttesterSlashingsProvider)
+	if !isProvider {
+		return nil, errors.New("chain DB does not provide attester slashings")
+	}
+
+	proposerSlashingsProvider, isProvider := parameters.chainDB.(chaindb.ProposerSlashingsProvider)
+	if !isProvider {
+		return nil, errors.New("chain DB does not provide proposer slashings")
+	}
+
+	s := &Service{
+		eth2Client:                parameters.eth2Client,
+		chainDB:                   parameters.chainDB,
+		farFutureEpoch:            spec.Epoch(0xffffffffffffffff),
+		proposerDutiesProvider:    proposerDutiesProvider,
+		attestationsProvider:      attestationsProvider,
+		blocksProvider:            blocksProvider,
+		blocksSetter:              blocksSetter,
+		depositsProvider:          depositsProvider,
+		validatorsProvider:        validatorsProvider,
+		attesterSlashingsProvider: attesterSlashingsProvider,
+		proposerSlashingsProvider: proposerSlashingsProvider,
+		chainTime:                 parameters.chainTime,
+		blocks:                    parameters.blocks,
+		epochSummaries:            parameters.epochSummaries,
+		blockSummaries:            parameters.blockSummaries,
+		validatorSummaries:        parameters.validatorSummaries,
+		activitySem:               semaphore.NewWeighted(1),
+	}
 
 	return s, nil
-}
-
-func (s *Service) updateOnRestart(ctx context.Context) {
-
-	s.OnFinalityUpdated(ctx, 32)
 }

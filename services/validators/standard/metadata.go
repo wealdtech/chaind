@@ -23,8 +23,9 @@ import (
 
 // metadata stored about this service.
 type metadata struct {
-	LatestEpoch  spec.Epoch   `json:"latest_epoch"`
-	MissedEpochs []spec.Epoch `json:"missed_epochs,omitempty"`
+	LatestEpoch         spec.Epoch   `json:"latest_epoch"`
+	LatestBalancesEpoch spec.Epoch   `json:"latest_balances_epoch"`
+	MissedEpochs        []spec.Epoch `json:"missed_epochs,omitempty"`
 }
 
 // metadataKey is the key for the metadata.

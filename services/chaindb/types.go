@@ -197,3 +197,35 @@ type ValidatorEpochSummary struct {
 	AttestationHeadCorrect    *bool
 	AttestationInclusionDelay *int
 }
+
+// BlockSummary provides a summary of an epoch.
+type BlockSummary struct {
+	Slot                          spec.Slot
+	AttestationsForBlock          int
+	DuplicateAttestationsForBlock int
+	VotesForBlock                 int
+}
+
+// EpochSummary provides a summary of an epoch.
+type EpochSummary struct {
+	Epoch                         spec.Epoch
+	ActivationQueueLength         int
+	ActivatingValidators          int
+	ActiveValidators              int
+	ActiveRealBalance             spec.Gwei
+	ActiveBalance                 spec.Gwei
+	AttestingValidators           int
+	AttestingBalance              spec.Gwei
+	TargetCorrectValidators       int
+	TargetCorrectBalance          spec.Gwei
+	HeadCorrectValidators         int
+	HeadCorrectBalance            spec.Gwei
+	AttestationsForEpoch          int
+	AttestationsInEpoch           int
+	DuplicateAttestationsForEpoch int
+	ProposerSlashings             int
+	AttesterSlashings             int
+	Deposits                      int
+	ExitingValidators             int
+	CanonicalBlocks               int
+}

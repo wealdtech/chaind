@@ -24,6 +24,8 @@ import (
 // metadata stored about this service.
 type metadata struct {
 	LastValidatorEpoch spec.Epoch `json:"latest_validator_epoch"`
+	LastBlockEpoch     spec.Epoch `json:"latest_block_epoch"`
+	LastEpoch          spec.Epoch `json:"latest_epoch"`
 }
 
 // metadataKey is the key for the metadata.

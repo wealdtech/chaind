@@ -49,12 +49,14 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
                           ,f_eth1_deposit_root
 						  )
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-      ON CONFLICT (f_slot,f_root) DO
+      ON CONFLICT (f_root) DO
       UPDATE
-      SET f_proposer_index = excluded.f_proposer_index
-         ,f_root = excluded.f_root
+      SET f_slot = excluded.f_slot
+         ,f_proposer_index = excluded.f_proposer_index
          ,f_graffiti = excluded.f_graffiti
          ,f_randao_reveal = excluded.f_randao_reveal
+         ,f_body_root = excluded.f_body_root
+         ,f_parent_root = excluded.f_parent_root
          ,f_state_root = excluded.f_state_root
          ,f_canonical = excluded.f_canonical
          ,f_eth1_block_hash = excluded.f_eth1_block_hash
@@ -190,7 +192,7 @@ func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot spec.Slot, e
       FROM t_blocks
       WHERE f_slot >= $1
         AND f_slot < $2
-      ODERER BY f_slot`,
+      ORDER BY f_slot`,
 		startSlot,
 		endSlot,
 	)
@@ -586,4 +588,31 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
 	}
 
 	return blocks, nil
+}
+
+// LatestCanonicalBlock returns the slot of the latest canonical block known in the database.
+func (s *Service) LatestCanonicalBlock(ctx context.Context) (spec.Slot, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	var slot spec.Slot
+	err := tx.QueryRow(ctx, `
+      SELECT COALESCE(MAX(f_slot),0)
+      FROM t_blocks
+      WHERE f_canonical = true`,
+	).Scan(
+		&slot,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	return slot, nil
 }
