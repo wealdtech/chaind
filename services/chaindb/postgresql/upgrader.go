@@ -602,20 +602,26 @@ func setValidatorBalancesMetadata(ctx context.Context, s *Service) error {
 
 	var latestValidatorBalanceEpoch uint64
 	err := tx.QueryRow(ctx, `
-SELECT COALESCE(MAX(f_epoch),0)
-FROM t_validator_balances`,
+SELECT MIN(missed)
+FROM generate_series(0,(SELECT MAX(f_epoch)+1 FROM t_validator_balances),1) missed
+LEFT JOIN t_validator_balances
+  ON missed = t_validator_balances.f_epoch
+WHERE f_epoch IS NULL`,
 	).Scan(
 		&latestValidatorBalanceEpoch,
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain maximum validator balance epoch")
 	}
+	if latestValidatorBalanceEpoch > 0 {
+		latestValidatorBalanceEpoch--
+	}
 
-	_, err = tx.Exec(ctx, `
+	_, err = tx.Exec(ctx, fmt.Sprintf(`
 UPDATE t_metadata
-SET f_value = f_value || '{"latest_balances_epoch":$1}'::JSONB
+SET f_value = f_value || '{"latest_balances_epoch":%d}'::JSONB
 WHERE f_key = 'validators.standard'`,
-		latestValidatorBalanceEpoch,
+		latestValidatorBalanceEpoch),
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to set maximum validator balance epoch")
