@@ -47,10 +47,10 @@ func (s *Service) OnFinalityCheckpointReceived(
 	defer s.activitySem.Release(1)
 
 	// We have the finalized root but should canonicalize blocks from the justified
-	// root, so fetch finality fo that information.
+	// root, so fetch finality to obtain that root.
 	finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, "head")
 	if err != nil {
-		log.Error().Err(err).Msg("failed to obtain finality information")
+		log.Error().Err(err).Msg("failed to obtain finality")
 		return
 	}
 
@@ -186,7 +186,7 @@ func (s *Service) noncanonicalizeBlocks(ctx context.Context, slot spec.Slot) err
 	return nil
 }
 
-// updateAttestations updates attestations given a finalized epoch.
+// updateAttestations updates attestations for the given epoch.
 func (s *Service) updateAttestations(ctx context.Context, epoch spec.Epoch) error {
 	md, err := s.getMetadata(ctx)
 	if err != nil {

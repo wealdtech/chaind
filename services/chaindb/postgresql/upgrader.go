@@ -52,6 +52,7 @@ var upgrades = map[uint64]*upgrade{
 		funcs: []func(context.Context, *Service) error{
 			dropEpochsTable,
 			createSummaryTables,
+			setValidatorBalancesMetadata,
 		},
 	},
 }
@@ -582,6 +583,42 @@ func createSummaryTables(ctx context.Context, s *Service) error {
  ,f_canonical_blocks                 BIGINT NOT NULL
 )`); err != nil {
 		return errors.Wrap(err, "failed to create epoch summaries table")
+	}
+
+	return nil
+}
+
+// setValidatorBalancesMetadata sets the validator balances field in the validator metadata.
+func setValidatorBalancesMetadata(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	var latestValidatorBalanceEpoch uint64
+	err := tx.QueryRow(ctx, `
+SELECT COALESCE(MAX(f_epoch),0)
+FROM t_validator_balances`,
+	).Scan(
+		&latestValidatorBalanceEpoch,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain maximum validator balance epoch")
+	}
+
+	_, err = tx.Exec(ctx, `
+UPDATE t_metadata
+SET f_value = f_value || '{"latest_balances_epoch":$1}'::JSONB
+WHERE f_key = 'validators.standard'`,
+		latestValidatorBalanceEpoch,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to set maximum validator balance epoch")
 	}
 
 	return nil
