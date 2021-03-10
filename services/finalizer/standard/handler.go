@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Trading.
+// Copyright © 2021 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -46,36 +46,36 @@ func (s *Service) OnFinalityCheckpointReceived(
 	}
 	defer s.activitySem.Release(1)
 
-	ctx, cancel, err := s.chainDB.BeginTx(ctx)
+	// We have the finalized root but should canonicalize blocks from the justified
+	// root, so fetch finality to obtain that root.
+	finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, "head")
+	if err != nil {
+		log.Error().Err(err).Msg("failed to obtain finality")
+		return
+	}
+
+	opCtx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to begin transaction on finality")
 		return
 	}
 
-	md, err := s.getMetadata(ctx)
-	if err != nil {
-		cancel()
-		log.Error().Err(err).Msg("Failed to obtain metadata on finality")
-		return
-	}
-
 	log.Trace().Msg("Updating canonical blocks on finality")
-	md.LatestCanonicalSlot, err = s.updateCanonicalBlocks(ctx, blockRoot, md.LatestCanonicalSlot)
-	if err != nil {
+	if err := s.updateCanonicalBlocks(opCtx, finality.Justified.Root); err != nil {
 		log.Warn().Err(err).Msg("Failed to update canonical blocks on finality")
-	}
-	if err := s.setMetadata(ctx, md); err != nil {
-		cancel()
-		log.Error().Err(err).Msg("Failed to update metadata on finality")
-		return
 	}
 
 	log.Trace().Msg("Updating attestation votes on finality")
-	if err := s.updateAttestations(ctx, epoch); err != nil {
+	// We have canonicalized blocks up to the justified root, which is usually the
+	// first slot of the epoch following the finalized epoch.  Because it is possible
+	// for attestations for the finalized epoch to be in blocks beyond this (specifically
+	// in the other 31 slots of the epoch containing the justified root) we update
+	// attestations for the epoch prior to the finalized epoch.
+	if err := s.updateAttestations(opCtx, epoch-1); err != nil {
 		log.Warn().Err(err).Msg("Failed to update attestations on finality")
 	}
 
-	if err := s.chainDB.CommitTx(ctx); err != nil {
+	if err := s.chainDB.CommitTx(opCtx); err != nil {
 		cancel()
 		log.Error().Err(err).Msg("Failed to commit transaction on finality")
 		return
@@ -83,29 +83,44 @@ func (s *Service) OnFinalityCheckpointReceived(
 
 	monitorEpochProcessed(epoch)
 	log.Trace().Msg("Finished handling finality checkpoint")
+
+	// Notify that finality has been updated.
+	for _, finalityHandler := range s.finalityHandlers {
+		go finalityHandler.OnFinalityUpdated(ctx, epoch)
+	}
 }
 
 // updateCanonicalBlocks updates all canonical blocks given a canonical block root.
-func (s *Service) updateCanonicalBlocks(ctx context.Context, root spec.Root, limit spec.Slot) (spec.Slot, error) {
+func (s *Service) updateCanonicalBlocks(ctx context.Context, root spec.Root) error {
+	md, err := s.getMetadata(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain metadata on finality")
+	}
+
 	// Fetch the block from either the database or the chain.
 	block, err := s.fetchBlock(ctx, root)
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to obtain block")
+		return errors.Wrap(err, "failed to obtain block")
 	}
 	if block == nil {
 		// No block to update; return without error.
-		return limit, nil
+		return nil
 	}
 
-	if err := s.canonicalizeBlocks(ctx, root, limit); err != nil {
-		return 0, errors.Wrap(err, "failed to update canonical blocks from canonical root")
+	if err := s.canonicalizeBlocks(ctx, root, md.LatestCanonicalSlot); err != nil {
+		return errors.Wrap(err, "failed to update canonical blocks from canonical root")
 	}
 
 	if err := s.noncanonicalizeBlocks(ctx, block.Slot); err != nil {
-		return 0, errors.Wrap(err, "failed to update non-canonical blocks from canonical root")
+		return errors.Wrap(err, "failed to update non-canonical blocks from canonical root")
 	}
 
-	return block.Slot, nil
+	md.LatestCanonicalSlot = block.Slot
+	if err := s.setMetadata(ctx, md); err != nil {
+		return errors.Wrap(err, "failed to update metadata on finality")
+	}
+
+	return nil
 }
 
 // canonicalizeBlocks marks the given block and all its parents as canonical.
@@ -171,7 +186,7 @@ func (s *Service) noncanonicalizeBlocks(ctx context.Context, slot spec.Slot) err
 	return nil
 }
 
-// updateAttestations updates attestations given a finalized epoch.
+// updateAttestations updates attestations for the given epoch.
 func (s *Service) updateAttestations(ctx context.Context, epoch spec.Epoch) error {
 	md, err := s.getMetadata(ctx)
 	if err != nil {
@@ -187,6 +202,7 @@ func (s *Service) updateAttestations(ctx context.Context, epoch spec.Epoch) erro
 	}
 	if len(latestBlocks) == 0 {
 		// No blocks yet; bow out but no error.
+		log.Trace().Msg("No blocks in database")
 		return nil
 	}
 	earliestAllowableSlot := s.chainTime.FirstSlotOfEpoch(epoch)
@@ -201,8 +217,6 @@ func (s *Service) updateAttestations(ctx context.Context, epoch spec.Epoch) erro
 		return nil
 	}
 
-	// Obtain all attestations since the last finalized epoch, and update them.
-
 	// First epoch is last finalized epoch + 1, unless it's 0 because we don't know the
 	// difference between actually 0 and undefined.
 	firstEpoch := md.LastFinalizedEpoch
@@ -210,7 +224,8 @@ func (s *Service) updateAttestations(ctx context.Context, epoch spec.Epoch) erro
 		firstEpoch++
 	}
 
-	for curEpoch := firstEpoch; curEpoch < epoch; curEpoch++ {
+	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("latest_epoch", uint64(epoch)).Msg("Epochs over which to update attestations")
+	for curEpoch := firstEpoch; curEpoch <= epoch; curEpoch++ {
 		if err := s.updateAttestationsForEpoch(ctx, curEpoch); err != nil {
 			return errors.Wrap(err, "failed to update attestations for epoch")
 		}
@@ -224,8 +239,10 @@ func (s *Service) updateAttestations(ctx context.Context, epoch spec.Epoch) erro
 }
 
 func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch spec.Epoch) error {
-	// epoch is a finalized epoch, so fetch all attestations for the epoch.
-	attestations, err := s.chainDB.(chaindb.AttestationsProvider).AttestationsInSlotRange(ctx, s.chainTime.FirstSlotOfEpoch(epoch), s.chainTime.FirstSlotOfEpoch(epoch+1))
+	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
+	log.Trace().Msg("Updating attestation finality for epoch")
+
+	attestations, err := s.chainDB.(chaindb.AttestationsProvider).AttestationsForSlotRange(ctx, s.chainTime.FirstSlotOfEpoch(epoch), s.chainTime.FirstSlotOfEpoch(epoch+1))
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain attestations for epoch")
 	}
@@ -267,6 +284,7 @@ func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch spec.Epo
 // updateCanonical updates the attestation to confirm if it is canonical.
 // An attestation is canonical if it is in a canonical block.
 func (s *Service) updateCanonical(ctx context.Context, attestation *chaindb.Attestation, blockCanonicals map[spec.Slot]bool) error {
+	log.Trace().Uint64("slot", uint64(attestation.Slot)).Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Msg("Updating canonical state of attestation")
 	if canonical, exists := blockCanonicals[attestation.InclusionSlot]; exists {
 		attestation.Canonical = &canonical
 	} else {
@@ -275,10 +293,10 @@ func (s *Service) updateCanonical(ctx context.Context, attestation *chaindb.Atte
 			return errors.Wrap(err, "failed to obtain block")
 		}
 		if block == nil {
-			return fmt.Errorf("failed to find block %#x when updating canonical attestations", attestation.InclusionBlockRoot)
+			return fmt.Errorf("no block %#x when updating canonical attestations", attestation.InclusionBlockRoot)
 		}
 		if block.Canonical == nil {
-			return fmt.Errorf("found indeterminate block %#x when updating canonical attestations", attestation.InclusionBlockRoot)
+			return fmt.Errorf("found indeterminate block %#x at slot %d when updating canonical attestations", block.Root, block.Slot)
 		}
 		blockCanonicals[block.Slot] = *block.Canonical
 		attestation.Canonical = block.Canonical

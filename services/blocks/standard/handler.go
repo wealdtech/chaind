@@ -32,9 +32,8 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	stateRoot spec.Root,
 	epochTransition bool,
 ) {
-	log := log.With().Uint64("slot", uint64(slot)).Logger()
+	log := log.With().Uint64("slot", uint64(slot)).Str("block_root", fmt.Sprintf("%#x", blockRoot)).Logger()
 	log.Trace().
-		Str("block_root", fmt.Sprintf("%#x", blockRoot)).
 		Str("state_root", fmt.Sprintf("%#x", stateRoot)).
 		Bool("epoch_transition", epochTransition).
 		Msg("Handler called")

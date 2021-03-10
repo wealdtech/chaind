@@ -48,6 +48,17 @@ type AttestationsSetter interface {
 	SetAttestation(ctx context.Context, attestation *Attestation) error
 }
 
+// AttesterSlashingsProvider defines functions to obtain attester slashings.
+type AttesterSlashingsProvider interface {
+	// AttesterSlashingsForSlotRange fetches all attester slashings made for the given slot range.
+	// It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
+	AttesterSlashingsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*AttesterSlashing, error)
+
+	// AttesterSlashingsForValidator fetches all attester slashings made for the given validator.
+	// It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
+	AttesterSlashingsForValidator(ctx context.Context, index spec.ValidatorIndex) ([]*AttesterSlashing, error)
+}
+
 // AttesterSlashingsSetter defines functions to create and update attester slashings.
 type AttesterSlashingsSetter interface {
 	// SetAttesterSlashing sets an attester slashing.
@@ -74,6 +85,11 @@ type BlocksProvider interface {
 	// BlocksBySlot fetches all blocks with the given slot.
 	BlocksBySlot(ctx context.Context, slot spec.Slot) ([]*Block, error)
 
+	// BlocksForSlotRange fetches all blocks with the given slot range.
+	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
+	// blocks duties for slots 2 and 3.
+	BlocksForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*Block, error)
+
 	// BlockByRoot fetches the block with the given root.
 	BlockByRoot(ctx context.Context, root spec.Root) (*Block, error)
 
@@ -83,11 +99,20 @@ type BlocksProvider interface {
 	// EmptySlots fetches the slots in the given range without a block in the database.
 	EmptySlots(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Slot, error)
 
-	// LatestBlocks fetches the blocks with the highest slot number for in the database.
+	// LatestBlocks fetches the blocks with the highest slot number in the database.
 	LatestBlocks(ctx context.Context) ([]*Block, error)
 
 	// IndeterminateBlocks fetches the blocks in the given range that do not have a canonical status.
 	IndeterminateBlocks(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Root, error)
+
+	// CanonicalBlockPresenceForSlotRange returns a boolean for each slot in the range for the presence
+	// of a canonical block.
+	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
+	// presence duties for slots 2 and 3.
+	CanonicalBlockPresenceForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]bool, error)
+
+	// LatestCanonicalBlock returns the slot of the latest canonical block known in the database.
+	LatestCanonicalBlock(ctx context.Context) (spec.Slot, error)
 }
 
 // BlocksSetter defines functions to create and update blocks.
@@ -135,6 +160,14 @@ type ETH1DepositsSetter interface {
 	SetETH1Deposit(ctx context.Context, deposit *ETH1Deposit) error
 }
 
+// ProposerDutiesProvider defines functions to access proposer duties.
+type ProposerDutiesProvider interface {
+	// ProposerDutiesForSlotRange fetches all proposer duties for the given slot range.
+	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
+	// proposer duties for slots 2 and 3.
+	ProposerDutiesForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*ProposerDuty, error)
+}
+
 // ProposerDutiesSetter defines the functions to create and update proposer duties.
 type ProposerDutiesSetter interface {
 	// SetProposerDuty sets a proposer duty.
@@ -144,7 +177,12 @@ type ProposerDutiesSetter interface {
 // ProposerSlashingsProvider defines functions to access proposer slashings.
 type ProposerSlashingsProvider interface {
 	// ProposerSlashingsForSlotRange fetches all proposer slashings made for the given slot range.
+	// It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
 	ProposerSlashingsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*ProposerSlashing, error)
+
+	// ProposerSlashingsForValidator fetches all proposer slashings made for the given validator.
+	// It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
+	ProposerSlashingsForValidator(ctx context.Context, index spec.ValidatorIndex) ([]*ProposerSlashing, error)
 }
 
 // ProposerSlashingsSetter defines functions to create and update proposer slashings.
@@ -250,6 +288,10 @@ type ValidatorsSetter interface {
 type DepositsProvider interface {
 	// DepositsByPublicKey fetches deposits for a given set of validator public keys.
 	DepositsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) (map[spec.BLSPubKey][]*Deposit, error)
+
+	// DepositsForSlotRange fetches all deposits made in the given slot range.
+	// It will return deposits from blocks that are canonical or undefined, but not from non-canonical blocks.
+	DepositsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*Deposit, error)
 }
 
 // DepositsSetter defines functions to create and update deposits.
@@ -262,6 +304,24 @@ type DepositsSetter interface {
 type VoluntaryExitsSetter interface {
 	// SetVoluntaryExit sets a voluntary exit.
 	SetVoluntaryExit(ctx context.Context, voluntaryExit *VoluntaryExit) error
+}
+
+// ValidatorEpochSummariesSetter defines functions to create and update validator epoch summaries.
+type ValidatorEpochSummariesSetter interface {
+	// SetValidatorEpochSummary sets a validator epoch summary.
+	SetValidatorEpochSummary(ctx context.Context, summary *ValidatorEpochSummary) error
+}
+
+// BlockSummariesSetter defines functions to create and update block summaries.
+type BlockSummariesSetter interface {
+	// SetBlockSummary sets a block summary.
+	SetBlockSummary(ctx context.Context, summary *BlockSummary) error
+}
+
+// EpochSummariesSetter defines functions to create and update epoch summaries.
+type EpochSummariesSetter interface {
+	// SetEpochSummary sets an epoch summary.
+	SetEpochSummary(ctx context.Context, summary *EpochSummary) error
 }
 
 // Service defines a minimal chain database service.

@@ -26,7 +26,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(1)
+var currentVersion = uint64(2)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -48,6 +48,13 @@ var upgrades = map[uint64]*upgrade{
 			addAttestationsVoteFields,
 		},
 	},
+	2: {
+		funcs: []func(context.Context, *Service) error{
+			dropEpochsTable,
+			createSummaryTables,
+			setValidatorBalancesMetadata,
+		},
+	},
 }
 
 // Upgrade upgrades the database.
@@ -67,6 +74,7 @@ func (s *Service) Upgrade(ctx context.Context) (bool, error) {
 		return false, errors.Wrap(err, "failed to obtain version")
 	}
 
+	log.Trace().Uint64("current_version", version).Uint64("required_version", currentVersion).Msg("Checking if database upgrade is required")
 	if version == currentVersion {
 		// Nothing to do.
 		return false, nil
@@ -78,8 +86,8 @@ func (s *Service) Upgrade(ctx context.Context) (bool, error) {
 	}
 
 	requiresRefetch := false
-	for i := version; i <= currentVersion; i++ {
-		log.Info().Uint64("version", i).Msg("Upgrading database")
+	for i := version + 1; i <= currentVersion; i++ {
+		log.Info().Uint64("target_version", i).Msg("Upgrading database")
 		if upgrade, exists := upgrades[i]; exists {
 			for i, upgradeFunc := range upgrade.funcs {
 				log.Info().Int("current", i+1).Int("total", len(upgrade.funcs)).Msg("Running upgrade function")
@@ -506,6 +514,122 @@ func (s *Service) setVersion(ctx context.Context, version uint64) error {
 	return s.SetMetadata(ctx, "schema", data)
 }
 
+func dropEpochsTable(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+	if _, err := tx.Exec(ctx, `DROP TABLE IF EXISTS t_epochs`); err != nil {
+		return errors.Wrap(err, "failed to drop epochs table")
+	}
+	return nil
+}
+
+// createSummaryTables creates the summary tables.
+func createSummaryTables(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `CREATE TABLE t_validator_epoch_summaries (
+  f_validator_index             BIGINT NOT NULL
+ ,f_epoch                       BIGINT NOT NULL
+ ,f_proposer_duties             INTEGER NOT NULL
+ ,f_proposals_included          INTEGER NOT NULL
+ ,f_attestation_included        BOOL NOT NULL
+ ,f_attestation_target_correct  BOOL
+ ,f_attestation_head_correct    BOOL
+ ,f_attestation_inclusion_delay INTEGER
+)`); err != nil {
+		return errors.Wrap(err, "failed to create validator epoch summaries table")
+	}
+	if _, err := tx.Exec(ctx, "CREATE UNIQUE INDEX IF NOT EXISTS i_validator_epoch_summaries_1 ON t_validator_epoch_summaries(f_validator_index, f_epoch)"); err != nil {
+		return errors.Wrap(err, "failed to create validator epoch summaries index 1")
+	}
+
+	if _, err := tx.Exec(ctx, `CREATE TABLE t_block_summaries (
+  f_slot                             BIGINT NOT NULL
+ ,f_attestations_for_block           INTEGER NOT NULL
+ ,f_duplicate_attestations_for_block INTEGER NOT NULL
+ ,f_votes_for_block                  INTEGER NOT NULL
+)`); err != nil {
+		return errors.Wrap(err, "failed to create block summaries table")
+	}
+	if _, err := tx.Exec(ctx, "CREATE UNIQUE INDEX IF NOT EXISTS i_block_summaries_1 ON t_block_summaries(f_slot)"); err != nil {
+		return errors.Wrap(err, "failed to create block summaries index 1")
+	}
+
+	if _, err := tx.Exec(ctx, `CREATE TABLE t_epoch_summaries (
+  f_epoch                            BIGINT UNIQUE NOT NULL
+ ,f_activation_queue_length          BIGINT NOT NULL
+ ,f_activating_validators            BIGINT NOT NULL
+ ,f_active_validators                BIGINT NOT NULL
+ ,f_active_real_balance              BIGINT NOT NULL
+ ,f_active_balance                   BIGINT NOT NULL
+ ,f_attesting_validators             BIGINT NOT NULL
+ ,f_attesting_balance                BIGINT NOT NULL
+ ,f_target_correct_validators        BIGINT NOT NULL
+ ,f_target_correct_balance           BIGINT NOT NULL
+ ,f_head_correct_validators          BIGINT NOT NULL
+ ,f_head_correct_balance             BIGINT NOT NULL
+ ,f_attestations_for_epoch           BIGINT NOT NULL
+ ,f_attestations_in_epoch            BIGINT NOT NULL
+ ,f_duplicate_attestations_for_epoch BIGINT NOT NULL
+ ,f_proposer_slashings               BIGINT NOT NULL
+ ,f_attester_slashings               BIGINT NOT NULL
+ ,f_deposits                         BIGINT NOT NULL
+ ,f_exiting_validators               BIGINT NOT NULL
+ ,f_canonical_blocks                 BIGINT NOT NULL
+)`); err != nil {
+		return errors.Wrap(err, "failed to create epoch summaries table")
+	}
+
+	return nil
+}
+
+// setValidatorBalancesMetadata sets the validator balances field in the validator metadata.
+func setValidatorBalancesMetadata(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	var latestValidatorBalanceEpoch uint64
+	err := tx.QueryRow(ctx, `
+SELECT MIN(missed)
+FROM generate_series(0,(SELECT MAX(f_epoch)+1 FROM t_validator_balances),1) missed
+LEFT JOIN t_validator_balances
+  ON missed = t_validator_balances.f_epoch
+WHERE f_epoch IS NULL`,
+	).Scan(
+		&latestValidatorBalanceEpoch,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain maximum validator balance epoch")
+	}
+	if latestValidatorBalanceEpoch > 0 {
+		latestValidatorBalanceEpoch--
+	}
+
+	_, err = tx.Exec(ctx, fmt.Sprintf(`
+UPDATE t_metadata
+SET f_value = f_value || '{"latest_balances_epoch":%d}'::JSONB
+WHERE f_key = 'validators.standard'`,
+		latestValidatorBalanceEpoch),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to set maximum validator balance epoch")
+	}
+
+	return nil
+}
+
 // Init initialises the database.
 func (s *Service) Init(ctx context.Context) (bool, error) {
 	ctx, cancel, err := s.BeginTx(ctx)
@@ -525,7 +649,7 @@ CREATE TABLE t_metadata (
  ,f_value JSONB NOT NULL
 );
 CREATE UNIQUE INDEX i_metadata_1 ON t_metadata(f_key);
-INSERT INTO t_metadata VALUES('schema', '{"version": 1}');
+INSERT INTO t_metadata VALUES('schema', '{"version": 2}');
 
 -- t_chain_spec contains the specification of the chain to which the rest of
 -- the tables relate.
@@ -721,17 +845,51 @@ CREATE TABLE t_validator_balances (
  ,f_effective_balance BIGINT NOT NULL
 );
 CREATE UNIQUE INDEX i_validator_balances_1 ON t_validator_balances(f_validator_index, f_epoch);
-CREATE INDEX i_validator_balances_2 ON t_validator_balances(f_epoch);
+CREATE INDEX i_validator_balances_2 ON t_validator_balances(f_epoch)
 
--- t_epochs contain rollup information for epochs.
-CREATE TABLE t_epochs (
-  f_epoch                    BIGINT NOT NULL
- ,f_active_validators        BIGINT NOT NULL
- ,f_active_effective_balance BIGINT NOT NULL
- ,f_justified_at             BIGINT
- ,f_finalized_at             BIGINT
+CREATE TABLE t_validator_epoch_summaries (
+  f_validator_index             BIGINT NOT NULL
+ ,f_epoch                       BIGINT NOT NULL
+ ,f_proposer_duties             INTEGER NOT NULL
+ ,f_proposals_included          INTEGER NOT NULL
+ ,f_attestation_included        BOOL NOT NULL
+ ,f_attestation_target_correct  BOOL
+ ,f_attestation_head_correct    BOOL
+ ,f_attestation_inclusion_delay INTEGER
 );
-CREATE UNIQUE INDEX i_epochs_1 ON t_epochs(f_epoch)`); err != nil {
+CREATE UNIQUE INDEX IF NOT EXISTS i_validator_epoch_summaries_1 ON t_validator_epoch_summaries(f_validator_index, f_epoch);
+
+CREATE TABLE t_block_summaries (
+  f_slot                             BIGINT NOT NULL
+ ,f_attestations_for_block           INTEGER NOT NULL
+ ,f_duplicate_attestations_for_block INTEGER NOT NULL
+ ,f_votes_for_block                  INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS i_block_summaries_1 ON t_block_summaries(f_slot);
+
+CREATE TABLE t_epoch_summaries (
+  f_epoch                            BIGINT UNIQUE NOT NULL
+ ,f_activation_queue_length          BIGINT NOT NULL
+ ,f_activating_validators            BIGINT NOT NULL
+ ,f_active_validators                BIGINT NOT NULL
+ ,f_active_real_balance              BIGINT NOT NULL
+ ,f_active_balance                   BIGINT NOT NULL
+ ,f_attesting_validators             BIGINT NOT NULL
+ ,f_attesting_balance                BIGINT NOT NULL
+ ,f_target_correct_validators        BIGINT NOT NULL
+ ,f_target_correct_balance           BIGINT NOT NULL
+ ,f_head_correct_validators          BIGINT NOT NULL
+ ,f_head_correct_balance             BIGINT NOT NULL
+ ,f_attestations_for_epoch           BIGINT NOT NULL
+ ,f_attestations_in_epoch            BIGINT NOT NULL
+ ,f_duplicate_attestations_for_epoch BIGINT NOT NULL
+ ,f_proposer_slashings               BIGINT NOT NULL
+ ,f_attester_slashings               BIGINT NOT NULL
+ ,f_deposits                         BIGINT NOT NULL
+ ,f_exiting_validators               BIGINT NOT NULL
+ ,f_canonical_blocks                 BIGINT NOT NULL
+)
+`); err != nil {
 		cancel()
 		return false, errors.Wrap(err, "failed to create initial tables")
 	}

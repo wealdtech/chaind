@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2021 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,23 +19,29 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
-// SetProposerDuty sets a proposer duty.
-func (s *Service) SetProposerDuty(ctx context.Context, proposerDuty *chaindb.ProposerDuty) error {
+// SetBlockSummary sets a block summary.
+func (s *Service) SetBlockSummary(ctx context.Context, summary *chaindb.BlockSummary) error {
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
 	}
 
 	_, err := tx.Exec(ctx, `
-      INSERT INTO t_proposer_duties(f_slot
-                                   ,f_validator_index)
-      VALUES($1,$2)
+      INSERT INTO t_block_summaries(f_slot
+                                   ,f_attestations_for_block
+                                   ,f_duplicate_attestations_for_block
+                                   ,f_votes_for_block)
+      VALUES($1,$2,$3,$4)
       ON CONFLICT (f_slot) DO
       UPDATE
-      SET f_validator_index = excluded.f_validator_index
+      SET f_attestations_for_block = excluded.f_attestations_for_block
+         ,f_duplicate_attestations_for_block = excluded.f_duplicate_attestations_for_block
+         ,f_votes_for_block = excluded.f_votes_for_block
 		 `,
-		proposerDuty.Slot,
-		proposerDuty.ValidatorIndex,
+		summary.Slot,
+		summary.AttestationsForBlock,
+		summary.DuplicateAttestationsForBlock,
+		summary.VotesForBlock,
 	)
 
 	return err

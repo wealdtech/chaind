@@ -116,3 +116,62 @@ func (s *Service) DepositsByPublicKey(ctx context.Context, pubKeys []spec.BLSPub
 
 	return deposits, nil
 }
+
+// DepositsForSlotRange fetches all deposits made in the given slot range.
+// It will return deposits from blocks that are canonical or undefined, but not from non-canonical blocks.
+func (s *Service) DepositsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*chaindb.Deposit, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_inclusion_slot
+            ,f_inclusion_block_root
+            ,f_inclusion_index
+            ,f_validator_pubkey
+            ,f_withdrawal_credentials
+            ,f_amount
+      FROM t_deposits
+      WHERE f_inclusion_slot >= $1
+        AND f_inclusion_slot < $2
+		AND f_inclusion_slot IN (SELECT f_slot FROM t_blocks WHERE f_slot >= $1 AND f_slot < $2 AND (f_canonical IS NULL OR f_canonical = true))
+      ORDER BY f_inclusion_slot
+              ,f_inclusion_index`,
+		minSlot,
+		maxSlot,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	deposits := make([]*chaindb.Deposit, 0)
+	for rows.Next() {
+		deposit := &chaindb.Deposit{}
+		var inclusionBlockRoot []byte
+		var validatorPubKey []byte
+		err := rows.Scan(
+			&deposit.InclusionSlot,
+			&inclusionBlockRoot,
+			&deposit.InclusionIndex,
+			&validatorPubKey,
+			&deposit.WithdrawalCredentials,
+			&deposit.Amount,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		copy(deposit.InclusionBlockRoot[:], inclusionBlockRoot)
+		copy(deposit.ValidatorPubKey[:], validatorPubKey)
+
+		deposits = append(deposits, deposit)
+	}
+
+	return deposits, nil
+}

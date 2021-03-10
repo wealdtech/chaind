@@ -185,3 +185,47 @@ type ProposerSlashing struct {
 	Header2BodyRoot      spec.Root
 	Header2Signature     spec.BLSSignature
 }
+
+// ValidatorEpochSummary provides a summary of a validator's operations for an epoch.
+type ValidatorEpochSummary struct {
+	Index                     spec.ValidatorIndex
+	Epoch                     spec.Epoch
+	ProposerDuties            int
+	ProposalsIncluded         int
+	AttestationIncluded       bool
+	AttestationTargetCorrect  *bool
+	AttestationHeadCorrect    *bool
+	AttestationInclusionDelay *int
+}
+
+// BlockSummary provides a summary of an epoch.
+type BlockSummary struct {
+	Slot                          spec.Slot
+	AttestationsForBlock          int
+	DuplicateAttestationsForBlock int
+	VotesForBlock                 int
+}
+
+// EpochSummary provides a summary of an epoch.
+type EpochSummary struct {
+	Epoch                         spec.Epoch
+	ActivationQueueLength         int
+	ActivatingValidators          int
+	ActiveValidators              int
+	ActiveRealBalance             spec.Gwei
+	ActiveBalance                 spec.Gwei
+	AttestingValidators           int
+	AttestingBalance              spec.Gwei
+	TargetCorrectValidators       int
+	TargetCorrectBalance          spec.Gwei
+	HeadCorrectValidators         int
+	HeadCorrectBalance            spec.Gwei
+	AttestationsForEpoch          int
+	AttestationsInEpoch           int
+	DuplicateAttestationsForEpoch int
+	ProposerSlashings             int
+	AttesterSlashings             int
+	Deposits                      int
+	ExitingValidators             int
+	CanonicalBlocks               int
+}

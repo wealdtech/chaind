@@ -58,6 +58,8 @@ Data gathers four pieces of information from the beacon node, broken down by the
   - **Finalizer** The finalizer module augments the information prsent in the database from finalized states.  This includes:
     - the canonical state of blocks.
 
+In addition, the summarizer module takes the finalized information and generates summary statistics at the validator, block and epoch level.
+
 ## Requirements to run `chaind`
 ### Database
 At current the only supported backend is PostgreSQL.  Once you have a  PostgreSQL instance you will need to create a user and database that `chaind` can use, for example run the following commands as the PostgreSQL superuser (`postgres` on most linux installations):

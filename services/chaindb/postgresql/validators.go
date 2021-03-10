@@ -117,7 +117,7 @@ func (s *Service) SetValidatorBalance(ctx context.Context, balance *chaindb.Vali
 	return err
 }
 
-// Validators fetches the validators.
+// Validators fetches all validators.
 func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
@@ -159,6 +159,8 @@ func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) 
 }
 
 // ValidatorsByPublicKey fetches all validators matching the given public keys.
+// This is a common starting point for external entities to query specific validators, as they should
+// always have the public key at a minimum, hence the return map keyed by public key.
 func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) (map[spec.BLSPubKey]*chaindb.Validator, error) {
 	tx := s.tx(ctx)
 	if tx == nil {

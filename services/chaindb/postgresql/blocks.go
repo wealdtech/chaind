@@ -49,12 +49,14 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
                           ,f_eth1_deposit_root
 						  )
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-      ON CONFLICT (f_slot,f_root) DO
+      ON CONFLICT (f_root) DO
       UPDATE
-      SET f_proposer_index = excluded.f_proposer_index
-         ,f_root = excluded.f_root
+      SET f_slot = excluded.f_slot
+         ,f_proposer_index = excluded.f_proposer_index
          ,f_graffiti = excluded.f_graffiti
          ,f_randao_reveal = excluded.f_randao_reveal
+         ,f_body_root = excluded.f_body_root
+         ,f_parent_root = excluded.f_parent_root
          ,f_state_root = excluded.f_state_root
          ,f_canonical = excluded.f_canonical
          ,f_eth1_block_hash = excluded.f_eth1_block_hash
@@ -118,6 +120,88 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot spec.Slot) ([]*chaindb.
 
 	blocks := make([]*chaindb.Block, 0)
 
+	for rows.Next() {
+		block := &chaindb.Block{}
+		var blockRoot []byte
+		var randaoReveal []byte
+		var bodyRoot []byte
+		var parentRoot []byte
+		var stateRoot []byte
+		var canonical sql.NullBool
+		var eth1DepositRoot []byte
+		err := rows.Scan(
+			&block.Slot,
+			&block.ProposerIndex,
+			&blockRoot,
+			&block.Graffiti,
+			&randaoReveal,
+			&bodyRoot,
+			&parentRoot,
+			&stateRoot,
+			&canonical,
+			&block.ETH1BlockHash,
+			&block.ETH1DepositCount,
+			&eth1DepositRoot,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		copy(block.Root[:], blockRoot)
+		copy(block.RANDAOReveal[:], randaoReveal)
+		copy(block.BodyRoot[:], bodyRoot)
+		copy(block.ParentRoot[:], parentRoot)
+		copy(block.StateRoot[:], stateRoot)
+		if canonical.Valid {
+			val := canonical.Bool
+			block.Canonical = &val
+		}
+		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+		blocks = append(blocks, block)
+	}
+
+	return blocks, nil
+}
+
+// BlocksForSlotRange fetches all blocks with the given slot range.
+// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
+// blocks duties for slots 2 and 3.
+func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*chaindb.Block, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_slot
+            ,f_proposer_index
+            ,f_root
+            ,f_graffiti
+            ,f_randao_reveal
+            ,f_body_root
+            ,f_parent_root
+            ,f_state_root
+            ,f_canonical
+            ,f_eth1_block_hash
+            ,f_eth1_deposit_count
+            ,f_eth1_deposit_root
+      FROM t_blocks
+      WHERE f_slot >= $1
+        AND f_slot < $2
+      ORDER BY f_slot`,
+		startSlot,
+		endSlot,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	blocks := make([]*chaindb.Block, 0)
 	for rows.Next() {
 		block := &chaindb.Block{}
 		var blockRoot []byte
@@ -225,6 +309,51 @@ func (s *Service) BlockByRoot(ctx context.Context, root spec.Root) (*chaindb.Blo
 	}
 	copy(block.ETH1DepositRoot[:], eth1DepositRoot)
 	return block, nil
+}
+
+// CanonicalBlockPresenceForSlotRange returns a boolean for each slot in the range for the presence
+// of a canonical block.
+// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
+// presence duties for slots 2 and 3.
+func (s *Service) CanonicalBlockPresenceForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]bool, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_slot
+      FROM t_blocks
+      WHERE f_slot >= $1
+        AND f_slot < $2
+        AND f_canonical = TRUE
+	  ORDER BY f_slot`,
+		startSlot,
+		endSlot,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	presence := make([]bool, endSlot-startSlot)
+	for rows.Next() {
+		var slot spec.Slot
+		err := rows.Scan(
+			&slot,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		presence[slot-startSlot] = true
+	}
+
+	return presence, nil
 }
 
 // BlocksByParentRoot fetches the blocks with the given root.
@@ -459,4 +588,31 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
 	}
 
 	return blocks, nil
+}
+
+// LatestCanonicalBlock returns the slot of the latest canonical block known in the database.
+func (s *Service) LatestCanonicalBlock(ctx context.Context) (spec.Slot, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	var slot spec.Slot
+	err := tx.QueryRow(ctx, `
+      SELECT COALESCE(MAX(f_slot),0)
+      FROM t_blocks
+      WHERE f_canonical = true`,
+	).Scan(
+		&slot,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	return slot, nil
 }

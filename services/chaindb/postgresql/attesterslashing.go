@@ -16,6 +16,8 @@ package postgresql
 import (
 	"context"
 
+	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
@@ -95,4 +97,228 @@ func (s *Service) SetAttesterSlashing(ctx context.Context, attesterSlashing *cha
 	)
 
 	return err
+}
+
+// AttesterSlashingsForSlotRange fetches all attester slashings made for the given slot range.
+// It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
+func (s *Service) AttesterSlashingsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*chaindb.AttesterSlashing, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_inclusion_slot
+            ,f_inclusion_block_root
+            ,f_inclusion_index
+            ,f_attestation_1_indices
+            ,f_attestation_1_slot
+            ,f_attestation_1_committee_index
+            ,f_attestation_1_beacon_block_root
+            ,f_attestation_1_source_epoch
+            ,f_attestation_1_source_root
+            ,f_attestation_1_target_epoch
+            ,f_attestation_1_target_root
+            ,f_attestation_1_signature
+            ,f_attestation_2_indices
+            ,f_attestation_2_slot
+            ,f_attestation_2_committee_index
+            ,f_attestation_2_beacon_block_root
+            ,f_attestation_2_source_epoch
+            ,f_attestation_2_source_root
+            ,f_attestation_2_target_epoch
+            ,f_attestation_2_target_root
+            ,f_attestation_2_signature
+      FROM t_attester_slashings
+      WHERE f_inclusion_slot >= $1
+        AND f_inclusion_slot < $2
+		AND f_inclusion_slot IN (SELECT f_slot FROM t_blocks WHERE f_slot >= $1 AND f_slot < $2 AND (f_canonical IS NULL OR f_canonical = true))
+      ORDER BY f_inclusion_slot
+	          ,f_inclusion_index`,
+		minSlot,
+		maxSlot,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	attesterSlashings := make([]*chaindb.AttesterSlashing, 0)
+
+	var inclusionBlockRoot []byte
+	var attestation1Indices []uint64
+	var attestation1BeaconBlockRoot []byte
+	var attestation1SourceRoot []byte
+	var attestation1TargetRoot []byte
+	var attestation1Signature []byte
+	var attestation2Indices []uint64
+	var attestation2BeaconBlockRoot []byte
+	var attestation2SourceRoot []byte
+	var attestation2TargetRoot []byte
+	var attestation2Signature []byte
+	for rows.Next() {
+		attesterSlashing := &chaindb.AttesterSlashing{}
+		err := rows.Scan(
+			&attesterSlashing.InclusionSlot,
+			&inclusionBlockRoot,
+			&attesterSlashing.InclusionIndex,
+			&attestation1Indices,
+			&attesterSlashing.Attestation1Slot,
+			&attesterSlashing.Attestation1CommitteeIndex,
+			&attestation1BeaconBlockRoot,
+			&attesterSlashing.Attestation1SourceEpoch,
+			&attestation1SourceRoot,
+			&attesterSlashing.Attestation1TargetEpoch,
+			&attestation1TargetRoot,
+			&attestation1Signature,
+			&attestation2Indices,
+			&attesterSlashing.Attestation2Slot,
+			&attesterSlashing.Attestation2CommitteeIndex,
+			&attestation2BeaconBlockRoot,
+			&attesterSlashing.Attestation2SourceEpoch,
+			&attestation2SourceRoot,
+			&attesterSlashing.Attestation2TargetEpoch,
+			&attestation2TargetRoot,
+			&attestation2Signature,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		copy(attesterSlashing.InclusionBlockRoot[:], inclusionBlockRoot)
+		attesterSlashing.Attestation1Indices = make([]spec.ValidatorIndex, len(attestation1Indices))
+		for i := range attestation1Indices {
+			attesterSlashing.Attestation1Indices[i] = spec.ValidatorIndex(attestation1Indices[i])
+		}
+		copy(attesterSlashing.Attestation1BeaconBlockRoot[:], attestation1BeaconBlockRoot)
+		copy(attesterSlashing.Attestation1SourceRoot[:], attestation1SourceRoot)
+		copy(attesterSlashing.Attestation1TargetRoot[:], attestation1TargetRoot)
+		copy(attesterSlashing.Attestation1Signature[:], attestation1Signature)
+		attesterSlashing.Attestation2Indices = make([]spec.ValidatorIndex, len(attestation2Indices))
+		for i := range attestation2Indices {
+			attesterSlashing.Attestation2Indices[i] = spec.ValidatorIndex(attestation2Indices[i])
+		}
+		copy(attesterSlashing.Attestation2BeaconBlockRoot[:], attestation2BeaconBlockRoot)
+		copy(attesterSlashing.Attestation2SourceRoot[:], attestation2SourceRoot)
+		copy(attesterSlashing.Attestation2TargetRoot[:], attestation2TargetRoot)
+		copy(attesterSlashing.Attestation2Signature[:], attestation2Signature)
+		attesterSlashings = append(attesterSlashings, attesterSlashing)
+	}
+
+	return attesterSlashings, nil
+}
+
+// AttesterSlashingsForValidator fetches all attester slashings made for the given validator.
+// It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
+func (s *Service) AttesterSlashingsForValidator(ctx context.Context, index spec.ValidatorIndex) ([]*chaindb.AttesterSlashing, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_inclusion_slot
+            ,f_inclusion_block_root
+            ,f_inclusion_index
+            ,f_attestation_1_indices
+            ,f_attestation_1_slot
+            ,f_attestation_1_committee_index
+            ,f_attestation_1_beacon_block_root
+            ,f_attestation_1_source_epoch
+            ,f_attestation_1_source_root
+            ,f_attestation_1_target_epoch
+            ,f_attestation_1_target_root
+            ,f_attestation_1_signature
+            ,f_attestation_2_indices
+            ,f_attestation_2_slot
+            ,f_attestation_2_committee_index
+            ,f_attestation_2_beacon_block_root
+            ,f_attestation_2_source_epoch
+            ,f_attestation_2_source_root
+            ,f_attestation_2_target_epoch
+            ,f_attestation_2_target_root
+            ,f_attestation_2_signature
+      FROM t_attester_slashings
+      WHERE $1 = ANY(f_attestation_1_indices)
+        AND $1 = ANY(f_attestation_2_indices)
+      ORDER BY f_inclusion_slot
+	          ,f_inclusion_index`,
+		index,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	attesterSlashings := make([]*chaindb.AttesterSlashing, 0)
+
+	var inclusionBlockRoot []byte
+	var attestation1Indices []uint64
+	var attestation1BeaconBlockRoot []byte
+	var attestation1SourceRoot []byte
+	var attestation1TargetRoot []byte
+	var attestation1Signature []byte
+	var attestation2Indices []uint64
+	var attestation2BeaconBlockRoot []byte
+	var attestation2SourceRoot []byte
+	var attestation2TargetRoot []byte
+	var attestation2Signature []byte
+	for rows.Next() {
+		attesterSlashing := &chaindb.AttesterSlashing{}
+		err := rows.Scan(
+			&attesterSlashing.InclusionSlot,
+			&inclusionBlockRoot,
+			&attesterSlashing.InclusionIndex,
+			&attestation1Indices,
+			&attesterSlashing.Attestation1Slot,
+			&attesterSlashing.Attestation1CommitteeIndex,
+			&attestation1BeaconBlockRoot,
+			&attesterSlashing.Attestation1SourceEpoch,
+			&attestation1SourceRoot,
+			&attesterSlashing.Attestation1TargetEpoch,
+			&attestation1TargetRoot,
+			&attestation1Signature,
+			&attestation2Indices,
+			&attesterSlashing.Attestation2Slot,
+			&attesterSlashing.Attestation2CommitteeIndex,
+			&attestation2BeaconBlockRoot,
+			&attesterSlashing.Attestation2SourceEpoch,
+			&attestation2SourceRoot,
+			&attesterSlashing.Attestation2TargetEpoch,
+			&attestation2TargetRoot,
+			&attestation2Signature,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		copy(attesterSlashing.InclusionBlockRoot[:], inclusionBlockRoot)
+		attesterSlashing.Attestation1Indices = make([]spec.ValidatorIndex, len(attestation1Indices))
+		for i := range attestation1Indices {
+			attesterSlashing.Attestation1Indices[i] = spec.ValidatorIndex(attestation1Indices[i])
+		}
+		copy(attesterSlashing.Attestation1BeaconBlockRoot[:], attestation1BeaconBlockRoot)
+		copy(attesterSlashing.Attestation1SourceRoot[:], attestation1SourceRoot)
+		copy(attesterSlashing.Attestation1TargetRoot[:], attestation1TargetRoot)
+		copy(attesterSlashing.Attestation1Signature[:], attestation1Signature)
+		attesterSlashing.Attestation2Indices = make([]spec.ValidatorIndex, len(attestation2Indices))
+		for i := range attestation2Indices {
+			attesterSlashing.Attestation2Indices[i] = spec.ValidatorIndex(attestation2Indices[i])
+		}
+		copy(attesterSlashing.Attestation2BeaconBlockRoot[:], attestation2BeaconBlockRoot)
+		copy(attesterSlashing.Attestation2SourceRoot[:], attestation2SourceRoot)
+		copy(attesterSlashing.Attestation2TargetRoot[:], attestation2TargetRoot)
+		copy(attesterSlashing.Attestation2Signature[:], attestation2Signature)
+		attesterSlashings = append(attesterSlashings, attesterSlashing)
+	}
+
+	return attesterSlashings, nil
 }

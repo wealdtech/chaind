@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2021 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,20 +23,20 @@ import (
 
 // metadata stored about this service.
 type metadata struct {
-	LatestEpoch         spec.Epoch   `json:"latest_epoch"`
-	LatestBalancesEpoch spec.Epoch   `json:"latest_balances_epoch"`
-	MissedEpochs        []spec.Epoch `json:"missed_epochs,omitempty"`
+	LastValidatorEpoch spec.Epoch `json:"latest_validator_epoch"`
+	LastBlockEpoch     spec.Epoch `json:"latest_block_epoch"`
+	LastEpoch          spec.Epoch `json:"latest_epoch"`
 }
 
 // metadataKey is the key for the metadata.
-var metadataKey = "validators.standard"
+var metadataKey = "summarizer.standard"
 
 // getMetadata gets metadata for this service.
 func (s *Service) getMetadata(ctx context.Context) (*metadata, error) {
 	md := &metadata{}
 	mdJSON, err := s.chainDB.Metadata(ctx, metadataKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to obtain metadata")
+		return nil, errors.Wrap(err, "failed to fetch metadata")
 	}
 	if mdJSON == nil {
 		return md, nil

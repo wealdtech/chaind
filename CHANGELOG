@@ -1,4 +1,6 @@
 Development:
+  - add summarizer module, providing summarized information for validators, blocks and epochs
+  - add t_epoch_summaries, t_block_summaries and t_validator_epoch_summaries tables
   - add Ethereum 1 deposits module, queries an Ethereum 1 instance for deposits
   - add section on querying the database, and notes on the individual tables
   - fix potential crash in blocks handler if database goes away

@@ -21,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
+	"github.com/wealdtech/chaind/handlers"
 	"github.com/wealdtech/chaind/services/blocks"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
@@ -29,13 +30,14 @@ import (
 
 // Service is a finalizer service.
 type Service struct {
-	eth2Client     eth2client.Service
-	chainDB        chaindb.Service
-	blocksProvider chaindb.BlocksProvider
-	blocksSetter   chaindb.BlocksSetter
-	chainTime      chaintime.Service
-	blocks         blocks.Service
-	activitySem    *semaphore.Weighted
+	eth2Client       eth2client.Service
+	chainDB          chaindb.Service
+	blocksProvider   chaindb.BlocksProvider
+	blocksSetter     chaindb.BlocksSetter
+	chainTime        chaintime.Service
+	blocks           blocks.Service
+	finalityHandlers []handlers.FinalityHandler
+	activitySem      *semaphore.Weighted
 }
 
 // module-wide log.
@@ -66,13 +68,14 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}
 
 	s := &Service{
-		eth2Client:     parameters.eth2Client,
-		chainDB:        parameters.chainDB,
-		blocksProvider: blocksProvider,
-		blocksSetter:   blocksSetter,
-		chainTime:      parameters.chainTime,
-		blocks:         parameters.blocks,
-		activitySem:    semaphore.NewWeighted(1),
+		eth2Client:       parameters.eth2Client,
+		chainDB:          parameters.chainDB,
+		blocksProvider:   blocksProvider,
+		blocksSetter:     blocksSetter,
+		chainTime:        parameters.chainTime,
+		blocks:           parameters.blocks,
+		finalityHandlers: parameters.finalityHandlers,
+		activitySem:      semaphore.NewWeighted(1),
 	}
 
 	// Set up the handler for new chain head updates.

@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 201 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -31,53 +31,55 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	stateRoot spec.Root,
 	epochTransition bool,
 ) {
+	epoch := s.chainTime.SlotToEpoch(slot)
+	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
+
 	if !epochTransition {
 		// Only interested in epoch transitions.
 		return
 	}
 
-	epoch := s.chainTime.SlotToEpoch(slot)
-	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
-
-	ctx, cancel, err := s.chainDB.BeginTx(ctx)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to begin transaction on beacon chain head update")
+	// Only allow 1 handler to be active.
+	acquired := s.activitySem.TryAcquire(1)
+	if !acquired {
+		log.Debug().Msg("Another handler running")
 		return
 	}
+
+	log.Trace().Msg("Handling epoch transition")
 
 	md, err := s.getMetadata(ctx)
 	if err != nil {
+		s.activitySem.Release(1)
 		log.Fatal().Err(err).Msg("Failed to obtain metadata")
 	}
 
-	if err := s.updateValidatorsForState(ctx, fmt.Sprintf("%d", slot)); err != nil {
-		log.Error().Err(err).Msg("Failed to update validators on beacon chain head update")
-		md.MissedEpochs = append(md.MissedEpochs, epoch)
+	if err := s.onEpochTransitionValidators(ctx, md, epoch); err != nil {
+		log.Warn().Err(err).Msg("Failed to update validators")
 	}
+	if err := s.onEpochTransitionValidatorBalances(ctx, md, epoch); err != nil {
+		log.Warn().Err(err).Msg("Failed to update validators")
+	}
+	s.activitySem.Release(1)
 
-	md.LatestEpoch = epoch
-	if err := s.setMetadata(ctx, md); err != nil {
-		log.Error().Err(err).Msg("Failed to set metadata")
-	}
-
-	if err := s.chainDB.CommitTx(ctx); err != nil {
-		log.Error().Err(err).Msg("Failed to commit transaction")
-		cancel()
-		return
-	}
+	monitorEpochProcessed(epoch)
+	log.Trace().Msg("Finished handling epoch transition")
 }
 
-func (s *Service) updateValidatorsForState(ctx context.Context, stateID string) error {
-	validators, err := s.eth2Client.(eth2client.ValidatorsProvider).Validators(ctx, stateID, nil)
+func (s *Service) onEpochTransitionValidators(ctx context.Context,
+	md *metadata,
+	transitionedEpoch spec.Epoch,
+) error {
+	// We always fetch the latest validator information regardless of epoch.
+	validators, err := s.eth2Client.(eth2client.ValidatorsProvider).Validators(ctx, "head", nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain validators")
 	}
 
-	epoch, err := s.eth2Client.(eth2client.EpochFromStateIDProvider).EpochFromStateID(ctx, stateID)
+	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to calculate epoch from state ID")
+		return errors.Wrap(err, "failed to begin transaction for validators")
 	}
-
 	for index, validator := range validators {
 		dbValidator := &chaindb.Validator{
 			PublicKey:                  validator.Validator.PublicKey,
@@ -90,49 +92,71 @@ func (s *Service) updateValidatorsForState(ctx context.Context, stateID string) 
 			WithdrawableEpoch:          validator.Validator.WithdrawableEpoch,
 		}
 		if err := s.validatorsSetter.SetValidator(ctx, dbValidator); err != nil {
+			cancel()
 			return errors.Wrap(err, "failed to set validator")
 		}
-		if s.balances {
-			dbValidatorBalance := &chaindb.ValidatorBalance{
-				Index:            index,
-				Epoch:            epoch,
-				Balance:          validator.Balance,
-				EffectiveBalance: validator.Validator.EffectiveBalance,
-			}
-			if err := s.validatorsSetter.SetValidatorBalance(ctx, dbValidatorBalance); err != nil {
-				return errors.Wrap(err, "failed to set validator balance")
-			}
-		}
 	}
-	monitorEpochProcessed(epoch)
-	if s.balances {
-		monitorBalancesEpochProcessed(epoch)
+	md.LatestEpoch = transitionedEpoch
+	if err := s.setMetadata(ctx, md); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to set metadata for validators")
 	}
+	if err := s.chainDB.CommitTx(ctx); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to set commit transaction for validators")
+	}
+	monitorEpochProcessed(transitionedEpoch)
 
 	return nil
 }
 
-func (s *Service) updateValidatorBalancesForState(ctx context.Context, stateID string) error {
-	if s.balances {
-		epoch, err := s.eth2Client.(eth2client.EpochFromStateIDProvider).EpochFromStateID(ctx, stateID)
-		if err != nil {
-			return errors.Wrap(err, "failed to calculate epoch from state ID")
-		}
+func (s *Service) onEpochTransitionValidatorBalances(ctx context.Context,
+	md *metadata,
+	transitionedEpoch spec.Epoch,
+) error {
+	if !s.balances {
+		return nil
+	}
+
+	for epoch := md.LatestBalancesEpoch; epoch <= transitionedEpoch; epoch++ {
+		stateID := fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(epoch))
+		log.Trace().Uint64("slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch))).Msg("Fetching validators")
 		validators, err := s.eth2Client.(eth2client.ValidatorsProvider).Validators(ctx, stateID, nil)
 		if err != nil {
-			return errors.Wrap(err, "failed to obtain validator balances")
+			return errors.Wrap(err, "failed to obtain validators for validator balances")
+		}
+
+		ctx, cancel, err := s.chainDB.BeginTx(ctx)
+		if err != nil {
+			return errors.Wrap(err, "failed to begin transaction for validator balances")
 		}
 		for index, validator := range validators {
-			dbValidatorBalance := &chaindb.ValidatorBalance{
-				Index:            index,
-				Epoch:            epoch,
-				Balance:          validator.Balance,
-				EffectiveBalance: validator.Validator.EffectiveBalance,
-			}
-			if err := s.validatorsSetter.SetValidatorBalance(ctx, dbValidatorBalance); err != nil {
-				return errors.Wrap(err, "failed to set validator balance")
+			if s.balances {
+				dbValidatorBalance := &chaindb.ValidatorBalance{
+					Index:            index,
+					Epoch:            epoch,
+					Balance:          validator.Balance,
+					EffectiveBalance: validator.Validator.EffectiveBalance,
+				}
+				if err := s.validatorsSetter.SetValidatorBalance(ctx, dbValidatorBalance); err != nil {
+					cancel()
+					return errors.Wrap(err, "failed to set validator balance")
+				}
 			}
 		}
+		md.LatestBalancesEpoch = epoch
+
+		if err := s.setMetadata(ctx, md); err != nil {
+			cancel()
+			return errors.Wrap(err, "failed to set metadata for validator balances")
+		}
+
+		if err := s.chainDB.CommitTx(ctx); err != nil {
+			cancel()
+			return errors.Wrap(err, "failed to set commit transaction for validator balances")
+		}
+		monitorBalancesEpochProcessed(epoch)
 	}
+
 	return nil
 }

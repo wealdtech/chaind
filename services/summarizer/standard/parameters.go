@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Trading.
+// Copyright © 2021 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,7 +18,6 @@ import (
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/rs/zerolog"
-	"github.com/wealdtech/chaind/handlers"
 	"github.com/wealdtech/chaind/services/blocks"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
@@ -26,13 +25,15 @@ import (
 )
 
 type parameters struct {
-	logLevel         zerolog.Level
-	monitor          metrics.Service
-	eth2Client       eth2client.Service
-	chainDB          chaindb.Service
-	chainTime        chaintime.Service
-	blocks           blocks.Service
-	finalityHandlers []handlers.FinalityHandler
+	logLevel           zerolog.Level
+	monitor            metrics.Service
+	eth2Client         eth2client.Service
+	chainDB            chaindb.Service
+	chainTime          chaintime.Service
+	blocks             blocks.Service
+	epochSummaries     bool
+	blockSummaries     bool
+	validatorSummaries bool
 }
 
 // Parameter is the interface for service parameters.
@@ -88,10 +89,24 @@ func WithBlocks(blocks blocks.Service) Parameter {
 	})
 }
 
-// WithFinalityHandlers sets the finality handlers for this module.
-func WithFinalityHandlers(handlers []handlers.FinalityHandler) Parameter {
+// WithEpochSummaries states if the module should generate epoch summaries.
+func WithEpochSummaries(enabled bool) Parameter {
 	return parameterFunc(func(p *parameters) {
-		p.finalityHandlers = handlers
+		p.epochSummaries = enabled
+	})
+}
+
+// WithBlockSummaries states if the module should generate block summaries.
+func WithBlockSummaries(enabled bool) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.blockSummaries = enabled
+	})
+}
+
+// WithValidatorSummaries states if the module should generate validator summaries.
+func WithValidatorSummaries(enabled bool) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.validatorSummaries = enabled
 	})
 }
 
