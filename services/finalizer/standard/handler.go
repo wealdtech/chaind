@@ -260,11 +260,14 @@ func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch spec.Epo
 		if err := s.updateCanonical(ctx, attestation, blockCanonicals); err != nil {
 			return errors.Wrap(err, "failed to update canonical state")
 		}
+		if err := s.updateAttestationSourceCorrect(ctx, attestation, epochRoots); err != nil {
+			return errors.Wrap(err, "failed to update attestation source vote states")
+		}
 		if err := s.updateAttestationTargetCorrect(ctx, attestation, epochRoots); err != nil {
-			return errors.Wrap(err, "failed to update attestation target vote state")
+			return errors.Wrap(err, "failed to update attestation target vote states")
 		}
 		if err := s.updateAttestationHeadCorrect(ctx, attestation, headRoots); err != nil {
-			return errors.Wrap(err, "failed to update attestation head vote state")
+			return errors.Wrap(err, "failed to update attestation head vote states")
 		}
 		if err := s.chainDB.(chaindb.AttestationsSetter).SetAttestation(ctx, attestation); err != nil {
 			return errors.Wrap(err, "failed to update attestation")
@@ -305,11 +308,29 @@ func (s *Service) updateCanonical(ctx context.Context, attestation *chaindb.Atte
 	return nil
 }
 
+// updateAttestationSourceCorrect updates the attestation to confirm if its source vote is correct.
+// An attestation always has a correct source vote because it is a condition of insertion in to the block.
+// This also sets the timely state of the source vote.
+// An attestation has a timely source vote if it is correct and its inclusion slot is within
+// SQRT(SLOTS_PER_EPOCH) slots of its attestation slot.
+func (s *Service) updateAttestationSourceCorrect(ctx context.Context, attestation *chaindb.Attestation, epochRoots map[spec.Epoch]spec.Root) error {
+	// TODO const.
+	sourceTimely := attestation.InclusionSlot-attestation.Slot <= 5
+
+	attestation.SourceTimely = &sourceTimely
+
+	return nil
+}
+
 // updateAttestationTargetCorrect updates the attestation to confirm if its target vote is correct.
 // An attestation has a correct target vote if it matches the root of the latest canonical block
 // since the start of the target epoch.
+// This also sets the timely state of the target vote.
+// An attestation has a timely target vote if it is correct and its inclusion slot is within
+// SLOTS_PER_EPOCH slots of its attestation slot.
 func (s *Service) updateAttestationTargetCorrect(ctx context.Context, attestation *chaindb.Attestation, epochRoots map[spec.Epoch]spec.Root) error {
 	targetCorrect := false
+	targetTimely := false
 	if epochRoot, exists := epochRoots[attestation.TargetEpoch]; exists {
 		targetCorrect = bytes.Equal(attestation.TargetRoot[:], epochRoot[:])
 	} else {
@@ -342,7 +363,13 @@ func (s *Service) updateAttestationTargetCorrect(ctx context.Context, attestatio
 		}
 	}
 
+	if targetCorrect {
+		// TODO const.
+		targetTimely = attestation.InclusionSlot-attestation.Slot <= 32
+	}
+
 	attestation.TargetCorrect = &targetCorrect
+	attestation.TargetTimely = &targetTimely
 
 	return nil
 }
@@ -350,11 +377,15 @@ func (s *Service) updateAttestationTargetCorrect(ctx context.Context, attestatio
 // updateAttestationHeadCorrect updates the attestation to confirm if its head vote is correct.
 // An attestation has a correct head vote if it matches the root of the last canonical block
 // prior to the attestation slot.
+// This also sets the timely state of the head vote.
+// An attestation has a timely head vote if it is correct and its inclusion slot is within
+// MIN_INCLUSION_SLOT slots of its attestation slot.
 func (s *Service) updateAttestationHeadCorrect(ctx context.Context,
 	attestation *chaindb.Attestation,
 	headRoots map[spec.Slot]spec.Root,
 ) error {
 	headCorrect := false
+	headTimely := false
 	if headRoot, exists := headRoots[attestation.Slot]; exists {
 		headCorrect = bytes.Equal(attestation.BeaconBlockRoot[:], headRoot[:])
 	} else {
@@ -386,7 +417,13 @@ func (s *Service) updateAttestationHeadCorrect(ctx context.Context,
 		}
 	}
 
+	if headCorrect {
+		// TODO const.
+		headTimely = attestation.InclusionSlot-attestation.Slot <= 1
+	}
+
 	attestation.HeadCorrect = &headCorrect
+	attestation.HeadTimely = &headTimely
 
 	return nil
 }

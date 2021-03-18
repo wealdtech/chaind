@@ -44,6 +44,21 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
 		headCorrect.Valid = true
 		headCorrect.Bool = *attestation.HeadCorrect
 	}
+	var sourceTimely sql.NullBool
+	if attestation.SourceTimely != nil {
+		sourceTimely.Valid = true
+		sourceTimely.Bool = *attestation.SourceTimely
+	}
+	var targetTimely sql.NullBool
+	if attestation.TargetTimely != nil {
+		targetTimely.Valid = true
+		targetTimely.Bool = *attestation.TargetTimely
+	}
+	var headTimely sql.NullBool
+	if attestation.HeadTimely != nil {
+		headTimely.Valid = true
+		headTimely.Bool = *attestation.HeadTimely
+	}
 	_, err := tx.Exec(ctx, `
       INSERT INTO t_attestations(f_inclusion_slot
                                 ,f_inclusion_block_root
@@ -60,8 +75,11 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
                                 ,f_canonical
                                 ,f_target_correct
                                 ,f_head_correct
+                                ,f_source_timely
+                                ,f_target_timely
+                                ,f_head_timely
 						  )
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
       ON CONFLICT (f_inclusion_slot,f_inclusion_block_root,f_inclusion_index) DO
       UPDATE
       SET f_slot = excluded.f_slot
@@ -76,6 +94,9 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
          ,f_canonical = excluded.f_canonical
          ,f_target_correct = excluded.f_target_correct
          ,f_head_correct = excluded.f_head_correct
+         ,f_source_timely = excluded.f_source_timely
+         ,f_target_timely = excluded.f_target_timely
+         ,f_head_timely = excluded.f_head_timely
 	  `,
 		attestation.InclusionSlot,
 		attestation.InclusionBlockRoot[:],
@@ -92,6 +113,9 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
 		canonical,
 		targetCorrect,
 		headCorrect,
+		sourceTimely,
+		targetTimely,
+		headTimely,
 	)
 
 	return err
@@ -125,6 +149,9 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
             ,f_canonical
             ,f_target_correct
             ,f_head_correct
+            ,f_source_timely
+            ,f_target_timely
+            ,f_head_timely
       FROM t_attestations
       WHERE f_beacon_block_root = $1
       ORDER BY f_inclusion_slot
@@ -148,6 +175,9 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
 		var canonical sql.NullBool
 		var targetCorrect sql.NullBool
 		var headCorrect sql.NullBool
+		var sourceTimely sql.NullBool
+		var targetTimely sql.NullBool
+		var headTimely sql.NullBool
 		err := rows.Scan(
 			&attestation.InclusionSlot,
 			&inclusionBlockRoot,
@@ -164,6 +194,9 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
 			&canonical,
 			&targetCorrect,
 			&headCorrect,
+			&sourceTimely,
+			&targetTimely,
+			&headTimely,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
@@ -187,6 +220,18 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
 		if headCorrect.Valid {
 			val := headCorrect.Bool
 			attestation.HeadCorrect = &val
+		}
+		if sourceTimely.Valid {
+			val := sourceTimely.Bool
+			attestation.SourceTimely = &val
+		}
+		if targetTimely.Valid {
+			val := targetTimely.Bool
+			attestation.TargetTimely = &val
+		}
+		if headTimely.Valid {
+			val := headTimely.Bool
+			attestation.HeadTimely = &val
 		}
 		attestations = append(attestations, attestation)
 	}
@@ -222,6 +267,9 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
             ,f_canonical
             ,f_target_correct
             ,f_head_correct
+            ,f_source_timely
+            ,f_target_timely
+            ,f_head_timely
       FROM t_attestations
       WHERE f_inclusion_block_root = $1
       ORDER BY f_inclusion_slot
@@ -245,6 +293,9 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 		var canonical sql.NullBool
 		var targetCorrect sql.NullBool
 		var headCorrect sql.NullBool
+		var sourceTimely sql.NullBool
+		var targetTimely sql.NullBool
+		var headTimely sql.NullBool
 		err := rows.Scan(
 			&attestation.InclusionSlot,
 			&inclusionBlockRoot,
@@ -261,6 +312,9 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 			&canonical,
 			&targetCorrect,
 			&headCorrect,
+			&sourceTimely,
+			&targetTimely,
+			&headTimely,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
@@ -284,6 +338,18 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 		if headCorrect.Valid {
 			val := headCorrect.Bool
 			attestation.HeadCorrect = &val
+		}
+		if sourceTimely.Valid {
+			val := sourceTimely.Bool
+			attestation.SourceTimely = &val
+		}
+		if targetTimely.Valid {
+			val := targetTimely.Bool
+			attestation.TargetTimely = &val
+		}
+		if headTimely.Valid {
+			val := headTimely.Bool
+			attestation.HeadTimely = &val
 		}
 		attestations = append(attestations, attestation)
 	}
@@ -321,6 +387,9 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot spec.S
             ,f_canonical
             ,f_target_correct
             ,f_head_correct
+            ,f_source_timely
+            ,f_target_timely
+            ,f_head_timely
       FROM t_attestations
       WHERE f_slot >= $1
         AND f_slot < $2
@@ -346,6 +415,9 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot spec.S
 		var canonical sql.NullBool
 		var targetCorrect sql.NullBool
 		var headCorrect sql.NullBool
+		var sourceTimely sql.NullBool
+		var targetTimely sql.NullBool
+		var headTimely sql.NullBool
 		err := rows.Scan(
 			&attestation.InclusionSlot,
 			&inclusionBlockRoot,
@@ -362,6 +434,9 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot spec.S
 			&canonical,
 			&targetCorrect,
 			&headCorrect,
+			&sourceTimely,
+			&targetTimely,
+			&headTimely,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
@@ -385,6 +460,18 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot spec.S
 		if headCorrect.Valid {
 			val := headCorrect.Bool
 			attestation.HeadCorrect = &val
+		}
+		if sourceTimely.Valid {
+			val := sourceTimely.Bool
+			attestation.SourceTimely = &val
+		}
+		if targetTimely.Valid {
+			val := targetTimely.Bool
+			attestation.TargetTimely = &val
+		}
+		if headTimely.Valid {
+			val := headTimely.Bool
+			attestation.HeadTimely = &val
 		}
 		attestations = append(attestations, attestation)
 	}
@@ -422,6 +509,9 @@ func (s *Service) AttestationsInSlotRange(ctx context.Context, startSlot spec.Sl
             ,f_canonical
             ,f_target_correct
             ,f_head_correct
+            ,f_source_timely
+            ,f_target_timely
+            ,f_head_timely
       FROM t_attestations
       WHERE f_inclusion_slot >= $1
         AND f_inclusion_slot < $2
@@ -447,6 +537,9 @@ func (s *Service) AttestationsInSlotRange(ctx context.Context, startSlot spec.Sl
 		var canonical sql.NullBool
 		var targetCorrect sql.NullBool
 		var headCorrect sql.NullBool
+		var sourceTimely sql.NullBool
+		var targetTimely sql.NullBool
+		var headTimely sql.NullBool
 		err := rows.Scan(
 			&attestation.InclusionSlot,
 			&inclusionBlockRoot,
@@ -463,6 +556,9 @@ func (s *Service) AttestationsInSlotRange(ctx context.Context, startSlot spec.Sl
 			&canonical,
 			&targetCorrect,
 			&headCorrect,
+			&sourceTimely,
+			&targetTimely,
+			&headTimely,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
@@ -486,6 +582,18 @@ func (s *Service) AttestationsInSlotRange(ctx context.Context, startSlot spec.Sl
 		if headCorrect.Valid {
 			val := headCorrect.Bool
 			attestation.HeadCorrect = &val
+		}
+		if sourceTimely.Valid {
+			val := sourceTimely.Bool
+			attestation.SourceTimely = &val
+		}
+		if targetTimely.Valid {
+			val := targetTimely.Bool
+			attestation.TargetTimely = &val
+		}
+		if headTimely.Valid {
+			val := headTimely.Bool
+			attestation.HeadTimely = &val
 		}
 		attestations = append(attestations, attestation)
 	}

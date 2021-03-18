@@ -26,7 +26,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(2)
+var currentVersion = uint64(3)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -53,6 +53,12 @@ var upgrades = map[uint64]*upgrade{
 			dropEpochsTable,
 			createSummaryTables,
 			setValidatorBalancesMetadata,
+		},
+	},
+	3: {
+		funcs: []func(context.Context, *Service) error{
+			addAttestationsTimelyVoteFields,
+			addAttestationsTimelyEpochSummaryFields,
 		},
 	},
 }
@@ -630,6 +636,89 @@ WHERE f_key = 'validators.standard'`,
 	return nil
 }
 
+// addAttestationsTimelyEpochSummaryFields adds Altair vote-related fields the t_attestations table.
+func addAttestationsTimelyEpochSummaryFields(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_epoch_summaries
+ADD COLUMN f_source_timely_validators BIGINT
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_source_timely_validators to epoch summaries table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_epoch_summaries
+ADD COLUMN f_source_timely_balance    BIGINT
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_source_timely_balance to epoch summaries table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_epoch_summaries
+ADD COLUMN f_target_timely_validators BIGINT
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_target_timely_validators to epoch summaries table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_epoch_summaries
+ADD COLUMN f_target_timely_balance    BIGINT
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_target_timely_balance to epoch summaries table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_epoch_summaries
+ADD COLUMN f_head_timely_validators   BIGINT
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_head_timely_validators to epoch summaries table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_epoch_summaries
+ADD COLUMN f_head_timely_balance      BIGINT
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_head_timely_balance to epoch summaries table")
+	}
+
+	return nil
+}
+
+// addAttestationsTimelyVoteFields adds Altair vote-related fields the t_attestations table.
+func addAttestationsTimelyVoteFields(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_attestations
+ADD COLUMN f_source_timely BOOL
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_source_timely to attestations table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_attestations
+ADD COLUMN f_target_timely BOOL
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_target_timely to attestations table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_attestations
+ADD COLUMN f_head_timely BOOL
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_head_timely to attestations table")
+	}
+
+	return nil
+}
+
 // Init initialises the database.
 func (s *Service) Init(ctx context.Context) (bool, error) {
 	ctx, cancel, err := s.BeginTx(ctx)
@@ -740,6 +829,9 @@ CREATE TABLE t_attestations (
  ,f_canonical            BOOL
  ,f_target_correct       BOOL
  ,f_head_correct         BOOL
+ ,f_source_timely        BOOL
+ ,f_target_timely        BOOL
+ ,f_head_timely          BOOL
 );
 CREATE UNIQUE INDEX i_attestations_1 ON t_attestations(f_inclusion_slot,f_inclusion_block_root,f_inclusion_index);
 CREATE INDEX i_attestations_2 ON t_attestations(f_slot);
@@ -888,6 +980,12 @@ CREATE TABLE t_epoch_summaries (
  ,f_deposits                         BIGINT NOT NULL
  ,f_exiting_validators               BIGINT NOT NULL
  ,f_canonical_blocks                 BIGINT NOT NULL
+ ,f_source_timely_validators         BIGINT
+ ,f_source_timely_balance            BIGINT
+ ,f_target_timely_validators         BIGINT
+ ,f_target_timely_balance            BIGINT
+ ,f_head_timely_validators           BIGINT
+ ,f_head_timely_balance              BIGINT
 )
 `); err != nil {
 		cancel()

@@ -101,6 +101,9 @@ type Attestation struct {
 	Canonical          *bool
 	TargetCorrect      *bool
 	HeadCorrect        *bool
+	SourceTimely       *bool
+	TargetTimely       *bool
+	HeadTimely         *bool
 }
 
 // Deposit holds information about an Ethereum 2 deposit included by a block.
@@ -228,4 +231,10 @@ type EpochSummary struct {
 	Deposits                      int
 	ExitingValidators             int
 	CanonicalBlocks               int
+	SourceTimelyValidators        int
+	SourceTimelyBalance           spec.Gwei
+	TargetTimelyValidators        int
+	TargetTimelyBalance           spec.Gwei
+	HeadTimelyValidators          int
+	HeadTimelyBalance             spec.Gwei
 }

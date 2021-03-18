@@ -229,6 +229,9 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 	attestingValidatorBalances := make(map[spec.ValidatorIndex]spec.Gwei)
 	targetCorrectBalances := make(map[spec.ValidatorIndex]spec.Gwei)
 	headCorrectBalances := make(map[spec.ValidatorIndex]spec.Gwei)
+	sourceTimelyBalances := make(map[spec.ValidatorIndex]spec.Gwei)
+	targetTimelyBalances := make(map[spec.ValidatorIndex]spec.Gwei)
+	headTimelyBalances := make(map[spec.ValidatorIndex]spec.Gwei)
 	for _, attestation := range epochAttestations {
 		for _, index := range attestation.AggregationIndices {
 			if _, exists := balances[index]; !exists {
@@ -240,6 +243,15 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 			}
 			if attestation.HeadCorrect != nil && *attestation.HeadCorrect {
 				headCorrectBalances[index] = balances[index].EffectiveBalance
+			}
+			if attestation.SourceTimely != nil && *attestation.SourceTimely {
+				sourceTimelyBalances[index] = balances[index].EffectiveBalance
+			}
+			if attestation.TargetTimely != nil && *attestation.TargetTimely {
+				targetTimelyBalances[index] = balances[index].EffectiveBalance
+			}
+			if attestation.HeadTimely != nil && *attestation.HeadTimely {
+				headTimelyBalances[index] = balances[index].EffectiveBalance
 			}
 		}
 	}
@@ -254,6 +266,18 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 	for _, headCorrectBalance := range headCorrectBalances {
 		summary.HeadCorrectValidators++
 		summary.HeadCorrectBalance += headCorrectBalance
+	}
+	for _, sourceTimelyBalance := range sourceTimelyBalances {
+		summary.SourceTimelyValidators++
+		summary.SourceTimelyBalance += sourceTimelyBalance
+	}
+	for _, targetTimelyBalance := range targetTimelyBalances {
+		summary.TargetTimelyValidators++
+		summary.TargetTimelyBalance += targetTimelyBalance
+	}
+	for _, headTimelyBalance := range headTimelyBalances {
+		summary.HeadTimelyValidators++
+		summary.HeadTimelyBalance += headTimelyBalance
 	}
 
 	return nil

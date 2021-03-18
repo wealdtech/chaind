@@ -43,11 +43,17 @@ func (s *Service) SetEpochSummary(ctx context.Context, summary *chaindb.EpochSum
                                    ,f_attestations_in_epoch
                                    ,f_duplicate_attestations_for_epoch
                                    ,f_proposer_slashings
-                                   ,f_attester_slashings
+								   ,f_attester_slashings
                                    ,f_deposits
                                    ,f_exiting_validators
-                                   ,f_canonical_blocks)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                                   ,f_canonical_blocks
+                                   ,f_source_timely_validators
+                                   ,f_source_timely_balance
+                                   ,f_target_timely_validators
+                                   ,f_target_timely_balance
+                                   ,f_head_timely_validators
+                                   ,f_head_timely_balance)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
       ON CONFLICT (f_epoch) DO
       UPDATE
       SET f_activation_queue_length = excluded.f_activation_queue_length
@@ -69,6 +75,12 @@ func (s *Service) SetEpochSummary(ctx context.Context, summary *chaindb.EpochSum
          ,f_deposits = excluded.f_deposits
          ,f_exiting_validators = excluded.f_exiting_validators
          ,f_canonical_blocks = excluded.f_canonical_blocks
+         ,f_source_timely_validators = excluded.f_source_timely_validators
+         ,f_source_timely_balance = excluded.f_source_timely_balance
+         ,f_target_timely_validators = excluded.f_target_timely_validators
+         ,f_target_timely_balance = excluded.f_target_timely_balance
+         ,f_head_timely_validators = excluded.f_head_timely_validators
+         ,f_head_timely_balance = excluded.f_head_timely_balance
 		 `,
 		summary.Epoch,
 		summary.ActivationQueueLength,
@@ -90,6 +102,12 @@ func (s *Service) SetEpochSummary(ctx context.Context, summary *chaindb.EpochSum
 		summary.Deposits,
 		summary.ExitingValidators,
 		summary.CanonicalBlocks,
+		summary.SourceTimelyValidators,
+		summary.SourceTimelyBalance,
+		summary.TargetTimelyValidators,
+		summary.TargetTimelyBalance,
+		summary.HeadTimelyValidators,
+		summary.HeadTimelyBalance,
 	)
 
 	return err
