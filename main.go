@@ -49,6 +49,8 @@ import (
 	nullmetrics "github.com/wealdtech/chaind/services/metrics/null"
 	prometheusmetrics "github.com/wealdtech/chaind/services/metrics/prometheus"
 	standardproposerduties "github.com/wealdtech/chaind/services/proposerduties/standard"
+	"github.com/wealdtech/chaind/services/pusher"
+	standardpusher "github.com/wealdtech/chaind/services/pusher/standard"
 	standardspec "github.com/wealdtech/chaind/services/spec/standard"
 	"github.com/wealdtech/chaind/services/summarizer"
 	standardsummarizer "github.com/wealdtech/chaind/services/summarizer/standard"
@@ -57,7 +59,7 @@ import (
 )
 
 // ReleaseVersion is the release version for the code.
-var ReleaseVersion = "0.3.1"
+var ReleaseVersion = "0.4.0-development"
 
 func main() {
 	os.Exit(main2())
@@ -151,6 +153,8 @@ func fetchConfig() error {
 	pflag.String("eth1deposits.start-block", "", "Ethereum 1 block from which to start fetching deposits")
 	pflag.String("eth1client.address", "", "Address for Ethereum 1 node")
 	pflag.String("chaindb.url", "", "URL for database")
+	pflag.String("pusher.listen-address", "0.0.0.0:12121", "Address on which the pusher should listen")
+	pflag.Duration("pusher.timeout", 2*time.Minute, "Timeout for pusher requests")
 	pflag.Parse()
 	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
 		return errors.Wrap(err, "failed to bind pflags to viper")
@@ -219,43 +223,17 @@ func startMonitor(ctx context.Context) (metrics.Service, error) {
 }
 
 func startServices(ctx context.Context, monitor metrics.Service) error {
-	log.Trace().Msg("Starting chain database service")
-	chainDB, err := postgresqlchaindb.New(ctx,
-		postgresqlchaindb.WithLogLevel(util.LogLevel("chaindb")),
-		postgresqlchaindb.WithConnectionURL(viper.GetString("chaindb.url")),
-	)
+	chainDB, err := startChainDB(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to start chain database service")
 	}
 
-	log.Trace().Msg("Checking for schema upgrades")
-	requiresRefetch, err := chainDB.Upgrade(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to upgrade chain database")
-	}
-	if requiresRefetch {
-		// The upgrade requires us to refetch blocks, so set up the options accordingly.
-		// These will be picked up by the blocks service.
-		viper.Set("blocks.start-slot", 0)
-		viper.Set("blocks.refetch", true)
-	}
-
-	log.Trace().Msg("Starting Ethereum 2 client service")
-	eth2Client, err := fetchClient(ctx, viper.GetString("eth2client.address"))
+	eth2Client, err := startETH2Client(ctx)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("failed to fetch client %q", viper.GetString("eth2client.address")))
 	}
-	if err != nil {
-		return errors.Wrap(err, "failed to start Ethereum 2 client service")
-	}
 
-	log.Trace().Msg("Starting chain time service")
-	chainTime, err := standardchaintime.New(ctx,
-		standardchaintime.WithLogLevel(util.LogLevel("chaintime")),
-		standardchaintime.WithGenesisTimeProvider(eth2Client.(eth2client.GenesisTimeProvider)),
-		standardchaintime.WithSlotDurationProvider(eth2Client.(eth2client.SlotDurationProvider)),
-		standardchaintime.WithSlotsPerEpochProvider(eth2Client.(eth2client.SlotsPerEpochProvider)),
-	)
+	chainTime, err := startChainTime(ctx, eth2Client)
 	if err != nil {
 		return errors.Wrap(err, "failed to start chain time service")
 	}
@@ -265,6 +243,11 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 	log.Trace().Msg("Starting spec service")
 	if err := startSpec(ctx, eth2Client, chainDB); err != nil {
 		return errors.Wrap(err, "failed to start spec service")
+	}
+
+	_, err = startPusher(ctx, monitor, chainDB)
+	if err != nil {
+		return errors.Wrap(err, "failed to start pusher service")
 	}
 
 	log.Trace().Msg("Starting blocks service")
@@ -343,6 +326,46 @@ func resolvePath(path string) string {
 	return filepath.Join(baseDir, path)
 }
 
+func startChainDB(ctx context.Context) (*postgresqlchaindb.Service, error) {
+	log.Trace().Msg("Starting chain database service")
+	chainDB, err := postgresqlchaindb.New(ctx,
+		postgresqlchaindb.WithLogLevel(util.LogLevel("chaindb")),
+		postgresqlchaindb.WithConnectionURL(viper.GetString("chaindb.url")),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Trace().Msg("Checking for schema upgrades")
+	requiresRefetch, err := chainDB.Upgrade(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to upgrade chain database")
+	}
+	if requiresRefetch {
+		// The upgrade requires us to refetch blocks, so set up the options accordingly.
+		// These will be picked up by the blocks service.
+		viper.Set("blocks.start-slot", 0)
+		viper.Set("blocks.refetch", true)
+	}
+
+	return chainDB, nil
+}
+
+func startETH2Client(ctx context.Context) (eth2client.Service, error) {
+	log.Trace().Msg("Starting Ethereum 2 client service")
+	return fetchClient(ctx, viper.GetString("eth2client.address"))
+}
+
+func startChainTime(ctx context.Context, eth2Client eth2client.Service) (chaintime.Service, error) {
+	log.Trace().Msg("Starting chain time service")
+	return standardchaintime.New(ctx,
+		standardchaintime.WithLogLevel(util.LogLevel("chaintime")),
+		standardchaintime.WithGenesisTimeProvider(eth2Client.(eth2client.GenesisTimeProvider)),
+		standardchaintime.WithSlotDurationProvider(eth2Client.(eth2client.SlotDurationProvider)),
+		standardchaintime.WithSlotsPerEpochProvider(eth2Client.(eth2client.SlotsPerEpochProvider)),
+	)
+}
+
 func startSpec(
 	ctx context.Context,
 	eth2Client eth2client.Service,
@@ -366,6 +389,28 @@ func startSpec(
 	}
 
 	return nil
+}
+
+func startPusher(ctx context.Context, monitor metrics.Service, chainDB chaindb.Service) (pusher.Service, error) {
+	pusherSvc, err := standardpusher.New(ctx,
+		standardpusher.WithLogLevel(util.LogLevel("pusher")),
+		standardpusher.WithMonitor(monitor),
+		standardpusher.WithChainDB(chainDB),
+		standardpusher.WithListenAddress(viper.GetString("pusher.listen-address")),
+		standardpusher.WithTimeout(viper.GetDuration("pusher.timeout")),
+	)
+
+	go func() {
+		for {
+			time.Sleep(1 * time.Second)
+			msg := &pusher.Message{
+				Topic: "foo",
+				Data:  time.Now().String(),
+			}
+			pusherSvc.Push(ctx, msg)
+		}
+	}()
+	return pusherSvc, err
 }
 
 func startBlocks(

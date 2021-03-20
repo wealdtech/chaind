@@ -5,6 +5,7 @@ go 1.15
 require (
 	github.com/attestantio/go-eth2-client v0.6.26
 	github.com/ferranbt/fastssz v0.0.0-20210120143747-11b9eff30ea9 // indirect
+	github.com/gorilla/websocket v1.4.2
 	github.com/jackc/pgtype v1.6.2
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/mitchellh/go-homedir v1.1.0
