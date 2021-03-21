@@ -62,7 +62,7 @@ func TestService(t *testing.T) {
 				getlogs.WithLogLevel(zerolog.Disabled),
 				getlogs.WithChainDB(chainDB),
 				getlogs.WithETH1DepositsSetter(chainDB),
-				getlogs.WithConnectionURL("postgres://mock:mock@localhost/"),
+				getlogs.WithConnectionURL(os.Getenv("ETH1CLIENT_ADDRESS")),
 			},
 		},
 	}
