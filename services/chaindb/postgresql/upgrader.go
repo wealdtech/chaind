@@ -845,7 +845,7 @@ CREATE TABLE t_validator_balances (
  ,f_effective_balance BIGINT NOT NULL
 );
 CREATE UNIQUE INDEX i_validator_balances_1 ON t_validator_balances(f_validator_index, f_epoch);
-CREATE INDEX i_validator_balances_2 ON t_validator_balances(f_epoch)
+CREATE INDEX i_validator_balances_2 ON t_validator_balances(f_epoch);
 
 CREATE TABLE t_validator_epoch_summaries (
   f_validator_index             BIGINT NOT NULL
@@ -888,7 +888,7 @@ CREATE TABLE t_epoch_summaries (
  ,f_deposits                         BIGINT NOT NULL
  ,f_exiting_validators               BIGINT NOT NULL
  ,f_canonical_blocks                 BIGINT NOT NULL
-)
+);
 `); err != nil {
 		cancel()
 		return false, errors.Wrap(err, "failed to create initial tables")
