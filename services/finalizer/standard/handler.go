@@ -72,7 +72,11 @@ func (s *Service) OnFinalityCheckpointReceived(
 	// in the other 31 slots of the epoch containing the justified root) we update
 	// attestations for the epoch prior to the finalized epoch.
 	if err := s.updateAttestations(opCtx, epoch-1); err != nil {
-		log.Warn().Err(err).Msg("Failed to update attestations on finality")
+		// It is possible for a finalized block to arrive after block finalization has
+		// completed, in which case we will receive an error here (because the block is
+		// not marked as finalized).  As such we do not log this error as a problem; the
+		// block and related attestations will be finalized again next time around.
+		log.Debug().Err(err).Msg("Failed to update attestations on finality")
 	}
 
 	if err := s.chainDB.CommitTx(opCtx); err != nil {

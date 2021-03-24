@@ -57,7 +57,7 @@ import (
 )
 
 // ReleaseVersion is the release version for the code.
-var ReleaseVersion = "0.3.0-development"
+var ReleaseVersion = "0.3.0"
 
 func main() {
 	os.Exit(main2())
@@ -76,6 +76,9 @@ func main2() int {
 		log.Error().Err(err).Msg("Failed to initialise logging")
 		return 1
 	}
+
+	// runCommands will not return if a command is run.
+	runCommands(ctx)
 
 	logModules()
 	log.Info().Str("version", ReleaseVersion).Msg("Starting chaind")
@@ -125,6 +128,7 @@ func main2() int {
 // fetchConfig fetches configuration from various sources.
 func fetchConfig() error {
 	pflag.String("base-dir", "", "base directory for configuration files")
+	pflag.Bool("version", false, "show version and exit")
 	pflag.String("log-level", "info", "minimum level of messsages to log")
 	pflag.String("log-file", "", "redirect log output to a file")
 	pflag.String("profile-address", "", "Address on which to run Go profile server")
@@ -598,4 +602,11 @@ func startETH1Deposits(
 	}
 
 	return nil
+}
+
+func runCommands(ctx context.Context) {
+	if viper.GetBool("version") {
+		fmt.Printf("%s\n", ReleaseVersion)
+		os.Exit(0)
+	}
 }
