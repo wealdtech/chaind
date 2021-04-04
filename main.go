@@ -589,7 +589,7 @@ func startETH1Deposits(
 
 	log.Trace().Msg("Starting Ethereum 1 deposits service")
 	_, err := getlogseth1deposits.New(ctx,
-		getlogseth1deposits.WithLogLevel(util.LogLevel(viper.GetString("eth1deposits.log-level"))),
+		getlogseth1deposits.WithLogLevel(util.LogLevel("eth1deposits.log-level")),
 		getlogseth1deposits.WithMonitor(monitor),
 		getlogseth1deposits.WithChainDB(chainDB),
 		getlogseth1deposits.WithConnectionURL(viper.GetString("eth1client.address")),

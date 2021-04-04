@@ -17,9 +17,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -33,42 +30,30 @@ type blockNumberResponse struct {
 
 // blockNumber fetches the current block number from an Ethereum 1 client.
 func (s *Service) blockNumber(ctx context.Context) (uint64, error) {
-	reference, err := url.Parse("/")
+	reference, err := url.Parse("")
 	if err != nil {
 		return 0, errors.Wrap(err, "invalid endpoint")
 	}
 	url := s.base.ResolveReference(reference).String()
 
-	body := bytes.NewBuffer([]byte(`{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1901}`))
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
+	reqBody := bytes.NewBuffer([]byte(`{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1901}`))
+	respBodyReader, err := s.post(ctx, url, reqBody)
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to setup request context")
+		log.Trace().Str("url", url).Err(err).Msg("Request failed")
+		return 0, errors.Wrap(err, "request failed")
 	}
-	req.Header.Set("Content-type", "application/json")
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to call POST endpoint")
-	}
-
-	statusFamily := resp.StatusCode / 100
-	if statusFamily != 2 {
-		data, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return 0, errors.Wrap(err, "failed to read failed POST response")
-		}
-		return 0, fmt.Errorf("POST failed with status %d: %s", resp.StatusCode, string(data))
+	if respBodyReader == nil {
+		return 0, errors.New("empty response")
 	}
 
 	var response blockNumberResponse
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return 0, errors.Wrap(err, "failed to parse newFilter response")
+	if err := json.NewDecoder(respBodyReader).Decode(&response); err != nil {
+		return 0, errors.Wrap(err, "invalid response")
 	}
 
 	blockNumber, err := strconv.ParseUint(strings.TrimPrefix(response.Result, "0x"), 16, 64)
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to parse result")
+		return 0, errors.Wrap(err, "invalid block number")
 	}
 
 	return blockNumber, nil
