@@ -18,8 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 
 	"github.com/pkg/errors"
@@ -31,38 +29,25 @@ type getLogsResponse struct {
 
 // getLogs gets the logs for a range of blocks.
 func (s *Service) getLogs(ctx context.Context, startBlock uint64, endBlock uint64) ([]*logResponse, error) {
-	reference, err := url.Parse("/")
+	reference, err := url.Parse("")
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid endpoint")
 	}
 	url := s.base.ResolveReference(reference).String()
 
-	body := bytes.NewBuffer([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"address":["%#x"],"topics":["0x649bbc62d0e31342afea4e5cd82d4049e7e1ee912fc0889aa790803be39038c5"],"fromBlock":"%#x","toBlock":"%#x"}],"id":11}`, s.depositContractAddress, startBlock, endBlock)))
-	log.Trace().Uint64("start_block", startBlock).Uint64("end_block", endBlock).Msg("Fetching logs for blocks")
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
+	reqBody := bytes.NewBuffer([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"address":["%#x"],"topics":["0x649bbc62d0e31342afea4e5cd82d4049e7e1ee912fc0889aa790803be39038c5"],"fromBlock":"%#x","toBlock":"%#x"}],"id":11}`, s.depositContractAddress, startBlock, endBlock)))
+	respBodyReader, err := s.post(ctx, url, reqBody)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to setup request context")
+		log.Trace().Str("url", url).Err(err).Msg("Request failed")
+		return nil, errors.Wrap(err, "request failed")
 	}
-	req.Header.Set("Content-type", "application/json")
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to call POST endpoint")
-	}
-
-	statusFamily := resp.StatusCode / 100
-	if statusFamily != 2 {
-		data, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to read faled POST response")
-		}
-		return nil, fmt.Errorf("POST failed: %s (%d)", string(data), resp.StatusCode)
+	if respBodyReader == nil {
+		return nil, errors.New("empty response")
 	}
 
 	var response getLogsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		log.Error().Err(err).Msg("Failed to parse getLogs response")
+	if err := json.NewDecoder(respBodyReader).Decode(&response); err != nil {
+		return nil, errors.Wrap(err, "invalid response")
 	}
 	log.Trace().Uint64("start_block", startBlock).Uint64("end_block", endBlock).Int("logs", len(response.Result)).Msg("Obtained logs")
 

@@ -36,6 +36,7 @@ var log zerolog.Logger
 // Service is an Ethereum 1 deposits service that fetches deposits through fetching logs.
 type Service struct {
 	chainDB                chaindb.Service
+	timeout                time.Duration
 	base                   *url.URL
 	client                 *http.Client
 	eth1DepositsSetter     chaindb.ETH1DepositsSetter
@@ -98,6 +99,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 
 	s := &Service{
 		chainDB:                parameters.chainDB,
+		timeout:                30 * time.Second,
 		eth1DepositsSetter:     parameters.eth1DepositsSetter,
 		base:                   base,
 		client:                 client,
