@@ -61,20 +61,20 @@ jobs:
     - name: Create windows zip file
       run: |
        mv chaind-windows-4.0-amd64.exe chaind.exe
-       sha256sum chaind.exe >chaind-${RELEASE_VERSION}-windows.sha256
        zip --junk-paths chaind-${RELEASE_VERSION}-windows-exe.zip chaind.exe
+       sha256sum chaind-${RELEASE_VERSION}-windows-exe.zip >chaind-${RELEASE_VERSION}-windows-exe.zip.sha256
 
     - name: Create linux AMD64 tgz file
       run: |
        mv chaind-linux-amd64 chaind
-       sha256sum chaind >chaind-${RELEASE_VERSION}-linux-amd64.sha256
        tar zcf chaind-${RELEASE_VERSION}-linux-amd64.tar.gz chaind
+       sha256sum chaind-${RELEASE_VERSION}-linux-amd64.tar.gz >chaind-${RELEASE_VERSION}-linux-amd64.tar.gz.sha256
 
     - name: Create linux ARM64 tgz file
       run: |
        mv chaind-linux-arm64 chaind
-       sha256sum chaind >chaind-${RELEASE_VERSION}-linux-arm64.sha256
        tar zcf chaind-${RELEASE_VERSION}-linux-arm64.tar.gz chaind
+       sha256sum chaind-${RELEASE_VERSION}-linux-arm64.tar.gz >chaind-${RELEASE_VERSION}-linux-arm64.tar.gz.sha256
 
     - name: Create release
       id: create_release
@@ -94,8 +94,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-windows.sha256
-        asset_name: chaind-${{ env.RELEASE_VERSION }}-windows.sha256
+        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-windows-exe.zip.sha256
+        asset_name: chaind-${{ env.RELEASE_VERSION }}-windows-exe.zip.sha256
         asset_content_type: text/plain
 
     - name: Upload windows zip file
@@ -116,8 +116,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-linux-amd64.sha256
-        asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-amd64.sha256
+        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-linux-amd64.tar.gz.sha256
+        asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-amd64.tar.gz.sha256
         asset_content_type: text/plain
 
     - name: Upload linux AMD64 tgz file
@@ -138,8 +138,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-linux-arm64.sha256
-        asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-arm64.sha256
+        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-linux-arm64.tar.gz.sha256
+        asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-arm64.tar.gz.sha256
         asset_content_type: application/gzip
 
     - name: Upload linux ARM64 tgz file
