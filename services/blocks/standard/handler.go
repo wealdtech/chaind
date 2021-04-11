@@ -274,13 +274,16 @@ func (s *Service) dbAttestation(
 			return nil, errors.Wrap(err, "failed to obtain beacon committees")
 		}
 	}
-	if committee != nil {
+	log.Trace().Int("committee.Committee", len(committee.Committee)).Uint64("attestation.AggregationBits", attestation.AggregationBits.Len()).Msg("Attestation committee")
+	if len(committee.Committee) == int(attestation.AggregationBits.Len()) {
 		aggregationIndices = make([]spec.ValidatorIndex, 0, len(committee.Committee))
 		for i := uint64(0); i < attestation.AggregationBits.Len(); i++ {
 			if attestation.AggregationBits.BitAt(i) {
 				aggregationIndices = append(aggregationIndices, committee.Committee[i])
 			}
 		}
+	} else {
+		log.Warn().Int("committee.Committee", len(committee.Committee)).Uint64("attestation.AggregationBits", attestation.AggregationBits.Len()).Msg("Attestation and committee size mismatch")
 	}
 
 	dbAttestation := &chaindb.Attestation{

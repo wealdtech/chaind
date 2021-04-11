@@ -1,3 +1,7 @@
+0.3.3:
+  - avoid crash in situation where beacon committee information is not provided when expected
+  - update go-eth2-client dependency
+
 0.3.2:
   - standardise HTTP connections; avoid leaving connections open when no longer needed
 
