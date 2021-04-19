@@ -1,3 +1,6 @@
+development:
+  - avoid crash in situation where transaction receipt is no longer available
+
 0.3.3:
   - avoid crash in situation where beacon committee information is not provided when expected
   - update go-eth2-client dependency

@@ -126,9 +126,11 @@ func (s *Service) depositFromLogEntry(ctx context.Context, logEntry *logResponse
 	deposit.ETH1BlockTimestamp = eth1BlockTimestamp
 	deposit.ETH1TxHash = logEntry.TransactionHash
 	deposit.ETH1LogIndex = logEntry.LogIndex
-	deposit.ETH1Sender = receipt.From
-	deposit.ETH1Recipient = receipt.To
-	deposit.ETH1GasUsed = receipt.GasUsed
+	if receipt != nil {
+		deposit.ETH1Sender = receipt.From
+		deposit.ETH1Recipient = receipt.To
+		deposit.ETH1GasUsed = receipt.GasUsed
+	}
 	deposit.ETH1GasPrice = tx.GasPrice
 	deposit.DepositIndex = binary.LittleEndian.Uint64(logEntry.Data[544:552])
 	copy(deposit.ValidatorPubKey[:], logEntry.Data[192:240])
