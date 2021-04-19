@@ -1,6 +1,7 @@
 development:
   - avoid crash in situation where transaction receipt is no longer available
   - add HTTP request headers to avoid issue with latest version of geth
+  - update block metadata when attempt to obtain block is unsuccessful
 
 0.3.3:
   - avoid crash in situation where beacon committee information is not provided when expected

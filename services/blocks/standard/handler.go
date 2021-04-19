@@ -60,8 +60,6 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	if err := s.updateBlockForSlot(ctx, slot); err != nil {
 		log.Error().Err(err).Msg("Failed to update block on chain head updated")
 		md.MissedSlots = append(md.MissedSlots, slot)
-		cancel()
-		return
 	}
 
 	md.LatestSlot = slot
