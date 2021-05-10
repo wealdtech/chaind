@@ -23,7 +23,10 @@ import (
 )
 
 // updateBlockSummariesForEpoch updates the block summaries for a given epoch.
-func (s *Service) updateBlockSummariesForEpoch(ctx context.Context, epoch spec.Epoch) error {
+func (s *Service) updateBlockSummariesForEpoch(ctx context.Context,
+	md *metadata,
+	epoch spec.Epoch,
+) error {
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	if !s.blockSummaries {
 		log.Trace().Msg("Block epoch summaries not enabled")
@@ -39,6 +42,20 @@ func (s *Service) updateBlockSummariesForEpoch(ctx context.Context, epoch spec.E
 			return errors.Wrap(err, "failed to create summary for block")
 		}
 	}
+
+	ctx, cancel, err := s.chainDB.BeginTx(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to begin transaction to set summarizer metadata for block")
+	}
+	md.LastBlockEpoch = epoch
+	if err := s.setMetadata(ctx, md); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to set summarizer metadata for block")
+	}
+	if err := s.chainDB.CommitTx(ctx); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to set commit transaction to set summarizer metadata for block")
+	}
 	return nil
 }
 
@@ -49,7 +66,7 @@ func (s *Service) updateBlockSummaryForSlot(ctx context.Context, slot spec.Slot)
 
 	err := s.attestationStatsForBlock(ctx, slot, summary)
 	if err != nil {
-		return errors.Wrap(err, "failed to calculate attestation summary statistics for epoch")
+		return errors.Wrap(err, "failed to calculate block attestation summary statistics for epoch")
 	}
 
 	if summary.VotesForBlock == 0 {

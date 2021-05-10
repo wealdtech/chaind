@@ -24,11 +24,18 @@ import (
 )
 
 // updateSummaryForEpoch updates the summary for a given epoch.
-func (s *Service) updateSummaryForEpoch(ctx context.Context, epoch spec.Epoch) error {
+// Returns true if the epoch has been updated, otherwise false.
+func (s *Service) updateSummaryForEpoch(ctx context.Context,
+	md *metadata,
+	epoch spec.Epoch,
+) (
+	bool,
+	error,
+) {
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	if !s.epochSummaries {
 		log.Trace().Msg("Epoch summaries not enabled")
-		return nil
+		return false, nil
 	}
 	log.Trace().Msg("Summarizing finalized epoch")
 
@@ -38,22 +45,21 @@ func (s *Service) updateSummaryForEpoch(ctx context.Context, epoch spec.Epoch) e
 
 	activeIndices, err := s.validatorSummaryStatsForEpoch(ctx, epoch, summary)
 	if err != nil {
-		return errors.Wrap(err, "failed to calculate validator summary statistics for epoch")
+		return false, errors.Wrap(err, "failed to calculate validator summary statistics for epoch")
 	}
 	if len(activeIndices) == 0 {
-		return errors.New("no active validators to summarize for epoch")
+		return false, errors.New("no active validators to summarize for epoch")
 	}
 
 	// Active balance and active effective balance.
 	balances, err := s.validatorsProvider.ValidatorBalancesByIndexAndEpoch(ctx, activeIndices, epoch)
 	if err != nil {
-		return errors.Wrap(err, "failed to obtain validator balances")
+		return false, errors.Wrap(err, "failed to obtain validator balances")
 	}
 	if len(balances) == 0 {
 		// This can happen if chaind does not have validator balances enabled, or has not yet obtained
-		// the balances.  We return an error to stop the caller thinking we have succeeded and hence
-		// updating metadata.
-		return errors.New("no balances for epoch")
+		// the balances.  We return false but no error.
+		return false, nil
 	}
 	for _, balance := range balances {
 		summary.ActiveRealBalance += balance.Balance
@@ -62,39 +68,44 @@ func (s *Service) updateSummaryForEpoch(ctx context.Context, epoch spec.Epoch) e
 
 	err = s.blockStatsForEpoch(ctx, epoch, summary)
 	if err != nil {
-		return errors.Wrap(err, "failed to calculate block summary statistics for epoch")
+		return false, errors.Wrap(err, "failed to calculate block summary statistics for epoch")
 	}
 
 	err = s.slashingsStatsForEpoch(ctx, epoch, summary)
 	if err != nil {
-		return errors.Wrap(err, "failed to calculate slashings summary statistics for epoch")
+		return false, errors.Wrap(err, "failed to calculate slashings summary statistics for epoch")
 	}
 
 	err = s.attestationStatsForEpoch(ctx, epoch, balances, summary)
 	if err != nil {
-		return errors.Wrap(err, "failed to calculate attestation summary statistics for epoch")
+		return false, errors.Wrap(err, "failed to calculate attestation summary statistics for epoch")
 	}
 
 	err = s.depositStatsForEpoch(ctx, epoch, summary)
 	if err != nil {
-		return errors.Wrap(err, "failed to calculate deposit summary statistics for epoch")
+		return false, errors.Wrap(err, "failed to calculate deposit summary statistics for epoch")
 	}
 
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to begin transaction to set epoch summary")
+		return false, errors.Wrap(err, "failed to begin transaction to set epoch summary")
 	}
 	log.Trace().Uint64("epoch", uint64(epoch)).Msg("Setting epoch summary")
 	if err := s.chainDB.(chaindb.EpochSummariesSetter).SetEpochSummary(ctx, summary); err != nil {
 		cancel()
-		return err
+		return false, err
+	}
+	md.LastEpoch = epoch
+	if err := s.setMetadata(ctx, md); err != nil {
+		cancel()
+		return false, errors.Wrap(err, "failed to set summarizer metadata for epoch summary")
 	}
 	if err := s.chainDB.CommitTx(ctx); err != nil {
 		cancel()
-		return errors.Wrap(err, "failed to set commit transaction to set epoch summary")
+		return false, errors.Wrap(err, "failed to set commit transaction to set epoch summary")
 	}
 
-	return nil
+	return true, nil
 }
 
 func (s *Service) validatorSummaryStatsForEpoch(ctx context.Context,

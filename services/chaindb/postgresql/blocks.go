@@ -616,3 +616,35 @@ func (s *Service) LatestCanonicalBlock(ctx context.Context) (spec.Slot, error) {
 
 	return slot, nil
 }
+
+// ProposalCount provides the number of proposals for the given validators.
+// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
+// blocks duties for slots 2 and 3.
+func (s *Service) ProposalCount(ctx context.Context, validatorIndices []spec.ValidatorIndex, startSlot spec.Slot, endSlot spec.Slot) (uint64, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	proposals := uint64(0)
+	err := tx.QueryRow(ctx, `
+      SELECT COUNT(*)
+	  FROM t_blocks
+      WHERE f_slot >= $1
+        AND f_slot < $2
+        AND f_proposer_index = ANY($3)`,
+		startSlot,
+		endSlot,
+		validatorIndices,
+	).Scan(&proposals)
+	if err != nil {
+		return 0, err
+	}
+
+	return proposals, nil
+}

@@ -1,4 +1,5 @@
 development:
+  - update summarizer metadata for each update
   - avoid crash in situation where transaction receipt is no longer available
   - add HTTP request headers to avoid issue with latest version of geth
   - update block metadata when attempt to obtain block is unsuccessful

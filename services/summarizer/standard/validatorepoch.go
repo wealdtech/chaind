@@ -22,13 +22,16 @@ import (
 )
 
 // updateValidatorSummariesForEpoch updates the validator summaries for a given epoch.
-func (s *Service) updateValidatorSummariesForEpoch(ctx context.Context, epoch spec.Epoch) error {
+func (s *Service) updateValidatorSummariesForEpoch(ctx context.Context,
+	md *metadata,
+	epoch spec.Epoch,
+) error {
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	if !s.validatorSummaries {
 		log.Trace().Msg("Validator epoch summaries not enabled")
 		return nil
 	}
-	log.Trace().Msg("Summarizing epoch")
+	log.Trace().Msg("Summarizing validator epoch")
 
 	proposerDuties, validatorProposerDuties, err := s.validatorProposerDutiesForEpoch(ctx, epoch)
 	if err != nil {
@@ -48,7 +51,7 @@ func (s *Service) updateValidatorSummariesForEpoch(ctx context.Context, epoch sp
 	// Store the data.
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to begin transaction to set validator epoch summaries")
+		return errors.Wrap(err, "failed to begin transaction to set validator epoch summary")
 	}
 	for index := range attestationsIncluded {
 		summary := &chaindb.ValidatorEpochSummary{
@@ -72,9 +75,14 @@ func (s *Service) updateValidatorSummariesForEpoch(ctx context.Context, epoch sp
 			return err
 		}
 	}
+	md.LastValidatorEpoch = epoch
+	if err := s.setMetadata(ctx, md); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to set summarizer metadata for validator epoch summary")
+	}
 	if err := s.chainDB.CommitTx(ctx); err != nil {
 		cancel()
-		return errors.Wrap(err, "failed to set commit transaction to set validator epoch summaries")
+		return errors.Wrap(err, "failed to set commit transaction to set validator epoch summary")
 	}
 
 	return nil
@@ -99,9 +107,11 @@ func (s *Service) validatorProposerDutiesForEpoch(ctx context.Context,
 		return nil, nil, errors.New("no proposer duties to summarize for epoch")
 	}
 	if epoch == 0 {
-		// Epoch 0 only has 31 proposer duties.  Drop in a dummy to avoid special cases below.
+		// Epoch 0 only has 31 proposer duties.  Drop in a dummy for slot 0 to avoid special cases below.
 		tmp := make([]*chaindb.ProposerDuty, 32)
-		tmp[0] = &chaindb.ProposerDuty{}
+		tmp[0] = &chaindb.ProposerDuty{
+			ValidatorIndex: 0xffffffffffffffff,
+		}
 		copy(tmp[1:], proposerDuties)
 		proposerDuties = tmp
 	}
