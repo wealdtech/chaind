@@ -1,4 +1,4 @@
-development:
+0.3.4:
   - update summarizer metadata for each update
   - avoid crash in situation where transaction receipt is no longer available
   - add HTTP request headers to avoid issue with latest version of geth
