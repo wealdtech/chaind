@@ -260,6 +260,31 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 		return errors.Wrap(err, "failed to start chain time service")
 	}
 
+	// Wait for chainstart.
+	timeToGenesis := time.Until(chainTime.GenesisTime())
+	time.Sleep(timeToGenesis)
+
+	// Wait for the node to sync.
+	for {
+		syncState, err := eth2Client.(eth2client.NodeSyncingProvider).NodeSyncing(ctx)
+		if err != nil {
+			log.Debug().Err(err).Msg("Failed to obtain node sync state; will re-test in 1 minute")
+			time.Sleep(time.Minute)
+			continue
+		}
+		if syncState == nil {
+			log.Debug().Msg("No node sync state; will re-test in 1 minute")
+			time.Sleep(time.Minute)
+			continue
+		}
+		if syncState.IsSyncing {
+			log.Debug().Msg("Node syncing; will re-test in 1 minute")
+			time.Sleep(time.Minute)
+			continue
+		}
+		break
+	}
+
 	// Spec should be the first service that starts.  This adds configuration data to
 	// chaindb so it is accessible to other services.
 	log.Trace().Msg("Starting spec service")
