@@ -16,7 +16,7 @@ package mock
 import (
 	"context"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
 // Service is a mock blocks service.
@@ -29,6 +29,6 @@ func New() *Service {
 
 // OnBlock handles a block.
 // This requires the context to hold an active transaction.
-func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock) error {
+func (s *Service) OnBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock) error {
 	return nil
 }

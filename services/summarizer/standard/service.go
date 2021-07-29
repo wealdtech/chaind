@@ -17,7 +17,7 @@ import (
 	"context"
 
 	eth2client "github.com/attestantio/go-eth2-client"
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
@@ -31,7 +31,7 @@ import (
 type Service struct {
 	eth2Client                eth2client.Service
 	chainDB                   chaindb.Service
-	farFutureEpoch            spec.Epoch
+	farFutureEpoch            phase0.Epoch
 	proposerDutiesProvider    chaindb.ProposerDutiesProvider
 	attestationsProvider      chaindb.AttestationsProvider
 	blocksProvider            chaindb.BlocksProvider
@@ -108,7 +108,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	s := &Service{
 		eth2Client:                parameters.eth2Client,
 		chainDB:                   parameters.chainDB,
-		farFutureEpoch:            spec.Epoch(0xffffffffffffffff),
+		farFutureEpoch:            phase0.Epoch(0xffffffffffffffff),
 		proposerDutiesProvider:    proposerDutiesProvider,
 		attestationsProvider:      attestationsProvider,
 		blocksProvider:            blocksProvider,

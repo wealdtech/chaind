@@ -17,7 +17,7 @@ import (
 	"context"
 	"database/sql"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -85,7 +85,7 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 }
 
 // BlocksBySlot fetches all blocks with the given slot.
-func (s *Service) BlocksBySlot(ctx context.Context, slot spec.Slot) ([]*chaindb.Block, error) {
+func (s *Service) BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*chaindb.Block, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -165,7 +165,7 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot spec.Slot) ([]*chaindb.
 // BlocksForSlotRange fetches all blocks with the given slot range.
 // Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 // blocks duties for slots 2 and 3.
-func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*chaindb.Block, error) {
+func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*chaindb.Block, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -245,7 +245,7 @@ func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot spec.Slot, e
 }
 
 // BlockByRoot fetches the block with the given root.
-func (s *Service) BlockByRoot(ctx context.Context, root spec.Root) (*chaindb.Block, error) {
+func (s *Service) BlockByRoot(ctx context.Context, root phase0.Root) (*chaindb.Block, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -315,7 +315,7 @@ func (s *Service) BlockByRoot(ctx context.Context, root spec.Root) (*chaindb.Blo
 // of a canonical block.
 // Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 // presence duties for slots 2 and 3.
-func (s *Service) CanonicalBlockPresenceForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]bool, error) {
+func (s *Service) CanonicalBlockPresenceForSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]bool, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -343,7 +343,7 @@ func (s *Service) CanonicalBlockPresenceForSlotRange(ctx context.Context, startS
 
 	presence := make([]bool, endSlot-startSlot)
 	for rows.Next() {
-		var slot spec.Slot
+		var slot phase0.Slot
 		err := rows.Scan(
 			&slot,
 		)
@@ -357,7 +357,7 @@ func (s *Service) CanonicalBlockPresenceForSlotRange(ctx context.Context, startS
 }
 
 // BlocksByParentRoot fetches the blocks with the given root.
-func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot spec.Root) ([]*chaindb.Block, error) {
+func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot phase0.Root) ([]*chaindb.Block, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -434,7 +434,7 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot spec.Root) 
 }
 
 // EmptySlots fetches the slots in the given range without a block in the database.
-func (s *Service) EmptySlots(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Slot, error) {
+func (s *Service) EmptySlots(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]phase0.Slot, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -459,9 +459,9 @@ func (s *Service) EmptySlots(ctx context.Context, minSlot spec.Slot, maxSlot spe
 	}
 	defer rows.Close()
 
-	missedSlots := make([]spec.Slot, 0)
+	missedSlots := make([]phase0.Slot, 0)
 	for rows.Next() {
-		missedSlot := spec.Slot(0)
+		missedSlot := phase0.Slot(0)
 		err := rows.Scan(&missedSlot)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
@@ -473,7 +473,7 @@ func (s *Service) EmptySlots(ctx context.Context, minSlot spec.Slot, maxSlot spe
 }
 
 // IndeterminateBlocks fetches the blocks in the given range that do not have a canonical status.
-func (s *Service) IndeterminateBlocks(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Root, error) {
+func (s *Service) IndeterminateBlocks(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]phase0.Root, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -499,14 +499,14 @@ func (s *Service) IndeterminateBlocks(ctx context.Context, minSlot spec.Slot, ma
 	}
 	defer rows.Close()
 
-	indeterminateRoots := make([]spec.Root, 0)
+	indeterminateRoots := make([]phase0.Root, 0)
 	var missedRootBytes []byte
 	for rows.Next() {
 		err := rows.Scan(&missedRootBytes)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
-		var missedRoot spec.Root
+		var missedRoot phase0.Root
 		copy(missedRoot[:], missedRootBytes)
 		indeterminateRoots = append(indeterminateRoots, missedRoot)
 	}
@@ -591,7 +591,7 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
 }
 
 // LatestCanonicalBlock returns the slot of the latest canonical block known in the database.
-func (s *Service) LatestCanonicalBlock(ctx context.Context) (spec.Slot, error) {
+func (s *Service) LatestCanonicalBlock(ctx context.Context) (phase0.Slot, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -602,7 +602,7 @@ func (s *Service) LatestCanonicalBlock(ctx context.Context) (spec.Slot, error) {
 		defer cancel()
 	}
 
-	var slot spec.Slot
+	var slot phase0.Slot
 	err := tx.QueryRow(ctx, `
       SELECT COALESCE(MAX(f_slot),0)
       FROM t_blocks
@@ -620,7 +620,7 @@ func (s *Service) LatestCanonicalBlock(ctx context.Context) (spec.Slot, error) {
 // ProposalCount provides the number of proposals for the given validators.
 // Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 // blocks duties for slots 2 and 3.
-func (s *Service) ProposalCount(ctx context.Context, validatorIndices []spec.ValidatorIndex, startSlot spec.Slot, endSlot spec.Slot) (uint64, error) {
+func (s *Service) ProposalCount(ctx context.Context, validatorIndices []phase0.ValidatorIndex, startSlot phase0.Slot, endSlot phase0.Slot) (uint64, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)

@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	eth2client "github.com/attestantio/go-eth2-client"
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -27,9 +27,9 @@ import (
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
-	slot spec.Slot,
-	blockRoot spec.Root,
-	stateRoot spec.Root,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	stateRoot phase0.Root,
 	epochTransition bool,
 ) {
 	// Only allow 1 handler to be active.
@@ -64,7 +64,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	monitorBlockProcessed(slot)
 }
 
-func (s *Service) updateBlockForSlot(ctx context.Context, slot spec.Slot) error {
+func (s *Service) updateBlockForSlot(ctx context.Context, slot phase0.Slot) error {
 	log := log.With().Uint64("slot", uint64(slot)).Logger()
 
 	// Start off by seeing if we already have the block (unless we are re-fetching regardless).
@@ -90,7 +90,7 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot spec.Slot) error 
 
 // OnBlock handles a block.
 // This requires the context to hold an active transaction.
-func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock) error {
+func (s *Service) OnBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock) error {
 	// Update the block in the database.
 	dbBlock, err := s.dbBlock(ctx, signedBlock.Message)
 	if err != nil {
@@ -118,7 +118,7 @@ func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlo
 	return nil
 }
 
-func (s *Service) updateAttestationsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot spec.Root) error {
+func (s *Service) updateAttestationsForBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock, blockRoot phase0.Root) error {
 	for i, attestation := range signedBlock.Message.Body.Attestations {
 		dbAttestation, err := s.dbAttestation(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), attestation)
 		if err != nil {
@@ -131,7 +131,7 @@ func (s *Service) updateAttestationsForBlock(ctx context.Context, signedBlock *s
 	return nil
 }
 
-func (s *Service) updateProposerSlashingsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot spec.Root) error {
+func (s *Service) updateProposerSlashingsForBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock, blockRoot phase0.Root) error {
 	for i, proposerSlashing := range signedBlock.Message.Body.ProposerSlashings {
 		dbProposerSlashing, err := s.dbProposerSlashing(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), proposerSlashing)
 		if err != nil {
@@ -144,7 +144,7 @@ func (s *Service) updateProposerSlashingsForBlock(ctx context.Context, signedBlo
 	return nil
 }
 
-func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot spec.Root) error {
+func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock, blockRoot phase0.Root) error {
 	for i, attesterSlashing := range signedBlock.Message.Body.AttesterSlashings {
 		dbAttesterSlashing, err := s.dbAttesterSlashing(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), attesterSlashing)
 		if err != nil {
@@ -157,7 +157,7 @@ func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context, signedBlo
 	return nil
 }
 
-func (s *Service) updateDepositsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot spec.Root) error {
+func (s *Service) updateDepositsForBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock, blockRoot phase0.Root) error {
 	for i, deposit := range signedBlock.Message.Body.Deposits {
 		dbDeposit, err := s.dbDeposit(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), deposit)
 		if err != nil {
@@ -170,7 +170,7 @@ func (s *Service) updateDepositsForBlock(ctx context.Context, signedBlock *spec.
 	return nil
 }
 
-func (s *Service) updateVoluntaryExitsForBlock(ctx context.Context, signedBlock *spec.SignedBeaconBlock, blockRoot spec.Root) error {
+func (s *Service) updateVoluntaryExitsForBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock, blockRoot phase0.Root) error {
 	for i, voluntaryExit := range signedBlock.Message.Body.VoluntaryExits {
 		dbVoluntaryExit, err := s.dbVoluntaryExit(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), voluntaryExit)
 		if err != nil {
@@ -185,14 +185,14 @@ func (s *Service) updateVoluntaryExitsForBlock(ctx context.Context, signedBlock 
 
 func (s *Service) dbBlock(
 	ctx context.Context,
-	block *spec.BeaconBlock,
+	block *phase0.BeaconBlock,
 ) (*chaindb.Block, error) {
 	bodyRoot, err := block.Body.HashTreeRoot()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to calculate body root")
 	}
 
-	header := &spec.BeaconBlockHeader{
+	header := &phase0.BeaconBlockHeader{
 		Slot:          block.Slot,
 		ProposerIndex: block.ProposerIndex,
 		ParentRoot:    block.ParentRoot,
@@ -223,12 +223,12 @@ func (s *Service) dbBlock(
 
 func (s *Service) dbAttestation(
 	ctx context.Context,
-	slot spec.Slot,
-	blockRoot spec.Root,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
 	index uint64,
-	attestation *spec.Attestation,
+	attestation *phase0.Attestation,
 ) (*chaindb.Attestation, error) {
-	var aggregationIndices []spec.ValidatorIndex
+	var aggregationIndices []phase0.ValidatorIndex
 	committee, err := s.beaconCommitteesProvider.BeaconCommitteeBySlotAndIndex(ctx, attestation.Data.Slot, attestation.Data.Index)
 	if err != nil {
 		// Try to fetch from the chain.
@@ -255,7 +255,7 @@ func (s *Service) dbAttestation(
 	}
 	log.Trace().Int("committee.Committee", len(committee.Committee)).Uint64("attestation.AggregationBits", attestation.AggregationBits.Len()).Msg("Attestation committee")
 	if len(committee.Committee) == int(attestation.AggregationBits.Len()) {
-		aggregationIndices = make([]spec.ValidatorIndex, 0, len(committee.Committee))
+		aggregationIndices = make([]phase0.ValidatorIndex, 0, len(committee.Committee))
 		for i := uint64(0); i < attestation.AggregationBits.Len(); i++ {
 			if attestation.AggregationBits.BitAt(i) {
 				aggregationIndices = append(aggregationIndices, committee.Committee[i])
@@ -285,10 +285,10 @@ func (s *Service) dbAttestation(
 
 func (s *Service) dbDeposit(
 	ctx context.Context,
-	slot spec.Slot,
-	blockRoot spec.Root,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
 	index uint64,
-	deposit *spec.Deposit,
+	deposit *phase0.Deposit,
 ) (*chaindb.Deposit, error) {
 	dbDeposit := &chaindb.Deposit{
 		InclusionSlot:         slot,
@@ -304,10 +304,10 @@ func (s *Service) dbDeposit(
 
 func (s *Service) dbVoluntaryExit(
 	ctx context.Context,
-	slot spec.Slot,
-	blockRoot spec.Root,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
 	index uint64,
-	voluntaryExit *spec.SignedVoluntaryExit,
+	voluntaryExit *phase0.SignedVoluntaryExit,
 ) (*chaindb.VoluntaryExit, error) {
 	dbVoluntaryExit := &chaindb.VoluntaryExit{
 		InclusionSlot:      slot,
@@ -322,19 +322,19 @@ func (s *Service) dbVoluntaryExit(
 
 func (s *Service) dbAttesterSlashing(
 	ctx context.Context,
-	slot spec.Slot,
-	blockRoot spec.Root,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
 	index uint64,
-	attesterSlashing *spec.AttesterSlashing,
+	attesterSlashing *phase0.AttesterSlashing,
 ) (*chaindb.AttesterSlashing, error) {
-	// This is temporary, until attester fastssz is fixed to support []spec.ValidatorIndex.
-	attestation1Indices := make([]spec.ValidatorIndex, len(attesterSlashing.Attestation1.AttestingIndices))
+	// This is temporary, until attester fastssz is fixed to support []phase0.ValidatorIndex.
+	attestation1Indices := make([]phase0.ValidatorIndex, len(attesterSlashing.Attestation1.AttestingIndices))
 	for i := range attesterSlashing.Attestation1.AttestingIndices {
-		attestation1Indices[i] = spec.ValidatorIndex(attesterSlashing.Attestation1.AttestingIndices[i])
+		attestation1Indices[i] = phase0.ValidatorIndex(attesterSlashing.Attestation1.AttestingIndices[i])
 	}
-	attestation2Indices := make([]spec.ValidatorIndex, len(attesterSlashing.Attestation2.AttestingIndices))
+	attestation2Indices := make([]phase0.ValidatorIndex, len(attesterSlashing.Attestation2.AttestingIndices))
 	for i := range attesterSlashing.Attestation2.AttestingIndices {
-		attestation2Indices[i] = spec.ValidatorIndex(attesterSlashing.Attestation2.AttestingIndices[i])
+		attestation2Indices[i] = phase0.ValidatorIndex(attesterSlashing.Attestation2.AttestingIndices[i])
 	}
 
 	dbAttesterSlashing := &chaindb.AttesterSlashing{
@@ -366,12 +366,12 @@ func (s *Service) dbAttesterSlashing(
 
 func (s *Service) dbProposerSlashing(
 	ctx context.Context,
-	slot spec.Slot,
-	blockRoot spec.Root,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
 	index uint64,
-	proposerSlashing *spec.ProposerSlashing,
+	proposerSlashing *phase0.ProposerSlashing,
 ) (*chaindb.ProposerSlashing, error) {
-	header1 := &spec.BeaconBlockHeader{
+	header1 := &phase0.BeaconBlockHeader{
 		Slot:          proposerSlashing.SignedHeader1.Message.Slot,
 		ProposerIndex: proposerSlashing.SignedHeader1.Message.ProposerIndex,
 		ParentRoot:    proposerSlashing.SignedHeader1.Message.ParentRoot,
@@ -383,7 +383,7 @@ func (s *Service) dbProposerSlashing(
 		return nil, errors.Wrap(err, "failed to calculate hash tree root of header 1")
 	}
 
-	header2 := &spec.BeaconBlockHeader{
+	header2 := &phase0.BeaconBlockHeader{
 		Slot:          proposerSlashing.SignedHeader2.Message.Slot,
 		ProposerIndex: proposerSlashing.SignedHeader2.Message.ProposerIndex,
 		ParentRoot:    proposerSlashing.SignedHeader2.Message.ParentRoot,

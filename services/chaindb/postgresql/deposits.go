@@ -16,7 +16,7 @@ package postgresql
 import (
 	"context"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -54,7 +54,7 @@ func (s *Service) SetDeposit(ctx context.Context, deposit *chaindb.Deposit) erro
 }
 
 // DepositsByPublicKey fetches deposits for a given set of validator public keys.
-func (s *Service) DepositsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) (map[spec.BLSPubKey][]*chaindb.Deposit, error) {
+func (s *Service) DepositsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) (map[phase0.BLSPubKey][]*chaindb.Deposit, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -88,7 +88,7 @@ func (s *Service) DepositsByPublicKey(ctx context.Context, pubKeys []spec.BLSPub
 	}
 	defer rows.Close()
 
-	deposits := make(map[spec.BLSPubKey][]*chaindb.Deposit, len(pubKeys))
+	deposits := make(map[phase0.BLSPubKey][]*chaindb.Deposit, len(pubKeys))
 	for rows.Next() {
 		deposit := &chaindb.Deposit{}
 		var inclusionBlockRoot []byte
@@ -119,7 +119,7 @@ func (s *Service) DepositsByPublicKey(ctx context.Context, pubKeys []spec.BLSPub
 
 // DepositsForSlotRange fetches all deposits made in the given slot range.
 // It will return deposits from blocks that are canonical or undefined, but not from non-canonical blocks.
-func (s *Service) DepositsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*chaindb.Deposit, error) {
+func (s *Service) DepositsForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]*chaindb.Deposit, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)

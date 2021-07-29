@@ -19,7 +19,7 @@ import (
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	api "github.com/attestantio/go-eth2-client/api/v1"
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
 // GenesisTimeProvider is a mock for eth2client.GenesisTimeProvider.
@@ -82,7 +82,7 @@ func NewAttestationSubmitter() eth2client.AttestationsSubmitter {
 }
 
 // SubmitAttestations is a mock.
-func (m *AttestationsSubmitter) SubmitAttestations(ctx context.Context, attestations []*spec.Attestation) error {
+func (m *AttestationsSubmitter) SubmitAttestations(ctx context.Context, attestations []*phase0.Attestation) error {
 	return nil
 }
 
@@ -95,7 +95,7 @@ func NewBeaconBlockSubmitter() eth2client.BeaconBlockSubmitter {
 }
 
 // SubmitBeaconBlock is a mock.
-func (m *BeaconBlockSubmitter) SubmitBeaconBlock(ctx context.Context, bloc *spec.SignedBeaconBlock) error {
+func (m *BeaconBlockSubmitter) SubmitBeaconBlock(ctx context.Context, bloc *phase0.SignedBeaconBlock) error {
 	return nil
 }
 
@@ -108,7 +108,7 @@ func NewAggregateAttestationsSubmitter() eth2client.AggregateAttestationsSubmitt
 }
 
 // SubmitAggregateAttestations is a mock.
-func (m *AggregateAttestationsSubmitter) SubmitAggregateAttestations(ctx context.Context, aggregates []*spec.SignedAggregateAndProof) error {
+func (m *AggregateAttestationsSubmitter) SubmitAggregateAttestations(ctx context.Context, aggregates []*phase0.SignedAggregateAndProof) error {
 	return nil
 }
 

@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2021 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -16,88 +16,88 @@ package chaindb
 import (
 	"time"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
 // Block holds information about a block.
 type Block struct {
-	Slot             spec.Slot
-	ProposerIndex    spec.ValidatorIndex
-	Root             spec.Root
+	Slot             phase0.Slot
+	ProposerIndex    phase0.ValidatorIndex
+	Root             phase0.Root
 	Graffiti         []byte
-	RANDAOReveal     spec.BLSSignature
-	BodyRoot         spec.Root
-	ParentRoot       spec.Root
-	StateRoot        spec.Root
+	RANDAOReveal     phase0.BLSSignature
+	BodyRoot         phase0.Root
+	ParentRoot       phase0.Root
+	StateRoot        phase0.Root
 	Canonical        *bool
 	ETH1BlockHash    []byte
 	ETH1DepositCount uint64
-	ETH1DepositRoot  spec.Root
+	ETH1DepositRoot  phase0.Root
 }
 
 // Validator holds information about a validator.
 type Validator struct {
-	PublicKey                  spec.BLSPubKey
-	Index                      spec.ValidatorIndex
-	EffectiveBalance           spec.Gwei
+	PublicKey                  phase0.BLSPubKey
+	Index                      phase0.ValidatorIndex
+	EffectiveBalance           phase0.Gwei
 	Slashed                    bool
-	ActivationEligibilityEpoch spec.Epoch
-	ActivationEpoch            spec.Epoch
-	ExitEpoch                  spec.Epoch
-	WithdrawableEpoch          spec.Epoch
+	ActivationEligibilityEpoch phase0.Epoch
+	ActivationEpoch            phase0.Epoch
+	ExitEpoch                  phase0.Epoch
+	WithdrawableEpoch          phase0.Epoch
 }
 
 // ValidatorBalance holds information about a validator's balance at a given epoch.
 type ValidatorBalance struct {
-	Index            spec.ValidatorIndex
-	Epoch            spec.Epoch
-	Balance          spec.Gwei
-	EffectiveBalance spec.Gwei
+	Index            phase0.ValidatorIndex
+	Epoch            phase0.Epoch
+	Balance          phase0.Gwei
+	EffectiveBalance phase0.Gwei
 }
 
 // AggregateValidatorBalance holds aggreated information about validators' balances at a given epoch.
 type AggregateValidatorBalance struct {
-	Epoch            spec.Epoch
-	Balance          spec.Gwei
-	EffectiveBalance spec.Gwei
+	Epoch            phase0.Epoch
+	Balance          phase0.Gwei
+	EffectiveBalance phase0.Gwei
 }
 
 // BeaconCommittee holds information for beacon committees.
 type BeaconCommittee struct {
-	Slot      spec.Slot
-	Index     spec.CommitteeIndex
-	Committee []spec.ValidatorIndex
+	Slot      phase0.Slot
+	Index     phase0.CommitteeIndex
+	Committee []phase0.ValidatorIndex
 }
 
 // ProposerDuty holds information for proposer duties.
 type ProposerDuty struct {
-	Slot           spec.Slot
-	ValidatorIndex spec.ValidatorIndex
+	Slot           phase0.Slot
+	ValidatorIndex phase0.ValidatorIndex
 }
 
 // AttesterDuty holds information for attester duties.
 type AttesterDuty struct {
-	Slot           spec.Slot
-	Committee      spec.CommitteeIndex
-	ValidatorIndex spec.ValidatorIndex
+	Slot           phase0.Slot
+	Committee      phase0.CommitteeIndex
+	ValidatorIndex phase0.ValidatorIndex
 	// CommitteeIndex is the index of the validator in the committee.
 	CommitteeIndex uint64
 }
 
 // Attestation holds information about an attestation included by a block.
 type Attestation struct {
-	InclusionSlot      spec.Slot
-	InclusionBlockRoot spec.Root
+	InclusionSlot      phase0.Slot
+	InclusionBlockRoot phase0.Root
 	InclusionIndex     uint64
-	Slot               spec.Slot
-	CommitteeIndex     spec.CommitteeIndex
+	Slot               phase0.Slot
+	CommitteeIndex     phase0.CommitteeIndex
 	AggregationBits    []byte
-	AggregationIndices []spec.ValidatorIndex
-	BeaconBlockRoot    spec.Root
-	SourceEpoch        spec.Epoch
-	SourceRoot         spec.Root
-	TargetEpoch        spec.Epoch
-	TargetRoot         spec.Root
+	AggregationIndices []phase0.ValidatorIndex
+	BeaconBlockRoot    phase0.Root
+	SourceEpoch        phase0.Epoch
+	SourceRoot         phase0.Root
+	TargetEpoch        phase0.Epoch
+	TargetRoot         phase0.Root
 	Canonical          *bool
 	TargetCorrect      *bool
 	HeadCorrect        *bool
@@ -105,12 +105,12 @@ type Attestation struct {
 
 // Deposit holds information about an Ethereum 2 deposit included by a block.
 type Deposit struct {
-	InclusionSlot         spec.Slot
-	InclusionBlockRoot    spec.Root
+	InclusionSlot         phase0.Slot
+	InclusionBlockRoot    phase0.Root
 	InclusionIndex        uint64
-	ValidatorPubKey       spec.BLSPubKey
+	ValidatorPubKey       phase0.BLSPubKey
 	WithdrawalCredentials []byte
-	Amount                spec.Gwei
+	Amount                phase0.Gwei
 }
 
 // ETH1Deposit holds information about an Ethereum 2 deposit made on the Ethereum 1 chain.
@@ -125,71 +125,71 @@ type ETH1Deposit struct {
 	ETH1GasUsed           uint64
 	ETH1GasPrice          uint64
 	DepositIndex          uint64
-	ValidatorPubKey       spec.BLSPubKey
+	ValidatorPubKey       phase0.BLSPubKey
 	WithdrawalCredentials []byte
-	Signature             spec.BLSSignature
-	Amount                spec.Gwei
+	Signature             phase0.BLSSignature
+	Amount                phase0.Gwei
 }
 
 // VoluntaryExit holds information about a voluntary exit included in a block.
 type VoluntaryExit struct {
-	InclusionSlot      spec.Slot
-	InclusionBlockRoot spec.Root
+	InclusionSlot      phase0.Slot
+	InclusionBlockRoot phase0.Root
 	InclusionIndex     uint64
-	ValidatorIndex     spec.ValidatorIndex
-	Epoch              spec.Epoch
+	ValidatorIndex     phase0.ValidatorIndex
+	Epoch              phase0.Epoch
 }
 
 // AttesterSlashing holds information about an attester slashing included by a block.
 type AttesterSlashing struct {
-	InclusionSlot               spec.Slot
-	InclusionBlockRoot          spec.Root
+	InclusionSlot               phase0.Slot
+	InclusionBlockRoot          phase0.Root
 	InclusionIndex              uint64
-	Attestation1Indices         []spec.ValidatorIndex
-	Attestation1Slot            spec.Slot
-	Attestation1CommitteeIndex  spec.CommitteeIndex
-	Attestation1BeaconBlockRoot spec.Root
-	Attestation1SourceEpoch     spec.Epoch
-	Attestation1SourceRoot      spec.Root
-	Attestation1TargetEpoch     spec.Epoch
-	Attestation1TargetRoot      spec.Root
-	Attestation1Signature       spec.BLSSignature
-	Attestation2Indices         []spec.ValidatorIndex
-	Attestation2Slot            spec.Slot
-	Attestation2CommitteeIndex  spec.CommitteeIndex
-	Attestation2BeaconBlockRoot spec.Root
-	Attestation2SourceEpoch     spec.Epoch
-	Attestation2SourceRoot      spec.Root
-	Attestation2TargetEpoch     spec.Epoch
-	Attestation2TargetRoot      spec.Root
-	Attestation2Signature       spec.BLSSignature
+	Attestation1Indices         []phase0.ValidatorIndex
+	Attestation1Slot            phase0.Slot
+	Attestation1CommitteeIndex  phase0.CommitteeIndex
+	Attestation1BeaconBlockRoot phase0.Root
+	Attestation1SourceEpoch     phase0.Epoch
+	Attestation1SourceRoot      phase0.Root
+	Attestation1TargetEpoch     phase0.Epoch
+	Attestation1TargetRoot      phase0.Root
+	Attestation1Signature       phase0.BLSSignature
+	Attestation2Indices         []phase0.ValidatorIndex
+	Attestation2Slot            phase0.Slot
+	Attestation2CommitteeIndex  phase0.CommitteeIndex
+	Attestation2BeaconBlockRoot phase0.Root
+	Attestation2SourceEpoch     phase0.Epoch
+	Attestation2SourceRoot      phase0.Root
+	Attestation2TargetEpoch     phase0.Epoch
+	Attestation2TargetRoot      phase0.Root
+	Attestation2Signature       phase0.BLSSignature
 }
 
 // ProposerSlashing holds information about a proposer slashing included by a block.
 type ProposerSlashing struct {
-	InclusionSlot        spec.Slot
-	InclusionBlockRoot   spec.Root
+	InclusionSlot        phase0.Slot
+	InclusionBlockRoot   phase0.Root
 	InclusionIndex       uint64
-	Block1Root           spec.Root
-	Header1Slot          spec.Slot
-	Header1ProposerIndex spec.ValidatorIndex
-	Header1ParentRoot    spec.Root
-	Header1StateRoot     spec.Root
-	Header1BodyRoot      spec.Root
-	Header1Signature     spec.BLSSignature
-	Block2Root           spec.Root
-	Header2Slot          spec.Slot
-	Header2ProposerIndex spec.ValidatorIndex
-	Header2ParentRoot    spec.Root
-	Header2StateRoot     spec.Root
-	Header2BodyRoot      spec.Root
-	Header2Signature     spec.BLSSignature
+	Block1Root           phase0.Root
+	Header1Slot          phase0.Slot
+	Header1ProposerIndex phase0.ValidatorIndex
+	Header1ParentRoot    phase0.Root
+	Header1StateRoot     phase0.Root
+	Header1BodyRoot      phase0.Root
+	Header1Signature     phase0.BLSSignature
+	Block2Root           phase0.Root
+	Header2Slot          phase0.Slot
+	Header2ProposerIndex phase0.ValidatorIndex
+	Header2ParentRoot    phase0.Root
+	Header2StateRoot     phase0.Root
+	Header2BodyRoot      phase0.Root
+	Header2Signature     phase0.BLSSignature
 }
 
 // ValidatorEpochSummary provides a summary of a validator's operations for an epoch.
 type ValidatorEpochSummary struct {
-	Index                     spec.ValidatorIndex
-	Epoch                     spec.Epoch
+	Index                     phase0.ValidatorIndex
+	Epoch                     phase0.Epoch
 	ProposerDuties            int
 	ProposalsIncluded         int
 	AttestationIncluded       bool
@@ -200,7 +200,7 @@ type ValidatorEpochSummary struct {
 
 // BlockSummary provides a summary of an epoch.
 type BlockSummary struct {
-	Slot                          spec.Slot
+	Slot                          phase0.Slot
 	AttestationsForBlock          int
 	DuplicateAttestationsForBlock int
 	VotesForBlock                 int
@@ -208,18 +208,18 @@ type BlockSummary struct {
 
 // EpochSummary provides a summary of an epoch.
 type EpochSummary struct {
-	Epoch                         spec.Epoch
+	Epoch                         phase0.Epoch
 	ActivationQueueLength         int
 	ActivatingValidators          int
 	ActiveValidators              int
-	ActiveRealBalance             spec.Gwei
-	ActiveBalance                 spec.Gwei
+	ActiveRealBalance             phase0.Gwei
+	ActiveBalance                 phase0.Gwei
 	AttestingValidators           int
-	AttestingBalance              spec.Gwei
+	AttestingBalance              phase0.Gwei
 	TargetCorrectValidators       int
-	TargetCorrectBalance          spec.Gwei
+	TargetCorrectBalance          phase0.Gwei
 	HeadCorrectValidators         int
-	HeadCorrectBalance            spec.Gwei
+	HeadCorrectBalance            phase0.Gwei
 	AttestationsForEpoch          int
 	AttestationsInEpoch           int
 	DuplicateAttestationsForEpoch int

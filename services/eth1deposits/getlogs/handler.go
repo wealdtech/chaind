@@ -18,7 +18,7 @@ import (
 	"encoding/binary"
 	"time"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -136,7 +136,7 @@ func (s *Service) depositFromLogEntry(ctx context.Context, logEntry *logResponse
 	copy(deposit.ValidatorPubKey[:], logEntry.Data[192:240])
 	deposit.WithdrawalCredentials = logEntry.Data[288:320]
 	copy(deposit.Signature[:], logEntry.Data[416:512])
-	deposit.Amount = spec.Gwei(binary.LittleEndian.Uint64(logEntry.Data[352:360]))
+	deposit.Amount = phase0.Gwei(binary.LittleEndian.Uint64(logEntry.Data[352:360]))
 	return deposit, nil
 }
 

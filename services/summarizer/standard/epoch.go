@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sort"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -27,7 +27,7 @@ import (
 // Returns true if the epoch has been updated, otherwise false.
 func (s *Service) updateSummaryForEpoch(ctx context.Context,
 	md *metadata,
-	epoch spec.Epoch,
+	epoch phase0.Epoch,
 ) (
 	bool,
 	error,
@@ -109,13 +109,13 @@ func (s *Service) updateSummaryForEpoch(ctx context.Context,
 }
 
 func (s *Service) validatorSummaryStatsForEpoch(ctx context.Context,
-	epoch spec.Epoch,
+	epoch phase0.Epoch,
 	summary *chaindb.EpochSummary,
 ) (
-	[]spec.ValidatorIndex,
+	[]phase0.ValidatorIndex,
 	error,
 ) {
-	activeIndices := make([]spec.ValidatorIndex, 0)
+	activeIndices := make([]phase0.ValidatorIndex, 0)
 	// Number of validators that are active, became active, and exited in this epoch.
 	validators, err := s.validatorsProvider.Validators(ctx)
 	if err != nil {
@@ -143,7 +143,7 @@ func (s *Service) validatorSummaryStatsForEpoch(ctx context.Context,
 }
 
 func (s *Service) blockStatsForEpoch(ctx context.Context,
-	epoch spec.Epoch,
+	epoch phase0.Epoch,
 	summary *chaindb.EpochSummary,
 ) error {
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
@@ -164,7 +164,7 @@ func (s *Service) blockStatsForEpoch(ctx context.Context,
 }
 
 func (s *Service) depositStatsForEpoch(ctx context.Context,
-	epoch spec.Epoch,
+	epoch phase0.Epoch,
 	summary *chaindb.EpochSummary,
 ) error {
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
@@ -181,8 +181,8 @@ func (s *Service) depositStatsForEpoch(ctx context.Context,
 }
 
 func (s *Service) attestationStatsForEpoch(ctx context.Context,
-	epoch spec.Epoch,
-	balances map[spec.ValidatorIndex]*chaindb.ValidatorBalance,
+	epoch phase0.Epoch,
+	balances map[phase0.ValidatorIndex]*chaindb.ValidatorBalance,
 	summary *chaindb.EpochSummary,
 ) error {
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
@@ -193,19 +193,19 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 		return errors.Wrap(err, "failed to obtain attestations")
 	}
 	epochAttestations := make([]*chaindb.Attestation, 0)
-	seenAttestations := make(map[spec.Root]bool)
+	seenAttestations := make(map[phase0.Root]bool)
 	for _, attestation := range attestations {
-		specAttestation := &spec.Attestation{
+		specAttestation := &phase0.Attestation{
 			AggregationBits: attestation.AggregationBits,
-			Data: &spec.AttestationData{
+			Data: &phase0.AttestationData{
 				Slot:            attestation.Slot,
 				Index:           attestation.CommitteeIndex,
 				BeaconBlockRoot: attestation.BeaconBlockRoot,
-				Source: &spec.Checkpoint{
+				Source: &phase0.Checkpoint{
 					Epoch: attestation.SourceEpoch,
 					Root:  attestation.SourceRoot,
 				},
-				Target: &spec.Checkpoint{
+				Target: &phase0.Checkpoint{
 					Epoch: attestation.TargetEpoch,
 					Root:  attestation.TargetRoot,
 				},
@@ -237,9 +237,9 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 	}
 
 	// epochAttestations contains the list of attestations we need to process.
-	attestingValidatorBalances := make(map[spec.ValidatorIndex]spec.Gwei)
-	targetCorrectBalances := make(map[spec.ValidatorIndex]spec.Gwei)
-	headCorrectBalances := make(map[spec.ValidatorIndex]spec.Gwei)
+	attestingValidatorBalances := make(map[phase0.ValidatorIndex]phase0.Gwei)
+	targetCorrectBalances := make(map[phase0.ValidatorIndex]phase0.Gwei)
+	headCorrectBalances := make(map[phase0.ValidatorIndex]phase0.Gwei)
 	for _, attestation := range epochAttestations {
 		for _, index := range attestation.AggregationIndices {
 			if _, exists := balances[index]; !exists {
@@ -271,7 +271,7 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 }
 
 func (s *Service) slashingsStatsForEpoch(ctx context.Context,
-	epoch spec.Epoch,
+	epoch phase0.Epoch,
 	summary *chaindb.EpochSummary,
 ) error {
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
@@ -339,10 +339,10 @@ func (s *Service) slashingsStatsForEpoch(ctx context.Context,
 }
 
 // intersection returns a list of items common between the two sets.
-func intersection(set1 []spec.ValidatorIndex, set2 []spec.ValidatorIndex) []spec.ValidatorIndex {
+func intersection(set1 []phase0.ValidatorIndex, set2 []phase0.ValidatorIndex) []phase0.ValidatorIndex {
 	sort.Slice(set1, func(i, j int) bool { return set1[i] < set1[j] })
 	sort.Slice(set2, func(i, j int) bool { return set2[i] < set2[j] })
-	res := make([]spec.ValidatorIndex, 0)
+	res := make([]phase0.ValidatorIndex, 0)
 
 	set1Pos := 0
 	set2Pos := 0

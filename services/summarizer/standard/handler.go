@@ -16,14 +16,14 @@ package standard
 import (
 	"context"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 )
 
 // OnFinalityUpdated is called when finality has been updated in the database.
 func (s *Service) OnFinalityUpdated(
 	ctx context.Context,
-	finalizedEpoch spec.Epoch,
+	finalizedEpoch phase0.Epoch,
 ) {
 	// We summarize 1 epoch behind finality, so decrement the value here.
 	if finalizedEpoch == 0 {
@@ -56,7 +56,7 @@ func (s *Service) OnFinalityUpdated(
 	log.Trace().Msg("Finished handling finality checkpoint")
 }
 
-func (s *Service) onFinalityUpdatedEpochs(ctx context.Context, finalizedEpoch spec.Epoch) error {
+func (s *Service) onFinalityUpdatedEpochs(ctx context.Context, finalizedEpoch phase0.Epoch) error {
 	if !s.epochSummaries {
 		return nil
 	}
@@ -87,7 +87,7 @@ func (s *Service) onFinalityUpdatedEpochs(ctx context.Context, finalizedEpoch sp
 }
 
 func (s *Service) onFinalityUpdatedBlocks(ctx context.Context,
-	finalizedEpoch spec.Epoch,
+	finalizedEpoch phase0.Epoch,
 ) error {
 	if !s.blockSummaries {
 		return nil
@@ -121,7 +121,7 @@ func (s *Service) onFinalityUpdatedBlocks(ctx context.Context,
 	return nil
 }
 
-func (s *Service) onFinalityUpdatedValidators(ctx context.Context, finalizedEpoch spec.Epoch) error {
+func (s *Service) onFinalityUpdatedValidators(ctx context.Context, finalizedEpoch phase0.Epoch) error {
 	if !s.validatorSummaries {
 		return nil
 	}

@@ -16,7 +16,7 @@ package standard
 import (
 	"context"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wealdtech/chaind/services/metrics"
@@ -24,11 +24,11 @@ import (
 
 var metricsNamespace = "chaind_validators"
 
-var highestEpoch spec.Epoch
+var highestEpoch phase0.Epoch
 var latestEpoch prometheus.Gauge
 var epochsProcessed prometheus.Gauge
 
-var balancesHighestEpoch spec.Epoch
+var balancesHighestEpoch phase0.Epoch
 var balancesLatestEpoch prometheus.Gauge
 var balancesEpochsProcessed prometheus.Gauge
 
@@ -87,7 +87,7 @@ func registerPrometheusMetrics(ctx context.Context) error {
 	return nil
 }
 
-func monitorEpochProcessed(epoch spec.Epoch) {
+func monitorEpochProcessed(epoch phase0.Epoch) {
 	if epochsProcessed != nil {
 		epochsProcessed.Inc()
 		if epoch > highestEpoch {
@@ -97,7 +97,7 @@ func monitorEpochProcessed(epoch spec.Epoch) {
 	}
 }
 
-func monitorBalancesEpochProcessed(epoch spec.Epoch) {
+func monitorBalancesEpochProcessed(epoch phase0.Epoch) {
 	if balancesEpochsProcessed != nil {
 		balancesEpochsProcessed.Inc()
 		if epoch > balancesHighestEpoch {

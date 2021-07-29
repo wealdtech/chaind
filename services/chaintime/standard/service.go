@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2021 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -17,7 +17,7 @@ import (
 	"context"
 	"time"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
@@ -76,55 +76,55 @@ func (s *Service) GenesisTime() time.Time {
 }
 
 // StartOfSlot provides the time at which a given slot starts.
-func (s *Service) StartOfSlot(slot spec.Slot) time.Time {
+func (s *Service) StartOfSlot(slot phase0.Slot) time.Time {
 	return s.genesisTime.Add(time.Duration(slot) * s.slotDuration)
 }
 
 // StartOfEpoch provides the time at which a given epoch starts.
-func (s *Service) StartOfEpoch(epoch spec.Epoch) time.Time {
+func (s *Service) StartOfEpoch(epoch phase0.Epoch) time.Time {
 	return s.genesisTime.Add(time.Duration(uint64(epoch)*s.slotsPerEpoch) * s.slotDuration)
 }
 
 // CurrentSlot provides the current slot.
-func (s *Service) CurrentSlot() spec.Slot {
+func (s *Service) CurrentSlot() phase0.Slot {
 	if s.genesisTime.After(time.Now()) {
 		return 0
 	}
-	return spec.Slot(uint64(time.Since(s.genesisTime).Seconds()) / uint64(s.slotDuration.Seconds()))
+	return phase0.Slot(uint64(time.Since(s.genesisTime).Seconds()) / uint64(s.slotDuration.Seconds()))
 }
 
 // CurrentEpoch provides the current epoch.
-func (s *Service) CurrentEpoch() spec.Epoch {
+func (s *Service) CurrentEpoch() phase0.Epoch {
 	if s.genesisTime.After(time.Now()) {
 		return 0
 	}
-	return spec.Epoch(uint64(time.Since(s.genesisTime).Seconds()) / (uint64(s.slotDuration.Seconds()) * s.slotsPerEpoch))
+	return phase0.Epoch(uint64(time.Since(s.genesisTime).Seconds()) / (uint64(s.slotDuration.Seconds()) * s.slotsPerEpoch))
 }
 
 // SlotToEpoch provides the epoch of a given slot.
-func (s *Service) SlotToEpoch(slot spec.Slot) spec.Epoch {
-	return spec.Epoch(uint64(slot) / s.slotsPerEpoch)
+func (s *Service) SlotToEpoch(slot phase0.Slot) phase0.Epoch {
+	return phase0.Epoch(uint64(slot) / s.slotsPerEpoch)
 }
 
 // FirstSlotOfEpoch provides the first slot of the given epoch.
-func (s *Service) FirstSlotOfEpoch(epoch spec.Epoch) spec.Slot {
-	return spec.Slot(uint64(epoch) * s.slotsPerEpoch)
+func (s *Service) FirstSlotOfEpoch(epoch phase0.Epoch) phase0.Slot {
+	return phase0.Slot(uint64(epoch) * s.slotsPerEpoch)
 }
 
 // TimestampToSlot provides the slot of the given timestamp.
-func (s *Service) TimestampToSlot(timestamp time.Time) spec.Slot {
+func (s *Service) TimestampToSlot(timestamp time.Time) phase0.Slot {
 	if timestamp.Before(s.genesisTime) {
 		return 0
 	}
 	secondsSinceGenesis := uint64(timestamp.Sub(s.genesisTime).Seconds())
-	return spec.Slot(secondsSinceGenesis / uint64(s.slotDuration.Seconds()))
+	return phase0.Slot(secondsSinceGenesis / uint64(s.slotDuration.Seconds()))
 }
 
 // TimestampToEpoch provides the epoch of the given timestamp.
-func (s *Service) TimestampToEpoch(timestamp time.Time) spec.Epoch {
+func (s *Service) TimestampToEpoch(timestamp time.Time) phase0.Epoch {
 	if timestamp.Before(s.genesisTime) {
 		return 0
 	}
 	secondsSinceGenesis := uint64(timestamp.Sub(s.genesisTime).Seconds())
-	return spec.Epoch(secondsSinceGenesis / uint64(s.slotDuration.Seconds()) / s.slotsPerEpoch)
+	return phase0.Epoch(secondsSinceGenesis / uint64(s.slotDuration.Seconds()) / s.slotsPerEpoch)
 }

@@ -17,7 +17,7 @@ import (
 	"context"
 
 	eth2client "github.com/attestantio/go-eth2-client"
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -25,9 +25,9 @@ import (
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
-	slot spec.Slot,
-	blockRoot spec.Root,
-	stateRoot spec.Root,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	stateRoot phase0.Root,
 	epochTransition bool,
 ) {
 	if !epochTransition {
@@ -55,7 +55,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	s.activitySem.Release(1)
 }
 
-func (s *Service) updateProposerDutiesForEpoch(ctx context.Context, epoch spec.Epoch) error {
+func (s *Service) updateProposerDutiesForEpoch(ctx context.Context, epoch phase0.Epoch) error {
 	duties, err := s.eth2Client.(eth2client.ProposerDutiesProvider).ProposerDuties(ctx, epoch, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch proposer duties")

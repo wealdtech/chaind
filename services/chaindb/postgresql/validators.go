@@ -20,13 +20,13 @@ import (
 	"sort"
 	"strings"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
-var farFutureEpoch = spec.Epoch(0xffffffffffffffff)
+var farFutureEpoch = phase0.Epoch(0xffffffffffffffff)
 
 // SetValidator sets a validator.
 func (s *Service) SetValidator(ctx context.Context, validator *chaindb.Validator) error {
@@ -161,7 +161,7 @@ func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) 
 // ValidatorsByPublicKey fetches all validators matching the given public keys.
 // This is a common starting point for external entities to query specific validators, as they should
 // always have the public key at a minimum, hence the return map keyed by public key.
-func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) (map[spec.BLSPubKey]*chaindb.Validator, error) {
+func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) (map[phase0.BLSPubKey]*chaindb.Validator, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -197,7 +197,7 @@ func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []spec.BLSP
 	}
 	defer rows.Close()
 
-	validators := make(map[spec.BLSPubKey]*chaindb.Validator)
+	validators := make(map[phase0.BLSPubKey]*chaindb.Validator)
 	for rows.Next() {
 		validator, err := s.validatorFromRow(ctx, rows)
 		if err != nil {
@@ -210,7 +210,7 @@ func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []spec.BLSP
 }
 
 // ValidatorsByIndex fetches all validators matching the given indices.
-func (s *Service) ValidatorsByIndex(ctx context.Context, indices []spec.ValidatorIndex) (map[spec.ValidatorIndex]*chaindb.Validator, error) {
+func (s *Service) ValidatorsByIndex(ctx context.Context, indices []phase0.ValidatorIndex) (map[phase0.ValidatorIndex]*chaindb.Validator, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -241,7 +241,7 @@ func (s *Service) ValidatorsByIndex(ctx context.Context, indices []spec.Validato
 	}
 	defer rows.Close()
 
-	validators := make(map[spec.ValidatorIndex]*chaindb.Validator)
+	validators := make(map[phase0.ValidatorIndex]*chaindb.Validator)
 	for rows.Next() {
 		validator, err := s.validatorFromRow(ctx, rows)
 		if err != nil {
@@ -256,10 +256,10 @@ func (s *Service) ValidatorsByIndex(ctx context.Context, indices []spec.Validato
 // ValidatorBalancesByIndexAndEpoch fetches the validator balances for the given validators and epoch.
 func (s *Service) ValidatorBalancesByIndexAndEpoch(
 	ctx context.Context,
-	validatorIndices []spec.ValidatorIndex,
-	epoch spec.Epoch,
+	validatorIndices []phase0.ValidatorIndex,
+	epoch phase0.Epoch,
 ) (
-	map[spec.ValidatorIndex]*chaindb.ValidatorBalance,
+	map[phase0.ValidatorIndex]*chaindb.ValidatorBalance,
 	error,
 ) {
 	tx := s.tx(ctx)
@@ -289,7 +289,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpoch(
 	}
 	defer rows.Close()
 
-	validatorBalances := make(map[spec.ValidatorIndex]*chaindb.ValidatorBalance, len(validatorIndices))
+	validatorBalances := make(map[phase0.ValidatorIndex]*chaindb.ValidatorBalance, len(validatorIndices))
 
 	for rows.Next() {
 		validatorBalance, err := s.validatorBalanceFromRow(ctx, rows)
@@ -307,11 +307,11 @@ func (s *Service) ValidatorBalancesByIndexAndEpoch(
 // balances for epochs 2 and 3.
 func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 	ctx context.Context,
-	validatorIndices []spec.ValidatorIndex,
-	startEpoch spec.Epoch,
-	endEpoch spec.Epoch,
+	validatorIndices []phase0.ValidatorIndex,
+	startEpoch phase0.Epoch,
+	endEpoch phase0.Epoch,
 ) (
-	map[spec.ValidatorIndex][]*chaindb.ValidatorBalance,
+	map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance,
 	error,
 ) {
 	tx := s.tx(ctx)
@@ -356,7 +356,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 	}
 	defer rows.Close()
 
-	validatorBalances := make(map[spec.ValidatorIndex][]*chaindb.ValidatorBalance, len(validatorIndices))
+	validatorBalances := make(map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance, len(validatorIndices))
 	for rows.Next() {
 		validatorBalance, err := s.validatorBalanceFromRow(ctx, rows)
 		if err != nil {
@@ -381,10 +381,10 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 // ValidatorBalancesByIndexAndEpochs fetches the validator balances for the given validators at the specified epochs.
 func (s *Service) ValidatorBalancesByIndexAndEpochs(
 	ctx context.Context,
-	validatorIndices []spec.ValidatorIndex,
-	epochs []spec.Epoch,
+	validatorIndices []phase0.ValidatorIndex,
+	epochs []phase0.Epoch,
 ) (
-	map[spec.ValidatorIndex][]*chaindb.ValidatorBalance,
+	map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance,
 	error,
 ) {
 	tx := s.tx(ctx)
@@ -431,7 +431,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochs(
 	}
 	defer rows.Close()
 
-	validatorBalances := make(map[spec.ValidatorIndex][]*chaindb.ValidatorBalance, len(validatorIndices))
+	validatorBalances := make(map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance, len(validatorIndices))
 	for rows.Next() {
 		validatorBalance, err := s.validatorBalanceFromRow(ctx, rows)
 		if err != nil {
@@ -447,7 +447,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochs(
 	return validatorBalances, nil
 }
 
-func padValidatorBalances(ctx context.Context, validatorBalances map[spec.ValidatorIndex][]*chaindb.ValidatorBalance, entries int, startEpoch spec.Epoch) error {
+func padValidatorBalances(ctx context.Context, validatorBalances map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance, entries int, startEpoch phase0.Epoch) error {
 	for validatorIndex, balances := range validatorBalances {
 		if len(balances) != entries {
 			paddedBalances := make([]*chaindb.ValidatorBalance, entries)
@@ -455,12 +455,12 @@ func padValidatorBalances(ctx context.Context, validatorBalances map[spec.Valida
 			for i := 0; i < padding; i++ {
 				paddedBalances[i] = &chaindb.ValidatorBalance{
 					Index:            validatorIndex,
-					Epoch:            startEpoch + spec.Epoch(i),
+					Epoch:            startEpoch + phase0.Epoch(i),
 					Balance:          0,
 					EffectiveBalance: 0,
 				}
 			}
-			if len(balances) > 0 && balances[0].Epoch != startEpoch+spec.Epoch(padding) {
+			if len(balances) > 0 && balances[0].Epoch != startEpoch+phase0.Epoch(padding) {
 				return fmt.Errorf("data missing in chaindb for validator %d", validatorIndex)
 			}
 
@@ -497,22 +497,22 @@ func (s *Service) validatorFromRow(ctx context.Context, rows pgx.Rows) (*chaindb
 	if !activationEligibilityEpoch.Valid {
 		validator.ActivationEligibilityEpoch = farFutureEpoch
 	} else {
-		validator.ActivationEligibilityEpoch = spec.Epoch(activationEligibilityEpoch.Int64)
+		validator.ActivationEligibilityEpoch = phase0.Epoch(activationEligibilityEpoch.Int64)
 	}
 	if !activationEpoch.Valid {
 		validator.ActivationEpoch = farFutureEpoch
 	} else {
-		validator.ActivationEpoch = spec.Epoch(activationEpoch.Int64)
+		validator.ActivationEpoch = phase0.Epoch(activationEpoch.Int64)
 	}
 	if !exitEpoch.Valid {
 		validator.ExitEpoch = farFutureEpoch
 	} else {
-		validator.ExitEpoch = spec.Epoch(exitEpoch.Int64)
+		validator.ExitEpoch = phase0.Epoch(exitEpoch.Int64)
 	}
 	if !withdrawableEpoch.Valid {
 		validator.WithdrawableEpoch = farFutureEpoch
 	} else {
-		validator.WithdrawableEpoch = spec.Epoch(withdrawableEpoch.Int64)
+		validator.WithdrawableEpoch = phase0.Epoch(withdrawableEpoch.Int64)
 	}
 
 	return validator, nil

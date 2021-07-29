@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2021 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -16,7 +16,7 @@ package postgresql
 import (
 	"context"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -46,7 +46,7 @@ func (s *Service) SetBeaconCommittee(ctx context.Context, beaconCommittee *chain
 }
 
 // BeaconCommitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
-func (s *Service) BeaconCommitteeBySlotAndIndex(ctx context.Context, slot spec.Slot, index spec.CommitteeIndex) (*chaindb.BeaconCommittee, error) {
+func (s *Service) BeaconCommitteeBySlotAndIndex(ctx context.Context, slot phase0.Slot, index phase0.CommitteeIndex) (*chaindb.BeaconCommittee, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -77,15 +77,15 @@ func (s *Service) BeaconCommitteeBySlotAndIndex(ctx context.Context, slot spec.S
 	if err != nil {
 		return nil, err
 	}
-	committee.Committee = make([]spec.ValidatorIndex, len(committeeMembers))
+	committee.Committee = make([]phase0.ValidatorIndex, len(committeeMembers))
 	for i := range committeeMembers {
-		committee.Committee[i] = spec.ValidatorIndex(committeeMembers[i])
+		committee.Committee[i] = phase0.ValidatorIndex(committeeMembers[i])
 	}
 	return committee, nil
 }
 
 // AttesterDuties fetches the attester duties at the given slot range for the given validator indices.
-func (s *Service) AttesterDuties(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot, validatorIndices []spec.ValidatorIndex) ([]*chaindb.AttesterDuty, error) {
+func (s *Service) AttesterDuties(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot, validatorIndices []phase0.ValidatorIndex) ([]*chaindb.AttesterDuty, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -117,7 +117,7 @@ func (s *Service) AttesterDuties(ctx context.Context, startSlot spec.Slot, endSl
 	res := make([]*chaindb.AttesterDuty, 0)
 
 	// Map for fast lookup of validator indices.
-	validatorIndicesMap := make(map[spec.ValidatorIndex]bool, len(validatorIndices))
+	validatorIndicesMap := make(map[phase0.ValidatorIndex]bool, len(validatorIndices))
 	for _, validatorIndex := range validatorIndices {
 		validatorIndicesMap[validatorIndex] = true
 	}
@@ -136,11 +136,11 @@ func (s *Service) AttesterDuties(ctx context.Context, startSlot spec.Slot, endSl
 		}
 
 		for i, validatorIndex := range committee {
-			if validatorIndicesMap[spec.ValidatorIndex(validatorIndex)] {
+			if validatorIndicesMap[phase0.ValidatorIndex(validatorIndex)] {
 				res = append(res, &chaindb.AttesterDuty{
-					Slot:           spec.Slot(slot),
-					Committee:      spec.CommitteeIndex(index),
-					ValidatorIndex: spec.ValidatorIndex(validatorIndex),
+					Slot:           phase0.Slot(slot),
+					Committee:      phase0.CommitteeIndex(index),
+					ValidatorIndex: phase0.ValidatorIndex(validatorIndex),
 					CommitteeIndex: uint64(i),
 				})
 			}

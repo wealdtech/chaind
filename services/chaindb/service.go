@@ -17,29 +17,29 @@ import (
 	"context"
 
 	api "github.com/attestantio/go-eth2-client/api/v1"
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
 // AttestationsProvider defines functions to access attestations.
 type AttestationsProvider interface {
 	// AttestationsForBlock fetches all attestations made for the given block.
-	AttestationsForBlock(ctx context.Context, blockRoot spec.Root) ([]*Attestation, error)
+	AttestationsForBlock(ctx context.Context, blockRoot phase0.Root) ([]*Attestation, error)
 
 	// AttestationsInBlock fetches all attestations contained in the given block.
-	AttestationsInBlock(ctx context.Context, blockRoot spec.Root) ([]*Attestation, error)
+	AttestationsInBlock(ctx context.Context, blockRoot phase0.Root) ([]*Attestation, error)
 
 	// AttestationsForSlotRange fetches all attestations made for the given slot range.
 	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 	// attestations for slots 2 and 3.
-	AttestationsForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*Attestation, error)
+	AttestationsForSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*Attestation, error)
 
 	// AttestationsInSlotRange fetches all attestations made in the given slot range.
 	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 	// attestations in slots 2 and 3.
-	AttestationsInSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*Attestation, error)
+	AttestationsInSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*Attestation, error)
 
 	// IndeterminateAttestationSlots fetches the slots in the given range with attestations that do not have a canonical status.
-	IndeterminateAttestationSlots(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Slot, error)
+	IndeterminateAttestationSlots(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]phase0.Slot, error)
 }
 
 // AttestationsSetter defines functions to create and update attestations.
@@ -52,11 +52,11 @@ type AttestationsSetter interface {
 type AttesterSlashingsProvider interface {
 	// AttesterSlashingsForSlotRange fetches all attester slashings made for the given slot range.
 	// It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
-	AttesterSlashingsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*AttesterSlashing, error)
+	AttesterSlashingsForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]*AttesterSlashing, error)
 
 	// AttesterSlashingsForValidator fetches all attester slashings made for the given validator.
 	// It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
-	AttesterSlashingsForValidator(ctx context.Context, index spec.ValidatorIndex) ([]*AttesterSlashing, error)
+	AttesterSlashingsForValidator(ctx context.Context, index phase0.ValidatorIndex) ([]*AttesterSlashing, error)
 }
 
 // AttesterSlashingsSetter defines functions to create and update attester slashings.
@@ -68,10 +68,10 @@ type AttesterSlashingsSetter interface {
 // BeaconCommitteesProvider defines functions to access beacon committee information.
 type BeaconCommitteesProvider interface {
 	// BeaconComitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
-	BeaconCommitteeBySlotAndIndex(ctx context.Context, slot spec.Slot, index spec.CommitteeIndex) (*BeaconCommittee, error)
+	BeaconCommitteeBySlotAndIndex(ctx context.Context, slot phase0.Slot, index phase0.CommitteeIndex) (*BeaconCommittee, error)
 
 	// AttesterDuties fetches the attester duties at the given slot range for the given validator indices.
-	AttesterDuties(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot, validatorIndices []spec.ValidatorIndex) ([]*AttesterDuty, error)
+	AttesterDuties(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot, validatorIndices []phase0.ValidatorIndex) ([]*AttesterDuty, error)
 }
 
 // BeaconCommitteesSetter defines functions to create and update beacon committee information.
@@ -83,36 +83,36 @@ type BeaconCommitteesSetter interface {
 // BlocksProvider defines functions to access blocks.
 type BlocksProvider interface {
 	// BlocksBySlot fetches all blocks with the given slot.
-	BlocksBySlot(ctx context.Context, slot spec.Slot) ([]*Block, error)
+	BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*Block, error)
 
 	// BlocksForSlotRange fetches all blocks with the given slot range.
 	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 	// blocks duties for slots 2 and 3.
-	BlocksForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*Block, error)
+	BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*Block, error)
 
 	// BlockByRoot fetches the block with the given root.
-	BlockByRoot(ctx context.Context, root spec.Root) (*Block, error)
+	BlockByRoot(ctx context.Context, root phase0.Root) (*Block, error)
 
 	// BlocksByParentRoot fetches the blocks with the given parent root.
-	BlocksByParentRoot(ctx context.Context, root spec.Root) ([]*Block, error)
+	BlocksByParentRoot(ctx context.Context, root phase0.Root) ([]*Block, error)
 
 	// EmptySlots fetches the slots in the given range without a block in the database.
-	EmptySlots(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Slot, error)
+	EmptySlots(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]phase0.Slot, error)
 
 	// LatestBlocks fetches the blocks with the highest slot number in the database.
 	LatestBlocks(ctx context.Context) ([]*Block, error)
 
 	// IndeterminateBlocks fetches the blocks in the given range that do not have a canonical status.
-	IndeterminateBlocks(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Root, error)
+	IndeterminateBlocks(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]phase0.Root, error)
 
 	// CanonicalBlockPresenceForSlotRange returns a boolean for each slot in the range for the presence
 	// of a canonical block.
 	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 	// presence duties for slots 2 and 3.
-	CanonicalBlockPresenceForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]bool, error)
+	CanonicalBlockPresenceForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]bool, error)
 
 	// LatestCanonicalBlock returns the slot of the latest canonical block known in the database.
-	LatestCanonicalBlock(ctx context.Context) (spec.Slot, error)
+	LatestCanonicalBlock(ctx context.Context) (phase0.Slot, error)
 }
 
 // BlocksSetter defines functions to create and update blocks.
@@ -151,7 +151,7 @@ type GenesisSetter interface {
 // ETH1DepositsProvider defines functions to access Ethereum 1 deposits.
 type ETH1DepositsProvider interface {
 	// ETH1DepositsByPublicKey fetches Ethereum 1 deposits for a given set of validator public keys.
-	ETH1DepositsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) ([]*ETH1Deposit, error)
+	ETH1DepositsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) ([]*ETH1Deposit, error)
 }
 
 // ETH1DepositsSetter defines functions to create and update Ethereum 1 deposits.
@@ -165,7 +165,7 @@ type ProposerDutiesProvider interface {
 	// ProposerDutiesForSlotRange fetches all proposer duties for the given slot range.
 	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 	// proposer duties for slots 2 and 3.
-	ProposerDutiesForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*ProposerDuty, error)
+	ProposerDutiesForSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*ProposerDuty, error)
 }
 
 // ProposerDutiesSetter defines the functions to create and update proposer duties.
@@ -178,11 +178,11 @@ type ProposerDutiesSetter interface {
 type ProposerSlashingsProvider interface {
 	// ProposerSlashingsForSlotRange fetches all proposer slashings made for the given slot range.
 	// It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
-	ProposerSlashingsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*ProposerSlashing, error)
+	ProposerSlashingsForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]*ProposerSlashing, error)
 
 	// ProposerSlashingsForValidator fetches all proposer slashings made for the given validator.
 	// It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
-	ProposerSlashingsForValidator(ctx context.Context, index spec.ValidatorIndex) ([]*ProposerSlashing, error)
+	ProposerSlashingsForValidator(ctx context.Context, index phase0.ValidatorIndex) ([]*ProposerSlashing, error)
 }
 
 // ProposerSlashingsSetter defines functions to create and update proposer slashings.
@@ -199,18 +199,18 @@ type ValidatorsProvider interface {
 	// ValidatorsByPublicKey fetches all validators matching the given public keys.
 	// This is a common starting point for external entities to query specific validators, as they should
 	// always have the public key at a minimum, hence the return map keyed by public key.
-	ValidatorsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) (map[spec.BLSPubKey]*Validator, error)
+	ValidatorsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) (map[phase0.BLSPubKey]*Validator, error)
 
 	// ValidatorsByIndex fetches all validators matching the given indices.
-	ValidatorsByIndex(ctx context.Context, indices []spec.ValidatorIndex) (map[spec.ValidatorIndex]*Validator, error)
+	ValidatorsByIndex(ctx context.Context, indices []phase0.ValidatorIndex) (map[phase0.ValidatorIndex]*Validator, error)
 
 	// ValidatorBalancesByIndexAndEpoch fetches the validator balances for the given validators and epoch.
 	ValidatorBalancesByIndexAndEpoch(
 		ctx context.Context,
-		indices []spec.ValidatorIndex,
-		epoch spec.Epoch,
+		indices []phase0.ValidatorIndex,
+		epoch phase0.Epoch,
 	) (
-		map[spec.ValidatorIndex]*ValidatorBalance,
+		map[phase0.ValidatorIndex]*ValidatorBalance,
 		error,
 	)
 
@@ -219,21 +219,21 @@ type ValidatorsProvider interface {
 	// balances for epochs 2 and 3.
 	ValidatorBalancesByIndexAndEpochRange(
 		ctx context.Context,
-		indices []spec.ValidatorIndex,
-		startEpoch spec.Epoch,
-		endEpoch spec.Epoch,
+		indices []phase0.ValidatorIndex,
+		startEpoch phase0.Epoch,
+		endEpoch phase0.Epoch,
 	) (
-		map[spec.ValidatorIndex][]*ValidatorBalance,
+		map[phase0.ValidatorIndex][]*ValidatorBalance,
 		error,
 	)
 
 	// ValidatorBalancesByIndexAndEpochs fetches the validator balances for the given validators at the specified epochs.
 	ValidatorBalancesByIndexAndEpochs(
 		ctx context.Context,
-		indices []spec.ValidatorIndex,
-		epochs []spec.Epoch,
+		indices []phase0.ValidatorIndex,
+		epochs []phase0.Epoch,
 	) (
-		map[spec.ValidatorIndex][]*ValidatorBalance,
+		map[phase0.ValidatorIndex][]*ValidatorBalance,
 		error,
 	)
 }
@@ -243,8 +243,8 @@ type AggregateValidatorBalancesProvider interface {
 	// AggregateValidatorBalancesByIndexAndEpoch fetches the aggregate validator balances for the given validators and epoch.
 	AggregateValidatorBalancesByIndexAndEpoch(
 		ctx context.Context,
-		indices []spec.ValidatorIndex,
-		epoch spec.Epoch,
+		indices []phase0.ValidatorIndex,
+		epoch phase0.Epoch,
 	) (
 		*AggregateValidatorBalance,
 		error,
@@ -256,9 +256,9 @@ type AggregateValidatorBalancesProvider interface {
 	// balances for epochs 2 and 3.
 	AggregateValidatorBalancesByIndexAndEpochRange(
 		ctx context.Context,
-		indices []spec.ValidatorIndex,
-		startEpoch spec.Epoch,
-		endEpoch spec.Epoch,
+		indices []phase0.ValidatorIndex,
+		startEpoch phase0.Epoch,
+		endEpoch phase0.Epoch,
 	) (
 		[]*AggregateValidatorBalance,
 		error,
@@ -267,8 +267,8 @@ type AggregateValidatorBalancesProvider interface {
 	// AggregateValidatorBalancesByIndexAndEpochs fetches the validator balances for the given validators at the specified epochs.
 	AggregateValidatorBalancesByIndexAndEpochs(
 		ctx context.Context,
-		indices []spec.ValidatorIndex,
-		epochs []spec.Epoch,
+		indices []phase0.ValidatorIndex,
+		epochs []phase0.Epoch,
 	) (
 		[]*AggregateValidatorBalance,
 		error,
@@ -287,11 +287,11 @@ type ValidatorsSetter interface {
 // DepositsProvider defines functions to access deposits.
 type DepositsProvider interface {
 	// DepositsByPublicKey fetches deposits for a given set of validator public keys.
-	DepositsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) (map[spec.BLSPubKey][]*Deposit, error)
+	DepositsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) (map[phase0.BLSPubKey][]*Deposit, error)
 
 	// DepositsForSlotRange fetches all deposits made in the given slot range.
 	// It will return deposits from blocks that are canonical or undefined, but not from non-canonical blocks.
-	DepositsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*Deposit, error)
+	DepositsForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]*Deposit, error)
 }
 
 // DepositsSetter defines functions to create and update deposits.
