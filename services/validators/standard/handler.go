@@ -1,4 +1,4 @@
-// Copyright © 2020, 201 Weald Technology Limited.
+// Copyright © 2020, 2021 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	eth2client "github.com/attestantio/go-eth2-client"
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -26,9 +26,9 @@ import (
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
-	slot spec.Slot,
-	blockRoot spec.Root,
-	stateRoot spec.Root,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	stateRoot phase0.Root,
 	epochTransition bool,
 ) {
 	epoch := s.chainTime.SlotToEpoch(slot)
@@ -68,7 +68,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 
 func (s *Service) onEpochTransitionValidators(ctx context.Context,
 	md *metadata,
-	transitionedEpoch spec.Epoch,
+	transitionedEpoch phase0.Epoch,
 ) error {
 	// We always fetch the latest validator information regardless of epoch.
 	validators, err := s.eth2Client.(eth2client.ValidatorsProvider).Validators(ctx, "head", nil)
@@ -112,7 +112,7 @@ func (s *Service) onEpochTransitionValidators(ctx context.Context,
 
 func (s *Service) onEpochTransitionValidatorBalances(ctx context.Context,
 	md *metadata,
-	transitionedEpoch spec.Epoch,
+	transitionedEpoch phase0.Epoch,
 ) error {
 	if !s.balances {
 		return nil

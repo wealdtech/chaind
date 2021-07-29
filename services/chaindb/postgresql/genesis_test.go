@@ -21,7 +21,7 @@ import (
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	api "github.com/attestantio/go-eth2-client/api/v1"
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/wealdtech/chaind/services/chaindb"
@@ -38,11 +38,11 @@ func TestSetGenesis(t *testing.T) {
 
 	genesis := &api.Genesis{
 		GenesisTime: time.Unix(1600000000, 0),
-		GenesisValidatorsRoot: spec.Root{
+		GenesisValidatorsRoot: phase0.Root{
 			0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
 			0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
 		},
-		GenesisForkVersion: spec.Version{0x00, 0x01, 0x02, 0x03},
+		GenesisForkVersion: phase0.Version{0x00, 0x01, 0x02, 0x03},
 	}
 
 	// Try to set outside of a transaction; should fail.

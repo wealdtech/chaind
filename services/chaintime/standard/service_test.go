@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2021 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/wealdtech/chaind/services/chaintime/standard"
@@ -154,7 +154,7 @@ func TestCurrentSlot(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	require.Equal(t, spec.Slot(5), s.CurrentSlot())
+	require.Equal(t, phase0.Slot(5), s.CurrentSlot())
 }
 
 func TestCurrentEpoch(t *testing.T) {
@@ -171,7 +171,7 @@ func TestCurrentEpoch(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	require.Equal(t, spec.Epoch(2), s.CurrentEpoch())
+	require.Equal(t, phase0.Epoch(2), s.CurrentEpoch())
 }
 
 func TestTimestampToSlot(t *testing.T) {
@@ -192,7 +192,7 @@ func TestTimestampToSlot(t *testing.T) {
 	tests := []struct {
 		name      string
 		timestamp time.Time
-		slot      spec.Slot
+		slot      phase0.Slot
 	}{
 		{
 			name:      "PreGenesis",
@@ -241,7 +241,7 @@ func TestTimestampToEpoch(t *testing.T) {
 	tests := []struct {
 		name      string
 		timestamp time.Time
-		epoch     spec.Epoch
+		epoch     phase0.Epoch
 	}{
 		{
 			name:      "PreGenesis",

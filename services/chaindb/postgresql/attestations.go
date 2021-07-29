@@ -17,7 +17,7 @@ import (
 	"context"
 	"database/sql"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -98,7 +98,7 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
 }
 
 // AttestationsForBlock fetches all attestations made for the given block.
-func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root) ([]*chaindb.Attestation, error) {
+func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot phase0.Root) ([]*chaindb.Attestation, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -169,9 +169,9 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
 		copy(attestation.InclusionBlockRoot[:], inclusionBlockRoot)
-		attestation.AggregationIndices = make([]spec.ValidatorIndex, len(aggregationIndices))
+		attestation.AggregationIndices = make([]phase0.ValidatorIndex, len(aggregationIndices))
 		for i := range aggregationIndices {
-			attestation.AggregationIndices[i] = spec.ValidatorIndex(aggregationIndices[i])
+			attestation.AggregationIndices[i] = phase0.ValidatorIndex(aggregationIndices[i])
 		}
 		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
 		copy(attestation.SourceRoot[:], sourceRoot)
@@ -195,7 +195,7 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot spec.Root)
 }
 
 // AttestationsInBlock fetches all attestations contained in the given block.
-func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) ([]*chaindb.Attestation, error) {
+func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot phase0.Root) ([]*chaindb.Attestation, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -266,9 +266,9 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
 		copy(attestation.InclusionBlockRoot[:], inclusionBlockRoot)
-		attestation.AggregationIndices = make([]spec.ValidatorIndex, len(aggregationIndices))
+		attestation.AggregationIndices = make([]phase0.ValidatorIndex, len(aggregationIndices))
 		for i := range aggregationIndices {
-			attestation.AggregationIndices[i] = spec.ValidatorIndex(aggregationIndices[i])
+			attestation.AggregationIndices[i] = phase0.ValidatorIndex(aggregationIndices[i])
 		}
 		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
 		copy(attestation.SourceRoot[:], sourceRoot)
@@ -294,7 +294,7 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot spec.Root) 
 // AttestationsForSlotRange fetches all attestations made for the given slot range.
 // Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 // attestations for slots 2 and 3.
-func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*chaindb.Attestation, error) {
+func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*chaindb.Attestation, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -367,9 +367,9 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot spec.S
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
 		copy(attestation.InclusionBlockRoot[:], inclusionBlockRoot)
-		attestation.AggregationIndices = make([]spec.ValidatorIndex, len(aggregationIndices))
+		attestation.AggregationIndices = make([]phase0.ValidatorIndex, len(aggregationIndices))
 		for i := range aggregationIndices {
-			attestation.AggregationIndices[i] = spec.ValidatorIndex(aggregationIndices[i])
+			attestation.AggregationIndices[i] = phase0.ValidatorIndex(aggregationIndices[i])
 		}
 		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
 		copy(attestation.SourceRoot[:], sourceRoot)
@@ -395,7 +395,7 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot spec.S
 // AttestationsInSlotRange fetches all attestations made in the given slot range.
 // Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 // attestations in slots 2 and 3.
-func (s *Service) AttestationsInSlotRange(ctx context.Context, startSlot spec.Slot, endSlot spec.Slot) ([]*chaindb.Attestation, error) {
+func (s *Service) AttestationsInSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*chaindb.Attestation, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -468,9 +468,9 @@ func (s *Service) AttestationsInSlotRange(ctx context.Context, startSlot spec.Sl
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
 		copy(attestation.InclusionBlockRoot[:], inclusionBlockRoot)
-		attestation.AggregationIndices = make([]spec.ValidatorIndex, len(aggregationIndices))
+		attestation.AggregationIndices = make([]phase0.ValidatorIndex, len(aggregationIndices))
 		for i := range aggregationIndices {
-			attestation.AggregationIndices[i] = spec.ValidatorIndex(aggregationIndices[i])
+			attestation.AggregationIndices[i] = phase0.ValidatorIndex(aggregationIndices[i])
 		}
 		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
 		copy(attestation.SourceRoot[:], sourceRoot)
@@ -494,7 +494,7 @@ func (s *Service) AttestationsInSlotRange(ctx context.Context, startSlot spec.Sl
 }
 
 // IndeterminateAttestationSlots fetches the slots in the given range with attestations that do not have a canonical status.
-func (s *Service) IndeterminateAttestationSlots(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]spec.Slot, error) {
+func (s *Service) IndeterminateAttestationSlots(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]phase0.Slot, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -520,10 +520,10 @@ func (s *Service) IndeterminateAttestationSlots(ctx context.Context, minSlot spe
 	}
 	defer rows.Close()
 
-	slots := make([]spec.Slot, 0)
+	slots := make([]phase0.Slot, 0)
 
 	for rows.Next() {
-		var slot spec.Slot
+		var slot phase0.Slot
 		err := rows.Scan(&slot)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")

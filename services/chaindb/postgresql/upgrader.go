@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 )
 
@@ -242,7 +242,7 @@ ADD COLUMN f_block_2_root BYTEA
 	}
 
 	for _, proposerSlashing := range proposerSlashings {
-		header1 := &spec.BeaconBlockHeader{
+		header1 := &phase0.BeaconBlockHeader{
 			Slot:          proposerSlashing.Header1Slot,
 			ProposerIndex: proposerSlashing.Header1ProposerIndex,
 			ParentRoot:    proposerSlashing.Header1ParentRoot,
@@ -253,7 +253,7 @@ ADD COLUMN f_block_2_root BYTEA
 		if err != nil {
 			return errors.Wrap(err, "failed to calculate proposer slashing block 1 root")
 		}
-		header2 := &spec.BeaconBlockHeader{
+		header2 := &phase0.BeaconBlockHeader{
 			Slot:          proposerSlashing.Header2Slot,
 			ProposerIndex: proposerSlashing.Header2ProposerIndex,
 			ParentRoot:    proposerSlashing.Header2ParentRoot,

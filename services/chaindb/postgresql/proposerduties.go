@@ -16,7 +16,7 @@ package postgresql
 import (
 	"context"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -45,8 +45,8 @@ func (s *Service) SetProposerDuty(ctx context.Context, proposerDuty *chaindb.Pro
 
 // ProposerDutiesForSlotRange fetches all proposer duties for a slot range.
 func (s *Service) ProposerDutiesForSlotRange(ctx context.Context,
-	startSlot spec.Slot,
-	endSlot spec.Slot,
+	startSlot phase0.Slot,
+	endSlot phase0.Slot,
 ) (
 	[]*chaindb.ProposerDuty,
 	error,

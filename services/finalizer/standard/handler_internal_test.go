@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	autoeth2client "github.com/attestantio/go-eth2-client/auto"
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	standardblocks "github.com/wealdtech/chaind/services/blocks/standard"
@@ -66,8 +66,8 @@ func TestUpdateAttestationHeadCorrect(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		slot        spec.Slot
-		validator   spec.ValidatorIndex
+		slot        phase0.Slot
+		validator   phase0.ValidatorIndex
 		headCorrect bool
 	}{
 		{
@@ -86,7 +86,7 @@ func TestUpdateAttestationHeadCorrect(t *testing.T) {
 			for _, attestation := range attestations {
 				for _, validatorIndex := range attestation.AggregationIndices {
 					if validatorIndex == test.validator {
-						err = s.updateAttestationHeadCorrect(ctx, attestation, make(map[spec.Slot]spec.Root))
+						err = s.updateAttestationHeadCorrect(ctx, attestation, make(map[phase0.Slot]phase0.Root))
 						require.NoError(t, err)
 						require.NotNil(t, attestation.HeadCorrect)
 						require.Equal(t, test.headCorrect, *attestation.HeadCorrect)

@@ -18,7 +18,7 @@ import (
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	api "github.com/attestantio/go-eth2-client/api/v1"
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
@@ -40,7 +40,7 @@ type Service struct {
 	beaconCommitteesProvider chaindb.BeaconCommitteesProvider
 	chainTime                chaintime.Service
 	refetch                  bool
-	lastHandledBlockRoot     spec.Root
+	lastHandledBlockRoot     phase0.Root
 	activitySem              *semaphore.Weighted
 }
 
@@ -125,7 +125,7 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 	}
 	if startSlot >= 0 {
 		// Explicit requirement to start at a given slot.
-		md.LatestSlot = spec.Slot(startSlot)
+		md.LatestSlot = phase0.Slot(startSlot)
 	} else if md.LatestSlot > 0 {
 		// We have a definite hit on this being the last processed slot; increment it to avoid duplication of work.
 		md.LatestSlot++
@@ -211,7 +211,7 @@ func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 		} else {
 			log.Trace().Msg("Updated block")
 			// Remove this from the list of missed slots.
-			missedSlots := make([]spec.Slot, len(md.MissedSlots)-1)
+			missedSlots := make([]phase0.Slot, len(md.MissedSlots)-1)
 			copy(missedSlots[:failed], md.MissedSlots[:failed])
 			copy(missedSlots[failed:], md.MissedSlots[i+1:])
 			md.MissedSlots = missedSlots

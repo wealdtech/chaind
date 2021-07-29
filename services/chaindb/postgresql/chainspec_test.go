@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/wealdtech/chaind/services/chaindb/postgresql"
@@ -82,12 +82,12 @@ func TestChainSpec(t *testing.T) {
 		{
 			name: "Domain",
 			key:  "DOMAIN_VOLUNTARY_EXIT",
-			val:  spec.DomainType{0x01, 0x02, 0x03, 0x04},
+			val:  phase0.DomainType{0x01, 0x02, 0x03, 0x04},
 		},
 		{
 			name: "ForkVersion",
 			key:  "GENESIS_FORK_VERSION",
-			val:  spec.Version{0x01, 0x02, 0x03, 0x04},
+			val:  phase0.Version{0x01, 0x02, 0x03, 0x04},
 		},
 		{
 			name: "Hex",

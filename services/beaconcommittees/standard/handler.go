@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	eth2client "github.com/attestantio/go-eth2-client"
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -26,9 +26,9 @@ import (
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
-	slot spec.Slot,
-	blockRoot spec.Root,
-	stateRoot spec.Root,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	stateRoot phase0.Root,
 	epochTransition bool,
 ) {
 	if !epochTransition {
@@ -56,7 +56,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	s.activitySem.Release(1)
 }
 
-func (s *Service) updateBeaconCommitteesForEpoch(ctx context.Context, epoch spec.Epoch) error {
+func (s *Service) updateBeaconCommitteesForEpoch(ctx context.Context, epoch phase0.Epoch) error {
 	log.Trace().Uint64("epoch", uint64(epoch)).Msg("Updating beacon committees")
 
 	beaconCommittees, err := s.eth2Client.(eth2client.BeaconCommitteesProvider).BeaconCommittees(ctx, fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(epoch)))

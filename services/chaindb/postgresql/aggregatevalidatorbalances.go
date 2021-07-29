@@ -19,7 +19,7 @@ import (
 	"sort"
 	"strings"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -27,8 +27,8 @@ import (
 // AggregateValidatorBalancesByIndexAndEpoch fetches the aggregate validator balances for the given validators and epoch.
 func (s *Service) AggregateValidatorBalancesByIndexAndEpoch(
 	ctx context.Context,
-	validatorIndices []spec.ValidatorIndex,
-	epoch spec.Epoch,
+	validatorIndices []phase0.ValidatorIndex,
+	epoch phase0.Epoch,
 ) (
 	*chaindb.AggregateValidatorBalance,
 	error,
@@ -47,8 +47,8 @@ func (s *Service) AggregateValidatorBalancesByIndexAndEpoch(
 		defer cancel()
 	}
 
-	var balance spec.Gwei
-	var effectiveBalance spec.Gwei
+	var balance phase0.Gwei
+	var effectiveBalance phase0.Gwei
 
 	err := tx.QueryRow(ctx, fmt.Sprintf(`
       SELECT SUM(f_balance)
@@ -82,9 +82,9 @@ func (s *Service) AggregateValidatorBalancesByIndexAndEpoch(
 // balances for epochs 2 and 3.
 func (s *Service) AggregateValidatorBalancesByIndexAndEpochRange(
 	ctx context.Context,
-	validatorIndices []spec.ValidatorIndex,
-	startEpoch spec.Epoch,
-	endEpoch spec.Epoch,
+	validatorIndices []phase0.ValidatorIndex,
+	startEpoch phase0.Epoch,
+	endEpoch phase0.Epoch,
 ) (
 	[]*chaindb.AggregateValidatorBalance,
 	error,
@@ -145,8 +145,8 @@ func (s *Service) AggregateValidatorBalancesByIndexAndEpochRange(
 // AggregateValidatorBalancesByIndexAndEpochs fetches the validator balances for the given validators at the specified epochs.
 func (s *Service) AggregateValidatorBalancesByIndexAndEpochs(
 	ctx context.Context,
-	validatorIndices []spec.ValidatorIndex,
-	epochs []spec.Epoch,
+	validatorIndices []phase0.ValidatorIndex,
+	epochs []phase0.Epoch,
 ) (
 	[]*chaindb.AggregateValidatorBalance,
 	error,
@@ -205,7 +205,7 @@ func (s *Service) AggregateValidatorBalancesByIndexAndEpochs(
 
 // fastIndices orders and munges the values for validator indices supplied to balance requests.
 // This allows us to form a query that is significantly faster than the simple IN() style.
-func fastIndices(validatorIndices []spec.ValidatorIndex) string {
+func fastIndices(validatorIndices []phase0.ValidatorIndex) string {
 	// Sort the validator indices.
 	sort.Slice(validatorIndices, func(i, j int) bool {
 		return validatorIndices[i] < validatorIndices[j]

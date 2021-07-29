@@ -16,11 +16,11 @@ package handlers
 import (
 	"context"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
 // FinalityHandler provides interfaces for handling finality updates.
 type FinalityHandler interface {
 	// OnFinalityUpdated is called when finality has been updated in the database.
-	OnFinalityUpdated(ctx context.Context, epoch spec.Epoch)
+	OnFinalityUpdated(ctx context.Context, epoch phase0.Epoch)
 }

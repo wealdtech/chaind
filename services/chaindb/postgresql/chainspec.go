@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 )
 
@@ -34,9 +34,9 @@ func (s *Service) SetChainSpecValue(ctx context.Context, key string, value inter
 
 	var dbVal string
 	switch v := value.(type) {
-	case spec.Slot, spec.Epoch, spec.CommitteeIndex, spec.ValidatorIndex, spec.Gwei:
+	case phase0.Slot, phase0.Epoch, phase0.CommitteeIndex, phase0.ValidatorIndex, phase0.Gwei:
 		dbVal = fmt.Sprintf("%d", v)
-	case spec.Root, spec.Version, spec.DomainType, spec.ForkDigest, spec.Domain, spec.BLSPubKey, spec.BLSSignature, []byte:
+	case phase0.Root, phase0.Version, phase0.DomainType, phase0.ForkDigest, phase0.Domain, phase0.BLSPubKey, phase0.BLSSignature, []byte:
 		dbVal = fmt.Sprintf("%#x", v)
 	case time.Duration:
 		dbVal = fmt.Sprintf("%d", int(v.Seconds()))
@@ -131,7 +131,7 @@ func dbValToSpec(ctx context.Context, key string, val string) interface{} {
 	if strings.HasPrefix(key, "DOMAIN_") {
 		byteVal, err := hex.DecodeString(strings.TrimPrefix(val, "0x"))
 		if err == nil {
-			var domainType spec.DomainType
+			var domainType phase0.DomainType
 			copy(domainType[:], byteVal)
 			return domainType
 		}
@@ -141,7 +141,7 @@ func dbValToSpec(ctx context.Context, key string, val string) interface{} {
 	if strings.HasSuffix(key, "_FORK_VERSION") {
 		byteVal, err := hex.DecodeString(strings.TrimPrefix(val, "0x"))
 		if err == nil {
-			var version spec.Version
+			var version phase0.Version
 			copy(version[:], byteVal)
 			return version
 		}

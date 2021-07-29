@@ -16,7 +16,7 @@ package standard
 import (
 	"context"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -24,7 +24,7 @@ import (
 // updateValidatorSummariesForEpoch updates the validator summaries for a given epoch.
 func (s *Service) updateValidatorSummariesForEpoch(ctx context.Context,
 	md *metadata,
-	epoch spec.Epoch,
+	epoch phase0.Epoch,
 ) error {
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	if !s.validatorSummaries {
@@ -89,10 +89,10 @@ func (s *Service) updateValidatorSummariesForEpoch(ctx context.Context,
 }
 
 func (s *Service) validatorProposerDutiesForEpoch(ctx context.Context,
-	epoch spec.Epoch,
+	epoch phase0.Epoch,
 ) (
 	[]*chaindb.ProposerDuty,
-	map[spec.ValidatorIndex]int,
+	map[phase0.ValidatorIndex]int,
 	error,
 ) {
 	// Fetch the proposer duties for the epoch.
@@ -117,7 +117,7 @@ func (s *Service) validatorProposerDutiesForEpoch(ctx context.Context,
 	}
 
 	// Summarise the proposer duties information by validator.
-	validatorProposerDuties := make(map[spec.ValidatorIndex]int)
+	validatorProposerDuties := make(map[phase0.ValidatorIndex]int)
 	for _, proposerDuty := range proposerDuties {
 		if _, exists := validatorProposerDuties[proposerDuty.ValidatorIndex]; !exists {
 			validatorProposerDuties[proposerDuty.ValidatorIndex] = 0
@@ -129,11 +129,11 @@ func (s *Service) validatorProposerDutiesForEpoch(ctx context.Context,
 }
 
 func (s *Service) validatorProposalsForEpoch(ctx context.Context,
-	epoch spec.Epoch,
+	epoch phase0.Epoch,
 	proposerDuties []*chaindb.ProposerDuty,
-	validatorProposerDuties map[spec.ValidatorIndex]int,
+	validatorProposerDuties map[phase0.ValidatorIndex]int,
 ) (
-	map[spec.ValidatorIndex]int,
+	map[phase0.ValidatorIndex]int,
 	error,
 ) {
 	// Fetch the block presence for the epoch.
@@ -144,7 +144,7 @@ func (s *Service) validatorProposalsForEpoch(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	validatorProposals := make(map[spec.ValidatorIndex]int)
+	validatorProposals := make(map[phase0.ValidatorIndex]int)
 	for i, present := range presence {
 		if proposerDuties[i].Slot == 0 {
 			// Not a real proposer duty; ignore.
@@ -162,12 +162,12 @@ func (s *Service) validatorProposalsForEpoch(ctx context.Context,
 }
 
 func (s *Service) attestationsForEpoch(ctx context.Context,
-	epoch spec.Epoch,
+	epoch phase0.Epoch,
 ) (
-	map[spec.ValidatorIndex]bool,
-	map[spec.ValidatorIndex]bool,
-	map[spec.ValidatorIndex]bool,
-	map[spec.ValidatorIndex]spec.Slot,
+	map[phase0.ValidatorIndex]bool,
+	map[phase0.ValidatorIndex]bool,
+	map[phase0.ValidatorIndex]bool,
+	map[phase0.ValidatorIndex]phase0.Slot,
 	error,
 ) {
 	// Fetch all attestations for the epoch.
@@ -181,10 +181,10 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 	log.Trace().Int("attestations", len(attestations)).Uint64("epoch", uint64(epoch)).Msg("Fetched attestations")
 
 	// Mark up attestations for each validator.
-	attestationsIncluded := make(map[spec.ValidatorIndex]bool)
-	attestationsTargetCorrect := make(map[spec.ValidatorIndex]bool)
-	attestationsHeadCorrect := make(map[spec.ValidatorIndex]bool)
-	attestationsInclusionDelay := make(map[spec.ValidatorIndex]spec.Slot)
+	attestationsIncluded := make(map[phase0.ValidatorIndex]bool)
+	attestationsTargetCorrect := make(map[phase0.ValidatorIndex]bool)
+	attestationsHeadCorrect := make(map[phase0.ValidatorIndex]bool)
+	attestationsInclusionDelay := make(map[phase0.ValidatorIndex]phase0.Slot)
 	for _, attestation := range attestations {
 		if attestation.Canonical == nil || !*attestation.Canonical {
 			log.Trace().Uint64("slot", uint64(attestation.Slot)).Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Msg("Non-canonical attestation; ignoring")

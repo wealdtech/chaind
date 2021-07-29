@@ -16,7 +16,7 @@ package standard
 import (
 	"context"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wealdtech/chaind/services/metrics"
@@ -24,7 +24,7 @@ import (
 
 var metricsNamespace = "chaind_blocks"
 
-var highestSlot spec.Slot
+var highestSlot phase0.Slot
 var latestBlock prometheus.Gauge
 var blocksProcessed prometheus.Gauge
 
@@ -65,7 +65,7 @@ func registerPrometheusMetrics(ctx context.Context) error {
 	return nil
 }
 
-func monitorBlockProcessed(slot spec.Slot) {
+func monitorBlockProcessed(slot phase0.Slot) {
 	if blocksProcessed != nil {
 		blocksProcessed.Inc()
 		if slot > highestSlot {

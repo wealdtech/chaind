@@ -16,7 +16,7 @@ package postgresql
 import (
 	"context"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -79,7 +79,7 @@ func (s *Service) SetETH1Deposit(ctx context.Context, deposit *chaindb.ETH1Depos
 }
 
 // ETH1DepositsByPublicKey fetches Ethereum 1 deposits for a given set of validator public keys.
-func (s *Service) ETH1DepositsByPublicKey(ctx context.Context, pubKeys []spec.BLSPubKey) ([]*chaindb.ETH1Deposit, error) {
+func (s *Service) ETH1DepositsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) ([]*chaindb.ETH1Deposit, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)

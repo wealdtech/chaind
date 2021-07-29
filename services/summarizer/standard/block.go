@@ -17,7 +17,7 @@ import (
 	"context"
 	"fmt"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -25,7 +25,7 @@ import (
 // updateBlockSummariesForEpoch updates the block summaries for a given epoch.
 func (s *Service) updateBlockSummariesForEpoch(ctx context.Context,
 	md *metadata,
-	epoch spec.Epoch,
+	epoch phase0.Epoch,
 ) error {
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	if !s.blockSummaries {
@@ -59,7 +59,7 @@ func (s *Service) updateBlockSummariesForEpoch(ctx context.Context,
 	return nil
 }
 
-func (s *Service) updateBlockSummaryForSlot(ctx context.Context, slot spec.Slot) error {
+func (s *Service) updateBlockSummaryForSlot(ctx context.Context, slot phase0.Slot) error {
 	summary := &chaindb.BlockSummary{
 		Slot: slot,
 	}
@@ -91,7 +91,7 @@ func (s *Service) updateBlockSummaryForSlot(ctx context.Context, slot spec.Slot)
 }
 
 func (s *Service) attestationStatsForBlock(ctx context.Context,
-	slot spec.Slot,
+	slot phase0.Slot,
 	summary *chaindb.BlockSummary,
 ) error {
 	// Ensure the block is canonical.
@@ -120,20 +120,20 @@ func (s *Service) attestationStatsForBlock(ctx context.Context,
 		return errors.Wrap(err, "failed to obtain attestations")
 	}
 
-	seenAttestations := make(map[spec.Root]bool)
-	votesForBlock := make(map[spec.ValidatorIndex]bool)
+	seenAttestations := make(map[phase0.Root]bool)
+	votesForBlock := make(map[phase0.ValidatorIndex]bool)
 	for _, attestation := range attestations {
-		specAttestation := &spec.Attestation{
+		specAttestation := &phase0.Attestation{
 			AggregationBits: attestation.AggregationBits,
-			Data: &spec.AttestationData{
+			Data: &phase0.AttestationData{
 				Slot:            attestation.Slot,
 				Index:           attestation.CommitteeIndex,
 				BeaconBlockRoot: attestation.BeaconBlockRoot,
-				Source: &spec.Checkpoint{
+				Source: &phase0.Checkpoint{
 					Epoch: attestation.SourceEpoch,
 					Root:  attestation.SourceRoot,
 				},
-				Target: &spec.Checkpoint{
+				Target: &phase0.Checkpoint{
 					Epoch: attestation.TargetEpoch,
 					Root:  attestation.TargetRoot,
 				},

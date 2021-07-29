@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2021 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -16,7 +16,7 @@ package postgresql
 import (
 	"context"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -89,7 +89,7 @@ func (s *Service) SetProposerSlashing(ctx context.Context, proposerSlashing *cha
 
 // ProposerSlashingsForSlotRange fetches all proposer slashings made for the given slot range.
 // It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
-func (s *Service) ProposerSlashingsForSlotRange(ctx context.Context, minSlot spec.Slot, maxSlot spec.Slot) ([]*chaindb.ProposerSlashing, error) {
+func (s *Service) ProposerSlashingsForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]*chaindb.ProposerSlashing, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)
@@ -188,7 +188,7 @@ func (s *Service) ProposerSlashingsForSlotRange(ctx context.Context, minSlot spe
 
 // ProposerSlashingsForValidator fetches all proposer slashings made for the given validator.
 // It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
-func (s *Service) ProposerSlashingsForValidator(ctx context.Context, index spec.ValidatorIndex) ([]*chaindb.ProposerSlashing, error) {
+func (s *Service) ProposerSlashingsForValidator(ctx context.Context, index phase0.ValidatorIndex) ([]*chaindb.ProposerSlashing, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, cancel, err := s.BeginTx(ctx)

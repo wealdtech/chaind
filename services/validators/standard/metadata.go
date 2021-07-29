@@ -17,15 +17,15 @@ import (
 	"context"
 	"encoding/json"
 
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 )
 
 // metadata stored about this service.
 type metadata struct {
-	LatestEpoch         spec.Epoch   `json:"latest_epoch"`
-	LatestBalancesEpoch spec.Epoch   `json:"latest_balances_epoch"`
-	MissedEpochs        []spec.Epoch `json:"missed_epochs,omitempty"`
+	LatestEpoch         phase0.Epoch   `json:"latest_epoch"`
+	LatestBalancesEpoch phase0.Epoch   `json:"latest_balances_epoch"`
+	MissedEpochs        []phase0.Epoch `json:"missed_epochs,omitempty"`
 }
 
 // metadataKey is the key for the metadata.

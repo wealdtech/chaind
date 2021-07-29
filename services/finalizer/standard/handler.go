@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	eth2client "github.com/attestantio/go-eth2-client"
-	spec "github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
@@ -28,9 +28,9 @@ import (
 // OnFinalityCheckpointReceived receives finality checkpoint notifications.
 func (s *Service) OnFinalityCheckpointReceived(
 	ctx context.Context,
-	epoch spec.Epoch,
-	blockRoot spec.Root,
-	stateRoot spec.Root,
+	epoch phase0.Epoch,
+	blockRoot phase0.Root,
+	stateRoot phase0.Root,
 ) {
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	log.Trace().
@@ -95,7 +95,7 @@ func (s *Service) OnFinalityCheckpointReceived(
 }
 
 // updateCanonicalBlocks updates all canonical blocks given a canonical block root.
-func (s *Service) updateCanonicalBlocks(ctx context.Context, root spec.Root) error {
+func (s *Service) updateCanonicalBlocks(ctx context.Context, root phase0.Root) error {
 	md, err := s.getMetadata(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain metadata on finality")
@@ -128,7 +128,7 @@ func (s *Service) updateCanonicalBlocks(ctx context.Context, root spec.Root) err
 }
 
 // canonicalizeBlocks marks the given block and all its parents as canonical.
-func (s *Service) canonicalizeBlocks(ctx context.Context, root spec.Root, limit spec.Slot) error {
+func (s *Service) canonicalizeBlocks(ctx context.Context, root phase0.Root, limit phase0.Slot) error {
 	log.Trace().Str("root", fmt.Sprintf("%#x", root)).Uint64("limit", uint64(limit)).Msg("Canonicalizing blocks")
 
 	for {
@@ -169,7 +169,7 @@ func (s *Service) canonicalizeBlocks(ctx context.Context, root spec.Root, limit 
 }
 
 // noncanonicalizeBlocks marks all indeterminate blocks before the given slot as non-canonical.
-func (s *Service) noncanonicalizeBlocks(ctx context.Context, slot spec.Slot) error {
+func (s *Service) noncanonicalizeBlocks(ctx context.Context, slot phase0.Slot) error {
 	nonCanonicalRoots, err := s.blocksProvider.IndeterminateBlocks(ctx, 0, slot)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain indeterminate blocks")
@@ -191,7 +191,7 @@ func (s *Service) noncanonicalizeBlocks(ctx context.Context, slot spec.Slot) err
 }
 
 // updateAttestations updates attestations for the given epoch.
-func (s *Service) updateAttestations(ctx context.Context, epoch spec.Epoch) error {
+func (s *Service) updateAttestations(ctx context.Context, epoch phase0.Epoch) error {
 	md, err := s.getMetadata(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain metadata")
@@ -242,7 +242,7 @@ func (s *Service) updateAttestations(ctx context.Context, epoch spec.Epoch) erro
 	return nil
 }
 
-func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch spec.Epoch) error {
+func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch phase0.Epoch) error {
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	log.Trace().Msg("Updating attestation finality for epoch")
 
@@ -252,13 +252,13 @@ func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch spec.Epo
 	}
 
 	// Keep track of block canonical state for slots to reduce lookups.
-	blockCanonicals := make(map[spec.Slot]bool)
+	blockCanonicals := make(map[phase0.Slot]bool)
 
 	// Keep track of roots for epochs to reduce lookups.
-	epochRoots := make(map[spec.Epoch]spec.Root)
+	epochRoots := make(map[phase0.Epoch]phase0.Root)
 
 	// Keep track of roots for heads to reduce lookups.
-	headRoots := make(map[spec.Slot]spec.Root)
+	headRoots := make(map[phase0.Slot]phase0.Root)
 
 	for _, attestation := range attestations {
 		if err := s.updateCanonical(ctx, attestation, blockCanonicals); err != nil {
@@ -287,7 +287,7 @@ func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch spec.Epo
 
 // updateCanonical updates the attestation to confirm if it is canonical.
 // An attestation is canonical if it is in a canonical block.
-func (s *Service) updateCanonical(ctx context.Context, attestation *chaindb.Attestation, blockCanonicals map[spec.Slot]bool) error {
+func (s *Service) updateCanonical(ctx context.Context, attestation *chaindb.Attestation, blockCanonicals map[phase0.Slot]bool) error {
 	log.Trace().Uint64("slot", uint64(attestation.Slot)).Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Msg("Updating canonical state of attestation")
 	if canonical, exists := blockCanonicals[attestation.InclusionSlot]; exists {
 		attestation.Canonical = &canonical
@@ -312,7 +312,7 @@ func (s *Service) updateCanonical(ctx context.Context, attestation *chaindb.Atte
 // updateAttestationTargetCorrect updates the attestation to confirm if its target vote is correct.
 // An attestation has a correct target vote if it matches the root of the latest canonical block
 // since the start of the target epoch.
-func (s *Service) updateAttestationTargetCorrect(ctx context.Context, attestation *chaindb.Attestation, epochRoots map[spec.Epoch]spec.Root) error {
+func (s *Service) updateAttestationTargetCorrect(ctx context.Context, attestation *chaindb.Attestation, epochRoots map[phase0.Epoch]phase0.Root) error {
 	targetCorrect := false
 	if epochRoot, exists := epochRoots[attestation.TargetEpoch]; exists {
 		targetCorrect = bytes.Equal(attestation.TargetRoot[:], epochRoot[:])
@@ -356,7 +356,7 @@ func (s *Service) updateAttestationTargetCorrect(ctx context.Context, attestatio
 // prior to the attestation slot.
 func (s *Service) updateAttestationHeadCorrect(ctx context.Context,
 	attestation *chaindb.Attestation,
-	headRoots map[spec.Slot]spec.Root,
+	headRoots map[phase0.Slot]phase0.Root,
 ) error {
 	headCorrect := false
 	if headRoot, exists := headRoots[attestation.Slot]; exists {
@@ -396,7 +396,7 @@ func (s *Service) updateAttestationHeadCorrect(ctx context.Context,
 }
 
 // fetchBlock fetches the block from the database, and if not found attempts to fetch it from the chain.
-func (s *Service) fetchBlock(ctx context.Context, root spec.Root) (*chaindb.Block, error) {
+func (s *Service) fetchBlock(ctx context.Context, root phase0.Root) (*chaindb.Block, error) {
 	// Start with a simple fetch from the database.
 	block, err := s.blocksProvider.BlockByRoot(ctx, root)
 	if err != nil {
