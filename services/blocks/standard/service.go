@@ -24,6 +24,7 @@ import (
 	zerologger "github.com/rs/zerolog/log"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
+	"golang.org/x/sync/semaphore"
 )
 
 // Service is a chain database service.
@@ -40,6 +41,7 @@ type Service struct {
 	chainTime                chaintime.Service
 	refetch                  bool
 	lastHandledBlockRoot     spec.Root
+	activitySem              *semaphore.Weighted
 }
 
 // module-wide log.
@@ -106,6 +108,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		beaconCommitteesProvider: beaconCommitteesProvider,
 		chainTime:                parameters.chainTime,
 		refetch:                  parameters.refetch,
+		activitySem:              semaphore.NewWeighted(1),
 	}
 
 	// Update to current epoch before starting (in the background).
@@ -129,7 +132,7 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 	}
 
 	log.Info().Uint64("slot", uint64(md.LatestSlot)).Msg("Catching up from slot")
-	s.catchupOnRestart(ctx, md)
+	s.catchup(ctx, md)
 	if len(md.MissedSlots) > 0 {
 		// Need this as a []uint64 for logging only.
 		missedSlots := make([]uint64, len(md.MissedSlots))
@@ -140,33 +143,9 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 		s.handleMissed(ctx, md)
 		// Catchup again, in case handling the missed took a while.
 		log.Info().Uint64("slot", uint64(md.LatestSlot)).Msg("Catching up from slot")
-		s.catchupOnRestart(ctx, md)
+		s.catchup(ctx, md)
 	}
 	log.Info().Msg("Caught up")
-
-	// At this stage we should be up-to-date; if not we need to make a note of the items we missed.
-	md, err = s.getMetadata(ctx)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to obtain metadata after catchup")
-	}
-	// We will be updating latest slot as the daemon progresses, so mark anything between the last
-	// slot we processed and the current slot as missed.
-	for ; md.LatestSlot < s.chainTime.CurrentSlot(); md.LatestSlot++ {
-		md.MissedSlots = append(md.MissedSlots, md.LatestSlot)
-	}
-	ctx, cancel, err := s.chainDB.BeginTx(ctx)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to begin transaction after catchup")
-		return
-	}
-	if err := s.setMetadata(ctx, md); err != nil {
-		cancel()
-		log.Fatal().Err(err).Msg("Failed to set metadata after catchup")
-	}
-	if err := s.chainDB.CommitTx(ctx); err != nil {
-		cancel()
-		log.Fatal().Err(err).Msg("Failed to commit transaction")
-	}
 
 	// Set up the handler for new chain head updates.
 	if err := s.eth2Client.(eth2client.EventsProvider).Events(ctx, []string{"head"}, func(event *api.Event) {
@@ -181,7 +160,7 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 	}
 }
 
-func (s *Service) catchupOnRestart(ctx context.Context, md *metadata) {
+func (s *Service) catchup(ctx context.Context, md *metadata) {
 	for slot := md.LatestSlot; slot <= s.chainTime.CurrentSlot(); slot++ {
 		log := log.With().Uint64("slot", uint64(slot)).Logger()
 		// Each update goes in to its own transaction, to make the data available sooner.
@@ -193,7 +172,8 @@ func (s *Service) catchupOnRestart(ctx context.Context, md *metadata) {
 
 		if err := s.updateBlockForSlot(ctx, slot); err != nil {
 			log.Warn().Err(err).Msg("Failed to update block")
-			md.MissedSlots = append(md.MissedSlots, slot)
+			cancel()
+			return
 		}
 
 		md.LatestSlot = slot

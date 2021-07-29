@@ -103,7 +103,7 @@ func (s *Service) onFinalityUpdatedBlocks(ctx context.Context,
 		lastBlockEpoch++
 	}
 
-	// The last epoch updated in the meadata tells us how far we can summarize,
+	// The last epoch updated in the metadata tells us how far we can summarize,
 	// as it checks for the component data.  As such, if the finalized epoch
 	// is beyond our summarized epoch we truncate to the summarized value.
 	// However, if we don't have validator balances the summarizer won't run at all
