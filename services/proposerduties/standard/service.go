@@ -24,6 +24,7 @@ import (
 	zerologger "github.com/rs/zerolog/log"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
+	"golang.org/x/sync/semaphore"
 )
 
 // Service is a chain database service.
@@ -32,6 +33,7 @@ type Service struct {
 	chainDB              chaindb.Service
 	proposerDutiesSetter chaindb.ProposerDutiesSetter
 	chainTime            chaintime.Service
+	activitySem          *semaphore.Weighted
 }
 
 // module-wide log.
@@ -61,6 +63,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		chainDB:              parameters.chainDB,
 		proposerDutiesSetter: proposerDutiesSetter,
 		chainTime:            parameters.chainTime,
+		activitySem:          semaphore.NewWeighted(1),
 	}
 
 	// Update to current epoch before starting (in the background).
@@ -84,7 +87,7 @@ func (s *Service) updateAfterRestart(ctx context.Context, startEpoch int64) {
 	}
 
 	log.Info().Uint64("epoch", uint64(md.LatestEpoch)).Msg("Catching up from epoch")
-	s.catchupOnRestart(ctx, md)
+	s.catchup(ctx, md)
 	if len(md.MissedEpochs) > 0 {
 		// Need this as a []uint64 for logging only.
 		missedEpochs := make([]uint64, len(md.MissedEpochs))
@@ -95,7 +98,7 @@ func (s *Service) updateAfterRestart(ctx context.Context, startEpoch int64) {
 		s.handleMissed(ctx, md)
 		// Catchup again, in case handling the missed epochs took a while.
 		log.Info().Uint64("epoch", uint64(md.LatestEpoch)).Msg("Catching up from epoch")
-		s.catchupOnRestart(ctx, md)
+		s.catchup(ctx, md)
 	}
 	log.Info().Msg("Caught up")
 
@@ -130,7 +133,7 @@ func (s *Service) updateAfterRestart(ctx context.Context, startEpoch int64) {
 	}
 }
 
-func (s *Service) catchupOnRestart(ctx context.Context, md *metadata) {
+func (s *Service) catchup(ctx context.Context, md *metadata) {
 	for epoch := md.LatestEpoch; epoch <= s.chainTime.CurrentEpoch(); epoch++ {
 		log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 		// Each update goes in to its own transaction, to make the data available sooner.

@@ -1,3 +1,6 @@
+0.3.6:
+  - on failure to gather data wait and retry rather than mark as missed
+
 0.3.5:
   - wait until chain has started and node is synced before fetching data
 

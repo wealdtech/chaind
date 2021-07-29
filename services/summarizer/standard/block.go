@@ -150,6 +150,7 @@ func (s *Service) attestationStatsForBlock(ctx context.Context,
 		}
 		seenAttestations[specAttestationRoot] = true
 		if attestation.Canonical == nil || !*attestation.Canonical {
+			log.Debug().Uint64("slot", uint64(attestation.Slot)).Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Uint64("inclusion_index", attestation.InclusionIndex).Msg("Attestation is not canonical")
 			continue
 		}
 		summary.AttestationsForBlock++

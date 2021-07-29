@@ -36,37 +36,24 @@ func (s *Service) OnBeaconChainHeadUpdated(
 		return
 	}
 
+	// Only allow 1 handler to be active.
+	acquired := s.activitySem.TryAcquire(1)
+	if !acquired {
+		log.Debug().Msg("Another handler running")
+		return
+	}
+
 	epoch := s.chainTime.SlotToEpoch(slot)
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 
-	ctx, cancel, err := s.chainDB.BeginTx(ctx)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to begin transaction on beacon chain head update")
-		return
-	}
-
 	md, err := s.getMetadata(ctx)
 	if err != nil {
+		s.activitySem.Release(1)
 		log.Fatal().Err(err).Msg("Failed to obtain metadata")
 	}
 
-	if err := s.updateBeaconCommitteesForEpoch(ctx, epoch); err != nil {
-		log.Error().Err(err).Msg("Failed to update beacon committees on beacon chain head update")
-		md.MissedEpochs = append(md.MissedEpochs, epoch)
-	}
-
-	md.LatestEpoch = epoch
-	if err := s.setMetadata(ctx, md); err != nil {
-		log.Error().Err(err).Msg("Failed to set metadata")
-	}
-
-	if err := s.chainDB.CommitTx(ctx); err != nil {
-		log.Error().Err(err).Msg("Failed to commit transaction")
-		cancel()
-		return
-	}
-
-	log.Trace().Msg("Stored beacon committees")
+	s.catchup(ctx, md)
+	s.activitySem.Release(1)
 }
 
 func (s *Service) updateBeaconCommitteesForEpoch(ctx context.Context, epoch spec.Epoch) error {

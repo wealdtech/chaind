@@ -32,6 +32,14 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	stateRoot spec.Root,
 	epochTransition bool,
 ) {
+	// Only allow 1 handler to be active.
+	acquired := s.activitySem.TryAcquire(1)
+	if !acquired {
+		log.Debug().Msg("Another handler running")
+		return
+	}
+	defer s.activitySem.Release(1)
+
 	log := log.With().Uint64("slot", uint64(slot)).Str("block_root", fmt.Sprintf("%#x", blockRoot)).Logger()
 	log.Trace().
 		Str("state_root", fmt.Sprintf("%#x", stateRoot)).
@@ -43,44 +51,17 @@ func (s *Service) OnBeaconChainHeadUpdated(
 		return
 	}
 
-	ctx, cancel, err := s.chainDB.BeginTx(ctx)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to begin transaction")
-		return
-	}
-
 	md, err := s.getMetadata(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to obtain metadata")
 		md.MissedSlots = append(md.MissedSlots, slot)
-		cancel()
 		return
 	}
 
-	if err := s.updateBlockForSlot(ctx, slot); err != nil {
-		log.Error().Err(err).Msg("Failed to update block on chain head updated")
-		md.MissedSlots = append(md.MissedSlots, slot)
-	}
-
-	md.LatestSlot = slot
-	if err := s.setMetadata(ctx, md); err != nil {
-		log.Error().Err(err).Msg("Failed to set metadata")
-		md.MissedSlots = append(md.MissedSlots, slot)
-		cancel()
-		return
-	}
-
-	if err := s.chainDB.CommitTx(ctx); err != nil {
-		log.Error().Err(err).Msg("Failed to commit transaction")
-		md.MissedSlots = append(md.MissedSlots, slot)
-		cancel()
-		return
-	}
+	s.catchup(ctx, md)
 
 	s.lastHandledBlockRoot = blockRoot
 	monitorBlockProcessed(slot)
-
-	log.Trace().Msg("Stored block")
 }
 
 func (s *Service) updateBlockForSlot(ctx context.Context, slot spec.Slot) error {
