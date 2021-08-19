@@ -16,12 +16,12 @@ package blocks
 import (
 	"context"
 
-	"github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/attestantio/go-eth2-client/spec"
 )
 
 // Service defines a block service.
 type Service interface {
 	// OnBlock handles a block.
 	// This requires the context to hold an active transaction.
-	OnBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock) error
+	OnBlock(ctx context.Context, signedBlock *spec.VersionedSignedBeaconBlock) error
 }

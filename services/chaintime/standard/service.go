@@ -14,9 +14,11 @@
 package standard
 
 import (
+	"bytes"
 	"context"
 	"time"
 
+	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -25,9 +27,11 @@ import (
 
 // Service provides chain time services.
 type Service struct {
-	genesisTime   time.Time
-	slotDuration  time.Duration
-	slotsPerEpoch uint64
+	genesisTime                  time.Time
+	slotDuration                 time.Duration
+	slotsPerEpoch                uint64
+	epochsPerSyncCommitteePeriod uint64
+	altairForkEpoch              phase0.Epoch
 }
 
 // module-wide log.
@@ -49,22 +53,51 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}
 	log.Trace().Time("genesis_time", genesisTime).Msg("Obtained genesis time")
 
-	slotDuration, err := parameters.slotDurationProvider.SlotDuration(ctx)
+	spec, err := parameters.specProvider.Spec(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to obtain slot duration")
+		return nil, errors.Wrap(err, "failed to obtain spec")
 	}
-	log.Trace().Dur("slot_duration", slotDuration).Msg("Obtained slot duration")
 
-	slotsPerEpoch, err := parameters.slotsPerEpochProvider.SlotsPerEpoch(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to obtain slots per epoch")
+	tmp, exists := spec["SECONDS_PER_SLOT"]
+	if !exists {
+		return nil, errors.New("SECONDS_PER_SLOT not found in spec")
 	}
-	log.Trace().Uint64("slots_per_epoch", slotsPerEpoch).Msg("Obtained slots per epoch")
+	slotDuration, ok := tmp.(time.Duration)
+	if !ok {
+		return nil, errors.New("SECONDS_PER_SLOT of unexpected type")
+	}
+
+	tmp, exists = spec["SLOTS_PER_EPOCH"]
+	if !exists {
+		return nil, errors.New("SLOTS_PER_EPOCH not found in spec")
+	}
+	slotsPerEpoch, ok := tmp.(uint64)
+	if !ok {
+		return nil, errors.New("SLOTS_PER_EPOCH of unexpected type")
+	}
+
+	var epochsPerSyncCommitteePeriod uint64
+	if tmp, exists := spec["EPOCHS_PER_SYNC_COMMITTEE_PERIOD"]; exists {
+		tmp2, ok := tmp.(uint64)
+		if !ok {
+			return nil, errors.New("EPOCHS_PER_SYNC_COMMITTEE_PERIOD of unexpected type")
+		}
+		epochsPerSyncCommitteePeriod = tmp2
+	}
+
+	altairForkEpoch, err := fetchAltairForkEpoch(ctx, parameters.forkScheduleProvider)
+	if err != nil {
+		// Set to far future epoch.
+		altairForkEpoch = 0xffffffffffffffff
+	}
+	log.Trace().Uint64("epoch", uint64(altairForkEpoch)).Msg("Obtained Altair fork epoch")
 
 	s := &Service{
-		genesisTime:   genesisTime,
-		slotDuration:  slotDuration,
-		slotsPerEpoch: slotsPerEpoch,
+		genesisTime:                  genesisTime,
+		slotDuration:                 slotDuration,
+		slotsPerEpoch:                slotsPerEpoch,
+		epochsPerSyncCommitteePeriod: epochsPerSyncCommitteePeriod,
+		altairForkEpoch:              altairForkEpoch,
 	}
 
 	return s, nil
@@ -95,15 +128,22 @@ func (s *Service) CurrentSlot() phase0.Slot {
 
 // CurrentEpoch provides the current epoch.
 func (s *Service) CurrentEpoch() phase0.Epoch {
-	if s.genesisTime.After(time.Now()) {
-		return 0
-	}
-	return phase0.Epoch(uint64(time.Since(s.genesisTime).Seconds()) / (uint64(s.slotDuration.Seconds()) * s.slotsPerEpoch))
+	return phase0.Epoch(uint64(s.CurrentSlot()) / s.slotsPerEpoch)
+}
+
+// CurrentSyncCommitteePeriod provides the current sync committee period.
+func (s *Service) CurrentSyncCommitteePeriod() uint64 {
+	return uint64(s.CurrentEpoch()) / s.epochsPerSyncCommitteePeriod
 }
 
 // SlotToEpoch provides the epoch of a given slot.
 func (s *Service) SlotToEpoch(slot phase0.Slot) phase0.Epoch {
 	return phase0.Epoch(uint64(slot) / s.slotsPerEpoch)
+}
+
+// SlotToSyncCommitteePeriod provides the sync committee period of the given slot.
+func (s *Service) SlotToSyncCommitteePeriod(slot phase0.Slot) uint64 {
+	return uint64(s.SlotToEpoch(slot)) / s.epochsPerSyncCommitteePeriod
 }
 
 // FirstSlotOfEpoch provides the first slot of the given epoch.
@@ -127,4 +167,39 @@ func (s *Service) TimestampToEpoch(timestamp time.Time) phase0.Epoch {
 	}
 	secondsSinceGenesis := uint64(timestamp.Sub(s.genesisTime).Seconds())
 	return phase0.Epoch(secondsSinceGenesis / uint64(s.slotDuration.Seconds()) / s.slotsPerEpoch)
+}
+
+// FirstEpochOfSyncPeriod provides the first epoch of the given sync period.
+// Note that epochs before the sync committee period will provide the Altair hard fork epoch.
+func (s *Service) FirstEpochOfSyncPeriod(period uint64) phase0.Epoch {
+	epoch := phase0.Epoch(period * s.epochsPerSyncCommitteePeriod)
+	if epoch < s.altairForkEpoch {
+		epoch = s.altairForkEpoch
+	}
+	return epoch
+}
+
+// AltairInitialEpoch provides the epoch at which the Altair hard fork takes place.
+func (s *Service) AltairInitialEpoch() phase0.Epoch {
+	return s.altairForkEpoch
+}
+
+// AltairInitialSyncCommitteePeriod provides the sync committee period in which the Altair hard fork takes place.
+func (s *Service) AltairInitialSyncCommitteePeriod() uint64 {
+	return uint64(s.altairForkEpoch) / s.epochsPerSyncCommitteePeriod
+}
+
+func fetchAltairForkEpoch(ctx context.Context, provider eth2client.ForkScheduleProvider) (phase0.Epoch, error) {
+	forkSchedule, err := provider.ForkSchedule(ctx)
+	if err != nil {
+		return 0, err
+	}
+	for i := range forkSchedule {
+		if bytes.Equal(forkSchedule[i].CurrentVersion[:], forkSchedule[i].PreviousVersion[:]) {
+			// This is the genesis fork; ignore it.
+			continue
+		}
+		return forkSchedule[i].Epoch, nil
+	}
+	return 0, errors.New("no altair fork obtained")
 }

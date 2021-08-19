@@ -19,6 +19,8 @@ import (
 	"fmt"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/spec"
+	"github.com/attestantio/go-eth2-client/spec/altair"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
@@ -90,37 +92,106 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot phase0.Slot) erro
 
 // OnBlock handles a block.
 // This requires the context to hold an active transaction.
-func (s *Service) OnBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock) error {
+func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.VersionedSignedBeaconBlock) error {
 	// Update the block in the database.
-	dbBlock, err := s.dbBlock(ctx, signedBlock.Message)
+	dbBlock, err := s.dbBlock(ctx, signedBlock)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain database block")
 	}
 	if err := s.blocksSetter.SetBlock(ctx, dbBlock); err != nil {
 		return errors.Wrap(err, "failed to set block")
 	}
-	if err := s.updateAttestationsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
+	switch signedBlock.Version {
+	case spec.DataVersionPhase0:
+		return s.onBlockPhase0(ctx, signedBlock.Phase0, dbBlock)
+	case spec.DataVersionAltair:
+		return s.onBlockAltair(ctx, signedBlock.Altair, dbBlock)
+	default:
+		return errors.New("unknown block version")
+	}
+}
+
+func (s *Service) onBlockPhase0(ctx context.Context, signedBlock *phase0.SignedBeaconBlock, dbBlock *chaindb.Block) error {
+	if err := s.updateAttestationsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.Attestations); err != nil {
 		return errors.Wrap(err, "failed to update attestations")
 	}
-	if err := s.updateProposerSlashingsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
+	if err := s.updateProposerSlashingsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.ProposerSlashings); err != nil {
 		return errors.Wrap(err, "failed to update proposer slashings")
 	}
-	if err := s.updateAttesterSlashingsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
+	if err := s.updateAttesterSlashingsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.AttesterSlashings); err != nil {
 		return errors.Wrap(err, "failed to update attester slashings")
 	}
-	if err := s.updateDepositsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
+	if err := s.updateDepositsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.Deposits); err != nil {
 		return errors.Wrap(err, "failed to update deposits")
 	}
-	if err := s.updateVoluntaryExitsForBlock(ctx, signedBlock, dbBlock.Root); err != nil {
+	if err := s.updateVoluntaryExitsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.VoluntaryExits); err != nil {
 		return errors.Wrap(err, "failed to update voluntary exits")
 	}
-
 	return nil
 }
 
-func (s *Service) updateAttestationsForBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock, blockRoot phase0.Root) error {
-	for i, attestation := range signedBlock.Message.Body.Attestations {
-		dbAttestation, err := s.dbAttestation(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), attestation)
+func (s *Service) onBlockAltair(ctx context.Context, signedBlock *altair.SignedBeaconBlock, dbBlock *chaindb.Block) error {
+	if err := s.updateAttestationsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.Attestations); err != nil {
+		return errors.Wrap(err, "failed to update attestations")
+	}
+	if err := s.updateProposerSlashingsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.ProposerSlashings); err != nil {
+		return errors.Wrap(err, "failed to update proposer slashings")
+	}
+	if err := s.updateAttesterSlashingsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.AttesterSlashings); err != nil {
+		return errors.Wrap(err, "failed to update attester slashings")
+	}
+	if err := s.updateDepositsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.Deposits); err != nil {
+		return errors.Wrap(err, "failed to update deposits")
+	}
+	if err := s.updateVoluntaryExitsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.VoluntaryExits); err != nil {
+		return errors.Wrap(err, "failed to update voluntary exits")
+	}
+	if err := s.updateSyncAggregateForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.SyncAggregate); err != nil {
+		return errors.Wrap(err, "failed to update sync aggregate")
+	}
+	return nil
+}
+
+func (s *Service) updateAttestationsForBlock(ctx context.Context,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	attestations []*phase0.Attestation,
+) error {
+	for i, attestation := range attestations {
+		dbAttestation, err := s.dbAttestation(ctx, slot, blockRoot, uint64(i), attestation)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database attestation")
 		}
@@ -131,9 +202,13 @@ func (s *Service) updateAttestationsForBlock(ctx context.Context, signedBlock *p
 	return nil
 }
 
-func (s *Service) updateProposerSlashingsForBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock, blockRoot phase0.Root) error {
-	for i, proposerSlashing := range signedBlock.Message.Body.ProposerSlashings {
-		dbProposerSlashing, err := s.dbProposerSlashing(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), proposerSlashing)
+func (s *Service) updateProposerSlashingsForBlock(ctx context.Context,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	proposerSlashings []*phase0.ProposerSlashing,
+) error {
+	for i, proposerSlashing := range proposerSlashings {
+		dbProposerSlashing, err := s.dbProposerSlashing(ctx, slot, blockRoot, uint64(i), proposerSlashing)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database proposer slashing")
 		}
@@ -144,9 +219,13 @@ func (s *Service) updateProposerSlashingsForBlock(ctx context.Context, signedBlo
 	return nil
 }
 
-func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock, blockRoot phase0.Root) error {
-	for i, attesterSlashing := range signedBlock.Message.Body.AttesterSlashings {
-		dbAttesterSlashing, err := s.dbAttesterSlashing(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), attesterSlashing)
+func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	attesterSlashings []*phase0.AttesterSlashing,
+) error {
+	for i, attesterSlashing := range attesterSlashings {
+		dbAttesterSlashing, err := s.dbAttesterSlashing(ctx, slot, blockRoot, uint64(i), attesterSlashing)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database attester slashing")
 		}
@@ -157,9 +236,13 @@ func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context, signedBlo
 	return nil
 }
 
-func (s *Service) updateDepositsForBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock, blockRoot phase0.Root) error {
-	for i, deposit := range signedBlock.Message.Body.Deposits {
-		dbDeposit, err := s.dbDeposit(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), deposit)
+func (s *Service) updateDepositsForBlock(ctx context.Context,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	deposits []*phase0.Deposit,
+) error {
+	for i, deposit := range deposits {
+		dbDeposit, err := s.dbDeposit(ctx, slot, blockRoot, uint64(i), deposit)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database deposit")
 		}
@@ -170,9 +253,13 @@ func (s *Service) updateDepositsForBlock(ctx context.Context, signedBlock *phase
 	return nil
 }
 
-func (s *Service) updateVoluntaryExitsForBlock(ctx context.Context, signedBlock *phase0.SignedBeaconBlock, blockRoot phase0.Root) error {
-	for i, voluntaryExit := range signedBlock.Message.Body.VoluntaryExits {
-		dbVoluntaryExit, err := s.dbVoluntaryExit(ctx, signedBlock.Message.Slot, blockRoot, uint64(i), voluntaryExit)
+func (s *Service) updateVoluntaryExitsForBlock(ctx context.Context,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	voluntaryExits []*phase0.SignedVoluntaryExit,
+) error {
+	for i, voluntaryExit := range voluntaryExits {
+		dbVoluntaryExit, err := s.dbVoluntaryExit(ctx, slot, blockRoot, uint64(i), voluntaryExit)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database voluntary exit")
 		}
@@ -183,9 +270,77 @@ func (s *Service) updateVoluntaryExitsForBlock(ctx context.Context, signedBlock 
 	return nil
 }
 
+func (s *Service) updateSyncAggregateForBlock(ctx context.Context,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	syncAggregate *altair.SyncAggregate,
+) error {
+	dbSyncAggregate, err := s.dbSyncAggregate(ctx, slot, blockRoot, syncAggregate)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain database sync aggregate")
+	}
+
+	if err := s.syncAggregateSetter.SetSyncAggregate(ctx, dbSyncAggregate); err != nil {
+		return errors.Wrap(err, "failed to set sync aggregate")
+	}
+	return nil
+}
+
 func (s *Service) dbBlock(
 	ctx context.Context,
+	block *spec.VersionedSignedBeaconBlock,
+) (*chaindb.Block, error) {
+	switch block.Version {
+	case spec.DataVersionPhase0:
+		return s.dbBlockPhase0(ctx, block.Phase0.Message)
+	case spec.DataVersionAltair:
+		return s.dbBlockAltair(ctx, block.Altair.Message)
+	default:
+		return nil, errors.New("unknown block version")
+	}
+}
+
+func (s *Service) dbBlockPhase0(
+	ctx context.Context,
 	block *phase0.BeaconBlock,
+) (*chaindb.Block, error) {
+	bodyRoot, err := block.Body.HashTreeRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to calculate body root")
+	}
+
+	header := &phase0.BeaconBlockHeader{
+		Slot:          block.Slot,
+		ProposerIndex: block.ProposerIndex,
+		ParentRoot:    block.ParentRoot,
+		StateRoot:     block.StateRoot,
+		BodyRoot:      bodyRoot,
+	}
+	root, err := header.HashTreeRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to calculate block root")
+	}
+
+	dbBlock := &chaindb.Block{
+		Slot:             block.Slot,
+		ProposerIndex:    block.ProposerIndex,
+		Root:             root,
+		Graffiti:         block.Body.Graffiti,
+		RANDAOReveal:     block.Body.RANDAOReveal,
+		BodyRoot:         bodyRoot,
+		ParentRoot:       block.ParentRoot,
+		StateRoot:        block.StateRoot,
+		ETH1BlockHash:    block.Body.ETH1Data.BlockHash,
+		ETH1DepositCount: block.Body.ETH1Data.DepositCount,
+		ETH1DepositRoot:  block.Body.ETH1Data.DepositRoot,
+	}
+
+	return dbBlock, nil
+}
+
+func (s *Service) dbBlockAltair(
+	ctx context.Context,
+	block *altair.BeaconBlock,
 ) (*chaindb.Block, error) {
 	bodyRoot, err := block.Body.HashTreeRoot()
 	if err != nil {
@@ -253,7 +408,6 @@ func (s *Service) dbAttestation(
 			return nil, errors.Wrap(err, "failed to obtain beacon committees")
 		}
 	}
-	log.Trace().Int("committee.Committee", len(committee.Committee)).Uint64("attestation.AggregationBits", attestation.AggregationBits.Len()).Msg("Attestation committee")
 	if len(committee.Committee) == int(attestation.AggregationBits.Len()) {
 		aggregationIndices = make([]phase0.ValidatorIndex, 0, len(committee.Committee))
 		for i := uint64(0); i < attestation.AggregationBits.Len(); i++ {
@@ -262,7 +416,7 @@ func (s *Service) dbAttestation(
 			}
 		}
 	} else {
-		log.Warn().Int("committee.Committee", len(committee.Committee)).Uint64("attestation.AggregationBits", attestation.AggregationBits.Len()).Msg("Attestation and committee size mismatch")
+		log.Warn().Int("committee_length", len(committee.Committee)).Uint64("aggregation_bits_length", attestation.AggregationBits.Len()).Msg("Attestation and committee size mismatch")
 	}
 
 	dbAttestation := &chaindb.Attestation{
@@ -281,6 +435,46 @@ func (s *Service) dbAttestation(
 	}
 
 	return dbAttestation, nil
+}
+
+func (s *Service) dbSyncAggregate(
+	ctx context.Context,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	syncAggregate *altair.SyncAggregate,
+) (*chaindb.SyncAggregate, error) {
+	period := s.chainTime.SlotToSyncCommitteePeriod(slot)
+	var syncCommittee *chaindb.SyncCommittee
+	var exists bool
+	if syncCommittee, exists = s.syncCommittees[period]; !exists {
+		// Fetch the sync committee.
+		var err error
+		syncCommittee, err = s.syncCommitteesProvider.SyncCommittee(ctx, period)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to obtain sync committee")
+		}
+		s.syncCommittees[period] = syncCommittee
+		// Remove older sync committee.
+		if period > 1 {
+			delete(s.syncCommittees, period-2)
+		}
+	}
+
+	indices := make([]phase0.ValidatorIndex, 0, syncAggregate.SyncCommitteeBits.Count())
+	for i := 0; i < int(syncAggregate.SyncCommitteeBits.Len()); i++ {
+		if syncAggregate.SyncCommitteeBits.BitAt(uint64(i)) {
+			indices = append(indices, syncCommittee.Committee[i])
+		}
+	}
+
+	dbSyncAggregate := &chaindb.SyncAggregate{
+		InclusionSlot:      slot,
+		InclusionBlockRoot: blockRoot,
+		Bits:               syncAggregate.SyncCommitteeBits,
+		Indices:            indices,
+	}
+
+	return dbSyncAggregate, nil
 }
 
 func (s *Service) dbDeposit(

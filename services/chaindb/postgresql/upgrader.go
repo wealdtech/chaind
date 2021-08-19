@@ -26,7 +26,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(2)
+var currentVersion = uint64(3)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -53,6 +53,14 @@ var upgrades = map[uint64]*upgrade{
 			dropEpochsTable,
 			createSummaryTables,
 			setValidatorBalancesMetadata,
+		},
+	},
+	3: {
+		funcs: []func(context.Context, *Service) error{
+			createForkSchedule,
+			createSyncCommittees,
+			createSyncAggregates,
+			addValidatorSummaryTimely,
 		},
 	},
 }
@@ -630,6 +638,77 @@ WHERE f_key = 'validators.standard'`,
 	return nil
 }
 
+// createForkSchedule creates the t_fork_schedule table.
+func createForkSchedule(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE t_fork_schedule (
+  f_epoch   BIGINT UNIQUE NOT NULL
+ ,f_version BYTEA NOT NULL
+)
+`); err != nil {
+		return errors.Wrap(err, "failed to create fork schedule table")
+	}
+
+	return nil
+}
+
+// createSyncCommittees creates the t_sync_committees table.
+func createSyncCommittees(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE t_sync_committees (
+  f_period    BIGINT NOT NULL
+ ,f_committee BIGINT[] NOT NULL -- REFERENCES t_validators(f_index)
+)
+`); err != nil {
+		return errors.Wrap(err, "failed to create sync committees table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE UNIQUE INDEX i_sync_committees_1 ON t_sync_committees(f_period)
+`); err != nil {
+		return errors.Wrap(err, "failed to create sync committees index")
+	}
+
+	return nil
+}
+
+// createSyncAggregates creates the t_sync_aggregates table.
+func createSyncAggregates(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE t_sync_aggregates (
+  f_inclusion_slot       BIGINT NOT NULL
+ ,f_inclusion_block_root BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_bits                 BYTEA NOT NULL
+ ,f_indices              BIGINT[] -- REFERENCES t_validators(f_index)
+)
+`); err != nil {
+		return errors.Wrap(err, "failed to create sync aggregates table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE UNIQUE INDEX i_sync_aggregates_1 ON t_sync_aggregates(f_inclusion_slot, f_inclusion_block_root)
+`); err != nil {
+		return errors.Wrap(err, "failed to create sync aggregates index")
+	}
+
+	return nil
+}
+
 // Init initialises the database.
 func (s *Service) Init(ctx context.Context) (bool, error) {
 	ctx, cancel, err := s.BeginTx(ctx)
@@ -649,7 +728,7 @@ CREATE TABLE t_metadata (
  ,f_value JSONB NOT NULL
 );
 CREATE UNIQUE INDEX i_metadata_1 ON t_metadata(f_key);
-INSERT INTO t_metadata VALUES('schema', '{"version": 2}');
+INSERT INTO t_metadata VALUES('schema', '{"version": 3}');
 
 -- t_chain_spec contains the specification of the chain to which the rest of
 -- the tables relate.
@@ -744,6 +823,15 @@ CREATE TABLE t_attestations (
 CREATE UNIQUE INDEX i_attestations_1 ON t_attestations(f_inclusion_slot,f_inclusion_block_root,f_inclusion_index);
 CREATE INDEX i_attestations_2 ON t_attestations(f_slot);
 CREATE INDEX i_attestations_3 ON t_attestations(f_beacon_block_root);
+
+-- t_sync_aggregates contains the sync committee aggregates included in blocks.
+CREATE TABLE t_sync_aggregates (
+  f_inclusion_slot       BIGINT NOT NULL
+ ,f_inclusion_block_root BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_bits                 BYTEA NOT NULL
+ ,f_indices              BIGINT[] -- REFERENCES t_validators(f_index)
+);
+CREATE UNIQUE INDEX i_sync_aggregates_1 ON t_sync_aggregates(f_inclusion_slot);
 
 -- t_attester_slashings contains all attester slashings included in blocks.
 CREATE TABLE t_attester_slashings (
@@ -853,8 +941,11 @@ CREATE TABLE t_validator_epoch_summaries (
  ,f_proposer_duties             INTEGER NOT NULL
  ,f_proposals_included          INTEGER NOT NULL
  ,f_attestation_included        BOOL NOT NULL
+ ,f_attestation_source_timely   BOOL
  ,f_attestation_target_correct  BOOL
+ ,f_attestation_target_timely   BOOL
  ,f_attestation_head_correct    BOOL
+ ,f_attestation_head_timely     BOOL
  ,f_attestation_inclusion_delay INTEGER
 );
 CREATE UNIQUE INDEX IF NOT EXISTS i_validator_epoch_summaries_1 ON t_validator_epoch_summaries(f_validator_index, f_epoch);
@@ -889,6 +980,17 @@ CREATE TABLE t_epoch_summaries (
  ,f_exiting_validators               BIGINT NOT NULL
  ,f_canonical_blocks                 BIGINT NOT NULL
 );
+
+CREATE TABLE t_fork_schedule (
+  f_epoch   BIGINT UNIQUE NOT NULL
+ ,f_version BYTEA NOT NULL
+);
+
+CREATE TABLE t_sync_committees (
+  f_period    BIGINT NOT NULL
+ ,f_committee BIGINT[] NOT NULL -- REFERENCES t_validators(f_index)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS i_sync_committees_1 ON t_sync_committees(f_period);
 `); err != nil {
 		cancel()
 		return false, errors.Wrap(err, "failed to create initial tables")
@@ -900,4 +1002,35 @@ CREATE TABLE t_epoch_summaries (
 	}
 
 	return true, nil
+}
+
+// addValidatorSummaryTimely adds timely fields to the t_validator_epoch_summaries table.
+func addValidatorSummaryTimely(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_validator_epoch_summaries
+ADD COLUMN f_source_timely BOOL
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_source_timely to validator epoch summaries table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_validator_epoch_summaries
+ADD COLUMN f_target_timely BOOL
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_target_timely to validator epoch summaries table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_validator_epoch_summaries
+ADD COLUMN f_head_timely BOOL
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_head_timely to validator epoch summaries table")
+	}
+
+	return nil
 }

@@ -67,7 +67,7 @@ type AttesterSlashingsSetter interface {
 
 // BeaconCommitteesProvider defines functions to access beacon committee information.
 type BeaconCommitteesProvider interface {
-	// BeaconComitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
+	// BeaconCommitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
 	BeaconCommitteeBySlotAndIndex(ctx context.Context, slot phase0.Slot, index phase0.CommitteeIndex) (*BeaconCommittee, error)
 
 	// AttesterDuties fetches the attester duties at the given slot range for the given validator indices.
@@ -76,7 +76,7 @@ type BeaconCommitteesProvider interface {
 
 // BeaconCommitteesSetter defines functions to create and update beacon committee information.
 type BeaconCommitteesSetter interface {
-	// SetBeaconComittee sets a beacon committee.
+	// SetBeaconCommittee sets a beacon committee.
 	SetBeaconCommittee(ctx context.Context, beaconCommittee *BeaconCommittee) error
 }
 
@@ -136,6 +136,18 @@ type ChainSpecSetter interface {
 	SetChainSpecValue(ctx context.Context, key string, value interface{}) error
 }
 
+// ForkScheduleProvider defines functions to access fork schedule information.
+type ForkScheduleProvider interface {
+	// ForkSchedule provides details of past and future changes in the chain's fork version.
+	ForkSchedule(ctx context.Context) ([]*phase0.Fork, error)
+}
+
+// ForkScheduleSetter defines functions to create and update fork schedule information.
+type ForkScheduleSetter interface {
+	// SetForkSchedule sets the fork schedule.
+	SetForkSchedule(ctx context.Context, schedule []*phase0.Fork) error
+}
+
 // GenesisProvider defines functions to access genesis information.
 type GenesisProvider interface {
 	// Genesis fetches genesis values.
@@ -189,6 +201,18 @@ type ProposerSlashingsProvider interface {
 type ProposerSlashingsSetter interface {
 	// SetProposerSlashing sets an proposer slashing.
 	SetProposerSlashing(ctx context.Context, proposerSlashing *ProposerSlashing) error
+}
+
+// SyncAggregateProvider defines functions to access sync aggregate information.
+type SyncAggregateProvider interface {
+	// SyncAggregateForBlock provides the sync aggregate for the supplied block root.
+	SyncAggregateForBlock(ctx context.Context, blockRoot phase0.Root) (*SyncAggregate, error)
+}
+
+// SyncAggregateSetter defines functions to create and update fork schedule information.
+type SyncAggregateSetter interface {
+	// SetSyncAggregate sets the sync aggregate.
+	SetSyncAggregate(ctx context.Context, syncAggregate *SyncAggregate) error
 }
 
 // ValidatorsProvider defines functions to access validator information.
@@ -322,6 +346,18 @@ type BlockSummariesSetter interface {
 type EpochSummariesSetter interface {
 	// SetEpochSummary sets an epoch summary.
 	SetEpochSummary(ctx context.Context, summary *EpochSummary) error
+}
+
+// SyncCommitteesProvider defines functions to obtain sync committee information.
+type SyncCommitteesProvider interface {
+	// SyncCommittee provides a sync committee for the given sync committee period.
+	SyncCommittee(ctx context.Context, period uint64) (*SyncCommittee, error)
+}
+
+// SyncCommitteesSetter defines functions to create and update sync committee information.
+type SyncCommitteesSetter interface {
+	// SetSyncCommittee sets a sync committee.
+	SetSyncCommittee(ctx context.Context, syncCommittee *SyncCommittee) error
 }
 
 // Service defines a minimal chain database service.

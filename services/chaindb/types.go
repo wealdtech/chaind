@@ -103,6 +103,14 @@ type Attestation struct {
 	HeadCorrect        *bool
 }
 
+// SyncAggregate holds information about a sync aggregate included in a block.
+type SyncAggregate struct {
+	InclusionSlot      phase0.Slot
+	InclusionBlockRoot phase0.Root
+	Bits               []byte
+	Indices            []phase0.ValidatorIndex
+}
+
 // Deposit holds information about an Ethereum 2 deposit included by a block.
 type Deposit struct {
 	InclusionSlot         phase0.Slot
@@ -228,4 +236,10 @@ type EpochSummary struct {
 	Deposits                      int
 	ExitingValidators             int
 	CanonicalBlocks               int
+}
+
+// SyncCommittee holds information for sync committees.
+type SyncCommittee struct {
+	Period    uint64
+	Committee []phase0.ValidatorIndex
 }

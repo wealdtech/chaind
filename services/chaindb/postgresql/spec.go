@@ -15,36 +15,7 @@ package postgresql
 
 import (
 	"context"
-	"time"
-
-	"github.com/pkg/errors"
 )
-
-// SlotDuration provides the duration of a slot of the chain.
-func (s *Service) SlotDuration(ctx context.Context) (time.Duration, error) {
-	val, err := s.ChainSpecValue(ctx, "SECONDS_PER_SLOT")
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to obtain SECONDS_PER_SLOT")
-	}
-	specVal, ok := val.(time.Duration)
-	if !ok {
-		return 0, errors.New("invalid type for SECONDS_PER_SLOT")
-	}
-	return specVal, nil
-}
-
-// SlotsPerEpoch provides the slots per epoch of the chain.
-func (s *Service) SlotsPerEpoch(ctx context.Context) (uint64, error) {
-	val, err := s.ChainSpecValue(ctx, "SLOTS_PER_EPOCH")
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to obtain SLOTS_PER_EPOCH")
-	}
-	specVal, ok := val.(uint64)
-	if !ok {
-		return 0, errors.New("invalid type for SLOTS_PER_EPOCH")
-	}
-	return specVal, nil
-}
 
 // Spec provides the spec information of the chain.
 func (s *Service) Spec(ctx context.Context) (map[string]interface{}, error) {

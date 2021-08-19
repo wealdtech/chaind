@@ -101,28 +101,6 @@ func (s *Service) updateAfterRestart(ctx context.Context, startEpoch int64) {
 	}
 	log.Info().Msg("Caught up")
 
-	// At this stage we should be up-to-date; if not we need to make a note of the items we missed.
-	md, err = s.getMetadata(ctx)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to obtain metadata after catchup")
-	}
-	for ; md.LatestEpoch < s.chainTime.CurrentEpoch(); md.LatestEpoch++ {
-		md.MissedEpochs = append(md.MissedEpochs, md.LatestEpoch)
-	}
-	ctx, cancel, err := s.chainDB.BeginTx(ctx)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to begin transaction after catchup")
-		return
-	}
-	if err := s.setMetadata(ctx, md); err != nil {
-		cancel()
-		log.Fatal().Err(err).Msg("Failed to set metadata after catchup")
-	}
-	if err := s.chainDB.CommitTx(ctx); err != nil {
-		cancel()
-		log.Fatal().Err(err).Msg("Failed to commit transaction")
-	}
-
 	// Set up the handler for new chain head updates.
 	if err := s.eth2Client.(eth2client.EventsProvider).Events(ctx, []string{"head"}, func(event *api.Event) {
 		eventData := event.Data.(*api.HeadEvent)
