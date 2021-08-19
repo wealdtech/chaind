@@ -149,6 +149,7 @@ func fetchConfig() error {
 	pflag.Bool("beacon-committees.enable", true, "Enable fetching of beacon committee-related information")
 	pflag.Bool("proposer-duties.enable", true, "Enable fetching of proposer duty-related information")
 	pflag.Bool("sync-committees.enable", true, "Enable fetching of sync committee-related information")
+	pflag.Int32("sync-committees.start-period", -1, "Period from which to start fetching sync committees")
 	pflag.Bool("eth1deposits.enable", false, "Enable fetching of Ethereum 1 deposit information")
 	pflag.String("eth1deposits.start-block", "", "Ethereum 1 block from which to start fetching deposits")
 	pflag.String("eth1client.address", "", "Address for Ethereum 1 node")
@@ -306,10 +307,13 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 		return errors.Wrap(err, "failed to start blocks service")
 	}
 
-	log.Trace().Msg("Starting summarizer service")
-	summarizerSvc, err := startSummarizer(ctx, eth2Client, chainDB, chainTime, blocks, monitor)
-	if err != nil {
-		return errors.Wrap(err, "failed to start summarizer service")
+	var summarizerSvc summarizer.Service
+	if blocks != nil {
+		log.Trace().Msg("Starting summarizer service")
+		summarizerSvc, err = startSummarizer(ctx, eth2Client, chainDB, chainTime, blocks, monitor)
+		if err != nil {
+			return errors.Wrap(err, "failed to start summarizer service")
+		}
 	}
 
 	log.Trace().Msg("Starting finalizer service")
