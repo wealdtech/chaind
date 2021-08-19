@@ -190,8 +190,9 @@ func (s *Service) updateAttestationsForBlock(ctx context.Context,
 	blockRoot phase0.Root,
 	attestations []*phase0.Attestation,
 ) error {
+	beaconCommittees := make(map[phase0.Slot]map[phase0.CommitteeIndex]*chaindb.BeaconCommittee)
 	for i, attestation := range attestations {
-		dbAttestation, err := s.dbAttestation(ctx, slot, blockRoot, uint64(i), attestation)
+		dbAttestation, err := s.dbAttestation(ctx, slot, blockRoot, uint64(i), attestation, beaconCommittees)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database attestation")
 		}
@@ -378,36 +379,22 @@ func (s *Service) dbBlockAltair(
 
 func (s *Service) dbAttestation(
 	ctx context.Context,
-	slot phase0.Slot,
+	inclusionSlot phase0.Slot,
 	blockRoot phase0.Root,
-	index uint64,
+	inclusionIndex uint64,
 	attestation *phase0.Attestation,
+	beaconCommittees map[phase0.Slot]map[phase0.CommitteeIndex]*chaindb.BeaconCommittee,
 ) (*chaindb.Attestation, error) {
 	var aggregationIndices []phase0.ValidatorIndex
-	committee, err := s.beaconCommitteesProvider.BeaconCommitteeBySlotAndIndex(ctx, attestation.Data.Slot, attestation.Data.Index)
+
+	committee, err := s.beaconCommittee(ctx, attestation.Data.Slot, attestation.Data.Index, beaconCommittees)
 	if err != nil {
-		// Try to fetch from the chain.
-		beaconCommittees, err := s.eth2Client.(eth2client.BeaconCommitteesProvider).BeaconCommittees(ctx, fmt.Sprintf("%d", attestation.Data.Slot))
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to fetch beacon committees")
-		}
-		found := false
-		for _, beaconCommittee := range beaconCommittees {
-			if beaconCommittee.Slot == attestation.Data.Slot && beaconCommittee.Index == attestation.Data.Index {
-				committee = &chaindb.BeaconCommittee{
-					Slot:      beaconCommittee.Slot,
-					Index:     beaconCommittee.Index,
-					Committee: beaconCommittee.Validators,
-				}
-				log.Debug().Uint64("slot", uint64(slot)).Uint64("index", index).Msg("Obtained beacon committee from API")
-				found = true
-				break
-			}
-		}
-		if !found {
-			return nil, errors.Wrap(err, "failed to obtain beacon committees")
-		}
+		return nil, err
 	}
+	if committee == nil {
+		return nil, errors.New("no committee obtained")
+	}
+
 	if len(committee.Committee) == int(attestation.AggregationBits.Len()) {
 		aggregationIndices = make([]phase0.ValidatorIndex, 0, len(committee.Committee))
 		for i := uint64(0); i < attestation.AggregationBits.Len(); i++ {
@@ -420,9 +407,9 @@ func (s *Service) dbAttestation(
 	}
 
 	dbAttestation := &chaindb.Attestation{
-		InclusionSlot:      slot,
+		InclusionSlot:      inclusionSlot,
 		InclusionBlockRoot: blockRoot,
-		InclusionIndex:     index,
+		InclusionIndex:     inclusionIndex,
 		Slot:               attestation.Data.Slot,
 		CommitteeIndex:     attestation.Data.Index,
 		BeaconBlockRoot:    attestation.Data.BeaconBlockRoot,
@@ -610,4 +597,48 @@ func (s *Service) dbProposerSlashing(
 	}
 
 	return dbProposerSlashing, nil
+}
+
+func (s *Service) beaconCommittee(ctx context.Context,
+	slot phase0.Slot,
+	index phase0.CommitteeIndex,
+	beaconCommittees map[phase0.Slot]map[phase0.CommitteeIndex]*chaindb.BeaconCommittee,
+) (
+	*chaindb.BeaconCommittee,
+	error,
+) {
+	// Check in the map.
+	_, exists := beaconCommittees[slot]
+	if !exists {
+		beaconCommittees[slot] = make(map[phase0.CommitteeIndex]*chaindb.BeaconCommittee)
+	}
+	beaconCommittee, exists := beaconCommittees[slot][index]
+	if exists {
+		return beaconCommittee, nil
+	}
+	// Try to fetch from local provider
+	var err error
+	beaconCommittee, err = s.beaconCommitteesProvider.BeaconCommitteeBySlotAndIndex(ctx, slot, index)
+	if err == nil && beaconCommittee != nil {
+		beaconCommittees[slot][index] = beaconCommittee
+		return beaconCommittee, nil
+	}
+	// Try to fetch from the chain.
+	chainBeaconCommittees, err := s.eth2Client.(eth2client.BeaconCommitteesProvider).BeaconCommittees(ctx, fmt.Sprintf("%d", slot))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch beacon committees")
+	}
+	for _, chainBeaconCommittee := range chainBeaconCommittees {
+		if chainBeaconCommittee.Slot == slot && chainBeaconCommittee.Index == index {
+			beaconCommittee = &chaindb.BeaconCommittee{
+				Slot:      slot,
+				Index:     index,
+				Committee: chainBeaconCommittee.Validators,
+			}
+			beaconCommittees[slot][index] = beaconCommittee
+			log.Debug().Uint64("slot", uint64(slot)).Uint64("index", uint64(index)).Msg("Obtained beacon committee from API")
+			return beaconCommittee, nil
+		}
+	}
+	return nil, errors.Wrap(err, "failed to obtain beacon committees")
 }
