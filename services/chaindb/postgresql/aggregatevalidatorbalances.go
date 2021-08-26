@@ -103,7 +103,6 @@ func (s *Service) AggregateValidatorBalancesByIndexAndEpochRange(
 		defer cancel()
 	}
 
-	log.Warn().Uint64("start_epoch", uint64(startEpoch)).Uint64("end_epoch", uint64(endEpoch)).Msg("Entries")
 	rows, err := tx.Query(ctx, fmt.Sprintf(`
       SELECT f_epoch
             ,SUM(f_balance)
@@ -138,7 +137,6 @@ func (s *Service) AggregateValidatorBalancesByIndexAndEpochRange(
 		aggregateBalances = append(aggregateBalances, aggregateBalance)
 	}
 
-	log.Warn().Int("entries", len(aggregateBalances)).Msg("Entries")
 	return aggregateBalances, nil
 }
 
