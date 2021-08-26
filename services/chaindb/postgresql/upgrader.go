@@ -1013,23 +1013,23 @@ func addValidatorSummaryTimely(ctx context.Context, s *Service) error {
 
 	if _, err := tx.Exec(ctx, `
 ALTER TABLE t_validator_epoch_summaries
-ADD COLUMN f_source_timely BOOL
+ADD COLUMN f_attestation_source_timely BOOL
 `); err != nil {
-		return errors.Wrap(err, "failed to add f_source_timely to validator epoch summaries table")
+		return errors.Wrap(err, "failed to add f_attestation_source_timely to validator epoch summaries table")
 	}
 
 	if _, err := tx.Exec(ctx, `
 ALTER TABLE t_validator_epoch_summaries
-ADD COLUMN f_target_timely BOOL
+ADD COLUMN f_attestation_target_timely BOOL
 `); err != nil {
-		return errors.Wrap(err, "failed to add f_target_timely to validator epoch summaries table")
+		return errors.Wrap(err, "failed to add f_attestation_target_timely to validator epoch summaries table")
 	}
 
 	if _, err := tx.Exec(ctx, `
 ALTER TABLE t_validator_epoch_summaries
-ADD COLUMN f_head_timely BOOL
+ADD COLUMN f_attestation_head_timely BOOL
 `); err != nil {
-		return errors.Wrap(err, "failed to add f_head_timely to validator epoch summaries table")
+		return errors.Wrap(err, "failed to add f_attestation_head_timely to validator epoch summaries table")
 	}
 
 	return nil

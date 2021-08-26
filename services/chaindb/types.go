@@ -204,6 +204,9 @@ type ValidatorEpochSummary struct {
 	AttestationTargetCorrect  *bool
 	AttestationHeadCorrect    *bool
 	AttestationInclusionDelay *int
+	AttestationSourceTimely   *bool
+	AttestationTargetTimely   *bool
+	AttestationHeadTimely     *bool
 }
 
 // BlockSummary provides a summary of an epoch.

@@ -43,7 +43,7 @@ func (s *Service) updateValidatorSummariesForEpoch(ctx context.Context,
 		return err
 	}
 
-	attestationsIncluded, attestationsTargetCorrect, attestationsHeadCorrect, attestationsInclusionDelay, err := s.attestationsForEpoch(ctx, epoch)
+	attestationsIncluded, attestationsTargetCorrect, attestationsHeadCorrect, attestationsInclusionDelay, attestationsSourceTimely, attestationsTargetTimely, attestationsHeadTimely, err := s.attestationsForEpoch(ctx, epoch)
 	if err != nil {
 		return err
 	}
@@ -68,6 +68,17 @@ func (s *Service) updateValidatorSummariesForEpoch(ctx context.Context,
 			summary.AttestationHeadCorrect = &attestationHeadCorrect
 			attestationInclusionDelay := int(attestationsInclusionDelay[index])
 			summary.AttestationInclusionDelay = &attestationInclusionDelay
+			if epoch >= s.chainTime.AltairInitialEpoch() {
+				if attestationSourceTimely, exists := attestationsSourceTimely[index]; exists {
+					summary.AttestationSourceTimely = &attestationSourceTimely
+				}
+				if attestationTargetTimely, exists := attestationsTargetTimely[index]; exists {
+					summary.AttestationTargetTimely = &attestationTargetTimely
+				}
+				if attestationHeadTimely, exists := attestationsHeadTimely[index]; exists {
+					summary.AttestationHeadTimely = &attestationHeadTimely
+				}
+			}
 		}
 
 		if err := s.chainDB.(chaindb.ValidatorEpochSummariesSetter).SetValidatorEpochSummary(ctx, summary); err != nil {
@@ -168,6 +179,9 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 	map[phase0.ValidatorIndex]bool,
 	map[phase0.ValidatorIndex]bool,
 	map[phase0.ValidatorIndex]phase0.Slot,
+	map[phase0.ValidatorIndex]bool,
+	map[phase0.ValidatorIndex]bool,
+	map[phase0.ValidatorIndex]bool,
 	error,
 ) {
 	// Fetch all attestations for the epoch.
@@ -176,7 +190,7 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 		s.chainTime.FirstSlotOfEpoch(epoch+1),
 	)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	log.Trace().Int("attestations", len(attestations)).Uint64("epoch", uint64(epoch)).Msg("Fetched attestations")
 
@@ -185,23 +199,34 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 	attestationsTargetCorrect := make(map[phase0.ValidatorIndex]bool)
 	attestationsHeadCorrect := make(map[phase0.ValidatorIndex]bool)
 	attestationsInclusionDelay := make(map[phase0.ValidatorIndex]phase0.Slot)
+	attestationsSourceTimely := make(map[phase0.ValidatorIndex]bool)
+	attestationsTargetTimely := make(map[phase0.ValidatorIndex]bool)
+	attestationsHeadTimely := make(map[phase0.ValidatorIndex]bool)
 	for _, attestation := range attestations {
 		if attestation.Canonical == nil || !*attestation.Canonical {
 			log.Trace().Uint64("slot", uint64(attestation.Slot)).Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Msg("Non-canonical attestation; ignoring")
 			continue
 		}
 		inclusionDelay := attestation.InclusionSlot - attestation.Slot
+		attestationSourceTimely := uint64(inclusionDelay) <= s.maxTimelyAttestationSourceDelay
+		attestationTargetTimely := false
+		attestationHeadTimely := false
 		for _, index := range attestation.AggregationIndices {
 			attestationsIncluded[index] = true
 			if *attestation.TargetCorrect {
 				attestationsTargetCorrect[index] = true
+				attestationTargetTimely = uint64(inclusionDelay) <= s.maxTimelyAttestationTargetDelay
 			}
 			if *attestation.HeadCorrect {
 				attestationsHeadCorrect[index] = true
+				attestationHeadTimely = uint64(inclusionDelay) <= s.maxTimelyAttestationHeadDelay
 			}
 			shortestDelay, exists := attestationsInclusionDelay[index]
 			if !exists || inclusionDelay < shortestDelay {
 				attestationsInclusionDelay[index] = inclusionDelay
+				attestationsSourceTimely[index] = attestationSourceTimely
+				attestationsTargetTimely[index] = attestationTargetTimely
+				attestationsHeadTimely[index] = attestationHeadTimely
 			}
 		}
 	}
@@ -209,7 +234,7 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 	// Add in any validators that did not attest.
 	validators, err := s.chainDB.(chaindb.ValidatorsProvider).Validators(ctx)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	for _, validator := range validators {
 		// Confirm active.
@@ -220,5 +245,5 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 			attestationsIncluded[validator.Index] = false
 		}
 	}
-	return attestationsIncluded, attestationsTargetCorrect, attestationsHeadCorrect, attestationsInclusionDelay, nil
+	return attestationsIncluded, attestationsTargetCorrect, attestationsHeadCorrect, attestationsInclusionDelay, attestationsSourceTimely, attestationsTargetTimely, attestationsHeadTimely, nil
 }
