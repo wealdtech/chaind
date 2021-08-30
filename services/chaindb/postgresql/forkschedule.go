@@ -35,7 +35,22 @@ func (s *Service) SetForkSchedule(ctx context.Context, schedule []*phase0.Fork) 
 		return err
 	}
 
-	for _, fork := range schedule {
+	for i, fork := range schedule {
+		if i == 0 && fork.Epoch != 0 {
+			// Create a synthetic genesis fork.
+			_, err := tx.Exec(ctx, `
+      INSERT INTO t_fork_schedule(f_epoch
+                                 ,f_version
+						         )
+      VALUES($1,$2)
+	  `,
+				0,
+				fork.PreviousVersion[:],
+			)
+			if err != nil {
+				return err
+			}
+		}
 		_, err := tx.Exec(ctx, `
       INSERT INTO t_fork_schedule(f_epoch
                                  ,f_version
