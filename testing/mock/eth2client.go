@@ -19,6 +19,7 @@ import (
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	api "github.com/attestantio/go-eth2-client/api/v1"
+	"github.com/attestantio/go-eth2-client/spec"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
@@ -39,21 +40,45 @@ func (m *GenesisTimeProvider) GenesisTime(ctx context.Context) (time.Time, error
 	return m.genesisTime, nil
 }
 
-// SlotDurationProvider is a mock for eth2client.SlotDurationProvider.
-type SlotDurationProvider struct {
-	slotDuration time.Duration
+// SpecProvider is a mock for eth2client.SpecProvider.
+type SpecProvider struct {
+	spec map[string]interface{}
 }
 
-// NewSlotDurationProvider returns a mock slot duration provider with the provided value.
-func NewSlotDurationProvider(slotDuration time.Duration) eth2client.SlotDurationProvider {
-	return &SlotDurationProvider{
-		slotDuration: slotDuration,
+// NewSpecProvider returns a mock spec provider with the provided values.
+func NewSpecProvider(slotDuration time.Duration,
+	slotsPerEpoch uint64,
+	epochsPerSyncCommitteePeriod uint64,
+) eth2client.SpecProvider {
+	return &SpecProvider{
+		spec: map[string]interface{}{
+			"SECONDS_PER_SLOT":                 slotDuration,
+			"SLOTS_PER_EPOCH":                  slotsPerEpoch,
+			"EPOCHS_PER_SYNC_COMMITTEE_PERIOD": epochsPerSyncCommitteePeriod,
+		},
 	}
 }
 
-// SlotDuration is a mock.
-func (m *SlotDurationProvider) SlotDuration(ctx context.Context) (time.Duration, error) {
-	return m.slotDuration, nil
+// Spec is a mock.
+func (m *SpecProvider) Spec(ctx context.Context) (map[string]interface{}, error) {
+	return m.spec, nil
+}
+
+// ForkScheduleProvider is a mock for eth2client.ForkScheduleProvider.
+type ForkScheduleProvider struct {
+	schedule []*phase0.Fork
+}
+
+// NewForkScheduleProvider returns a mock spec provider with the provided values.
+func NewForkScheduleProvider(schedule []*phase0.Fork) eth2client.ForkScheduleProvider {
+	return &ForkScheduleProvider{
+		schedule: schedule,
+	}
+}
+
+// ForkSchedule is a mock.
+func (m *ForkScheduleProvider) ForkSchedule(ctx context.Context) ([]*phase0.Fork, error) {
+	return m.schedule, nil
 }
 
 // SlotsPerEpochProvider is a mock for eth2client.SlotsPerEpochProvider.
@@ -95,7 +120,7 @@ func NewBeaconBlockSubmitter() eth2client.BeaconBlockSubmitter {
 }
 
 // SubmitBeaconBlock is a mock.
-func (m *BeaconBlockSubmitter) SubmitBeaconBlock(ctx context.Context, bloc *phase0.SignedBeaconBlock) error {
+func (m *BeaconBlockSubmitter) SubmitBeaconBlock(ctx context.Context, bloc *spec.VersionedSignedBeaconBlock) error {
 	return nil
 }
 

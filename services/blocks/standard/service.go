@@ -35,13 +35,16 @@ type Service struct {
 	attestationsSetter       chaindb.AttestationsSetter
 	attesterSlashingsSetter  chaindb.AttesterSlashingsSetter
 	proposerSlashingsSetter  chaindb.ProposerSlashingsSetter
+	syncAggregateSetter      chaindb.SyncAggregateSetter
 	depositsSetter           chaindb.DepositsSetter
 	voluntaryExitsSetter     chaindb.VoluntaryExitsSetter
 	beaconCommitteesProvider chaindb.BeaconCommitteesProvider
+	syncCommitteesProvider   chaindb.SyncCommitteesProvider
 	chainTime                chaintime.Service
 	refetch                  bool
 	lastHandledBlockRoot     phase0.Root
 	activitySem              *semaphore.Weighted
+	syncCommittees           map[uint64]*chaindb.SyncCommittee
 }
 
 // module-wide log.
@@ -81,6 +84,11 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		return nil, errors.New("chain DB does not support proposer slashing setting")
 	}
 
+	syncAggregateSetter, isSyncAggregateSetter := parameters.chainDB.(chaindb.SyncAggregateSetter)
+	if !isSyncAggregateSetter {
+		return nil, errors.New("chain DB does not support sync aggregate setting")
+	}
+
 	depositsSetter, isDepositsSetter := parameters.chainDB.(chaindb.DepositsSetter)
 	if !isDepositsSetter {
 		return nil, errors.New("chain DB does not support deposits setting")
@@ -96,6 +104,11 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		return nil, errors.New("chain DB does not support beacon committee providing")
 	}
 
+	syncCommitteesProvider, isSyncCommitteesProvider := parameters.chainDB.(chaindb.SyncCommitteesProvider)
+	if !isSyncCommitteesProvider {
+		return nil, errors.New("chain DB does not support sync committee providing")
+	}
+
 	s := &Service{
 		eth2Client:               parameters.eth2Client,
 		chainDB:                  parameters.chainDB,
@@ -103,12 +116,15 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		attestationsSetter:       attestationsSetter,
 		attesterSlashingsSetter:  attesterSlashingsSetter,
 		proposerSlashingsSetter:  proposerSlashingsSetter,
+		syncAggregateSetter:      syncAggregateSetter,
 		depositsSetter:           depositsSetter,
 		voluntaryExitsSetter:     voluntaryExitsSetter,
 		beaconCommitteesProvider: beaconCommitteesProvider,
+		syncCommitteesProvider:   syncCommitteesProvider,
 		chainTime:                parameters.chainTime,
 		refetch:                  parameters.refetch,
 		activitySem:              semaphore.NewWeighted(1),
+		syncCommittees:           make(map[uint64]*chaindb.SyncCommittee),
 	}
 
 	// Update to current epoch before starting (in the background).
@@ -208,15 +224,14 @@ func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 			failed++
 			cancel()
 			continue
-		} else {
-			log.Trace().Msg("Updated block")
-			// Remove this from the list of missed slots.
-			missedSlots := make([]phase0.Slot, len(md.MissedSlots)-1)
-			copy(missedSlots[:failed], md.MissedSlots[:failed])
-			copy(missedSlots[failed:], md.MissedSlots[i+1:])
-			md.MissedSlots = missedSlots
-			i--
 		}
+		log.Trace().Msg("Updated block")
+		// Remove this from the list of missed slots.
+		missedSlots := make([]phase0.Slot, len(md.MissedSlots)-1)
+		copy(missedSlots[:failed], md.MissedSlots[:failed])
+		copy(missedSlots[failed:], md.MissedSlots[i+1:])
+		md.MissedSlots = missedSlots
+		i--
 
 		if err := s.setMetadata(ctx, md); err != nil {
 			log.Error().Err(err).Msg("Failed to set metadata")

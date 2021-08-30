@@ -30,6 +30,9 @@ func (s *Service) SetValidatorEpochSummary(ctx context.Context, summary *chaindb
 	var attestationTargetCorrect sql.NullBool
 	var attestationHeadCorrect sql.NullBool
 	var attestationInclusionDelay sql.NullInt32
+	var attestationSourceTimely sql.NullBool
+	var attestationTargetTimely sql.NullBool
+	var attestationHeadTimely sql.NullBool
 
 	if summary.AttestationTargetCorrect != nil {
 		attestationTargetCorrect.Valid = true
@@ -43,6 +46,18 @@ func (s *Service) SetValidatorEpochSummary(ctx context.Context, summary *chaindb
 		attestationInclusionDelay.Valid = true
 		attestationInclusionDelay.Int32 = int32(*summary.AttestationInclusionDelay)
 	}
+	if summary.AttestationSourceTimely != nil {
+		attestationSourceTimely.Valid = true
+		attestationSourceTimely.Bool = *summary.AttestationSourceTimely
+	}
+	if summary.AttestationTargetTimely != nil {
+		attestationTargetTimely.Valid = true
+		attestationTargetTimely.Bool = *summary.AttestationTargetTimely
+	}
+	if summary.AttestationHeadTimely != nil {
+		attestationHeadTimely.Valid = true
+		attestationHeadTimely.Bool = *summary.AttestationHeadTimely
+	}
 
 	_, err := tx.Exec(ctx, `
       INSERT INTO t_validator_epoch_summaries(f_validator_index
@@ -52,8 +67,11 @@ func (s *Service) SetValidatorEpochSummary(ctx context.Context, summary *chaindb
                               ,f_attestation_included
                               ,f_attestation_target_correct
                               ,f_attestation_head_correct
-                              ,f_attestation_inclusion_delay)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+                              ,f_attestation_inclusion_delay
+                              ,f_attestation_source_timely
+                              ,f_attestation_target_timely
+                              ,f_attestation_head_timely)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
       ON CONFLICT (f_validator_index,f_epoch) DO
       UPDATE
       SET f_proposer_duties = excluded.f_proposer_duties
@@ -62,6 +80,9 @@ func (s *Service) SetValidatorEpochSummary(ctx context.Context, summary *chaindb
          ,f_attestation_target_correct = excluded.f_attestation_target_correct
          ,f_attestation_head_correct = excluded.f_attestation_head_correct
          ,f_attestation_inclusion_delay = excluded.f_attestation_inclusion_delay
+         ,f_attestation_source_timely = excluded.f_attestation_source_timely
+         ,f_attestation_target_timely = excluded.f_attestation_target_timely
+         ,f_attestation_head_timely = excluded.f_attestation_head_timely
 		 `,
 		summary.Index,
 		summary.Epoch,
@@ -71,6 +92,9 @@ func (s *Service) SetValidatorEpochSummary(ctx context.Context, summary *chaindb
 		attestationTargetCorrect,
 		attestationHeadCorrect,
 		attestationInclusionDelay,
+		attestationSourceTimely,
+		attestationTargetTimely,
+		attestationHeadTimely,
 	)
 
 	return err

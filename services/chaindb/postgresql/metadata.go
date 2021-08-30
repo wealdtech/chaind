@@ -45,11 +45,12 @@ func (s *Service) SetMetadata(ctx context.Context, key string, value []byte) err
 // Metadata obtains the JSON value from a metadata key.
 func (s *Service) Metadata(ctx context.Context, key string) ([]byte, error) {
 	if !s.hasTx(ctx) {
-		txCtx, cancel, err := s.BeginTx(ctx)
+		var cancel context.CancelFunc
+		var err error
+		ctx, cancel, err = s.BeginTx(ctx)
 		if err != nil {
 			return nil, err
 		}
-		ctx = txCtx
 		defer cancel()
 	}
 	tx := s.tx(ctx)

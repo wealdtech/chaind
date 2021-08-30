@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2021 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -102,28 +102,6 @@ func (s *Service) updateAfterRestart(ctx context.Context, startEpoch int64) {
 	}
 	log.Info().Msg("Caught up")
 
-	// At this stage we should be up-to-date; if not we need to make a note of the items we missed.
-	md, err = s.getMetadata(ctx)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to obtain metadata after catchup")
-	}
-	for ; md.LatestEpoch < s.chainTime.CurrentEpoch(); md.LatestEpoch++ {
-		md.MissedEpochs = append(md.MissedEpochs, md.LatestEpoch)
-	}
-	ctx, cancel, err := s.chainDB.BeginTx(ctx)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to begin transaction after catchup")
-		return
-	}
-	if err := s.setMetadata(ctx, md); err != nil {
-		cancel()
-		log.Fatal().Err(err).Msg("Failed to set metadata after catchup")
-	}
-	if err := s.chainDB.CommitTx(ctx); err != nil {
-		cancel()
-		log.Fatal().Err(err).Msg("Failed to commit transaction")
-	}
-
 	// Set up the handler for new chain head updates.
 	if err := s.eth2Client.(eth2client.EventsProvider).Events(ctx, []string{"head"}, func(event *api.Event) {
 		eventData := event.Data.(*api.HeadEvent)
@@ -144,8 +122,9 @@ func (s *Service) catchup(ctx context.Context, md *metadata) {
 		}
 
 		if err := s.updateProposerDutiesForEpoch(ctx, epoch); err != nil {
-			log.Warn().Err(err).Msg("Failed to update proposer duties")
-			md.MissedEpochs = append(md.MissedEpochs, epoch)
+			log.Error().Err(err).Msg("Failed to update proposer duties")
+			cancel()
+			return
 		}
 
 		md.LatestEpoch = epoch
@@ -179,14 +158,13 @@ func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 			failed++
 			cancel()
 			continue
-		} else {
-			// Remove this from the list of missed epochs.
-			missedEpochs := make([]phase0.Epoch, len(md.MissedEpochs)-1)
-			copy(missedEpochs[:failed], md.MissedEpochs[:failed])
-			copy(missedEpochs[failed:], md.MissedEpochs[i+1:])
-			md.MissedEpochs = missedEpochs
-			i--
 		}
+		// Remove this from the list of missed epochs.
+		missedEpochs := make([]phase0.Epoch, len(md.MissedEpochs)-1)
+		copy(missedEpochs[:failed], md.MissedEpochs[:failed])
+		copy(missedEpochs[failed:], md.MissedEpochs[i+1:])
+		md.MissedEpochs = missedEpochs
+		i--
 
 		if err := s.setMetadata(ctx, md); err != nil {
 			log.Error().Err(err).Msg("Failed to set metadata")

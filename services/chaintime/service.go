@@ -31,12 +31,22 @@ type Service interface {
 	CurrentSlot() phase0.Slot
 	// CurrentEpoch provides the current epoch.
 	CurrentEpoch() phase0.Epoch
+	// CurrentSyncCommitteePeriod provides the current sync committee period.
+	CurrentSyncCommitteePeriod() uint64
 	// SlotToEpoch provides the epoch of the given slot.
 	SlotToEpoch(slot phase0.Slot) phase0.Epoch
+	// SlotToSyncCommitteePeriod provides the sync committee period of the given slot.
+	SlotToSyncCommitteePeriod(slot phase0.Slot) uint64
 	// FirstSlotOfEpoch provides the first slot of the given epoch.
 	FirstSlotOfEpoch(epoch phase0.Epoch) phase0.Slot
 	// TimestampToSlot provides the slot of the given timestamp.
 	TimestampToSlot(timestamp time.Time) phase0.Slot
 	// TimestampToEpoch provides the epoch of the given timestamp.
 	TimestampToEpoch(timestamp time.Time) phase0.Epoch
+	// FirstEpochOfSyncPeriod provides the first epoch of the given sync period.
+	FirstEpochOfSyncPeriod(period uint64) phase0.Epoch
+	// AltairInitialEpoch provides the epoch at which the Altair hard fork takes place.
+	AltairInitialEpoch() phase0.Epoch
+	// AltairInitialSyncCommitteePeriod provides the sync committee period in which the Altair hard fork takes place.
+	AltairInitialSyncCommitteePeriod() uint64
 }

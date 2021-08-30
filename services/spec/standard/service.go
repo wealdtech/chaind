@@ -25,10 +25,11 @@ import (
 
 // Service is a spec service.
 type Service struct {
-	eth2Client      eth2client.Service
-	chainDB         chaindb.Service
-	chainSpecSetter chaindb.ChainSpecSetter
-	genesisSetter   chaindb.GenesisSetter
+	eth2Client         eth2client.Service
+	chainDB            chaindb.Service
+	chainSpecSetter    chaindb.ChainSpecSetter
+	genesisSetter      chaindb.GenesisSetter
+	forkScheduleSetter chaindb.ForkScheduleSetter
 }
 
 // module-wide log.
@@ -57,11 +58,17 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		return nil, errors.New("chain DB does not support genesis setting")
 	}
 
+	forkScheduleSetter, isForkScheduleSetter := parameters.chainDB.(chaindb.ForkScheduleSetter)
+	if !isForkScheduleSetter {
+		return nil, errors.New("chain DB does not support fork schedule setting")
+	}
+
 	s := &Service{
-		eth2Client:      parameters.eth2Client,
-		chainDB:         parameters.chainDB,
-		chainSpecSetter: chainSpecSetter,
-		genesisSetter:   genesisSetter,
+		eth2Client:         parameters.eth2Client,
+		chainDB:            parameters.chainDB,
+		chainSpecSetter:    chainSpecSetter,
+		genesisSetter:      genesisSetter,
+		forkScheduleSetter: forkScheduleSetter,
 	}
 
 	// Update spec in the _foreground_.  This ensures that spec information
@@ -84,6 +91,10 @@ func (s *Service) updateAfterRestart(ctx context.Context) {
 
 	if err := s.updateGenesis(ctx); err != nil {
 		log.Fatal().Err(err).Msg("Failed to update genesis")
+	}
+
+	if err := s.updateForkSchedule(ctx); err != nil {
+		log.Fatal().Err(err).Msg("Failed to update fork schedule")
 	}
 
 	if err := s.chainDB.CommitTx(ctx); err != nil {
@@ -119,6 +130,21 @@ func (s *Service) updateGenesis(ctx context.Context) error {
 	// Update the database.
 	if err := s.genesisSetter.SetGenesis(ctx, genesis); err != nil {
 		return errors.Wrap(err, "failed to set genesis")
+	}
+
+	return nil
+}
+
+func (s *Service) updateForkSchedule(ctx context.Context) error {
+	// Fetch fork schedule.
+	schedule, err := s.eth2Client.(eth2client.ForkScheduleProvider).ForkSchedule(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain fork schedule")
+	}
+
+	// Update the database.
+	if err := s.forkScheduleSetter.SetForkSchedule(ctx, schedule); err != nil {
+		return errors.Wrap(err, "failed to set fork schedule")
 	}
 
 	return nil

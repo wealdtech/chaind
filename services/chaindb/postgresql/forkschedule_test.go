@@ -25,7 +25,7 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb/postgresql"
 )
 
-func TestSpec(t *testing.T) {
+func TestForkSchedule(t *testing.T) {
 	ctx := context.Background()
 
 	var s chaindb.Service
@@ -37,12 +37,12 @@ func TestSpec(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure this meets the eth2client interface requirement.
-	_, isProvider := s.(eth2client.SpecProvider)
+	_, isProvider := s.(eth2client.ForkScheduleProvider)
 	require.True(t, isProvider)
 
 	// Ensure the value.
-	spec, err := s.(eth2client.SpecProvider).Spec(ctx)
+	schedule, err := s.(eth2client.ForkScheduleProvider).ForkSchedule(ctx)
 	require.NoError(t, err)
-	// This is hard-coded to the documented value; may fail on non-standard chains.
-	require.Equal(t, uint64(32), spec["SLOTS_PER_EPOCH"])
+
+	require.True(t, len(schedule) > 0)
 }

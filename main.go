@@ -52,12 +52,13 @@ import (
 	standardspec "github.com/wealdtech/chaind/services/spec/standard"
 	"github.com/wealdtech/chaind/services/summarizer"
 	standardsummarizer "github.com/wealdtech/chaind/services/summarizer/standard"
+	standardsynccommittees "github.com/wealdtech/chaind/services/synccommittees/standard"
 	standardvalidators "github.com/wealdtech/chaind/services/validators/standard"
 	"github.com/wealdtech/chaind/util"
 )
 
 // ReleaseVersion is the release version for the code.
-var ReleaseVersion = "0.3.6"
+var ReleaseVersion = "0.4.0-beta1"
 
 func main() {
 	os.Exit(main2())
@@ -145,8 +146,10 @@ func fetchConfig() error {
 	pflag.Bool("summarizer.validators.enable", false, "Enable summary information for validators (warning: creates a lot of data)")
 	pflag.Bool("validators.enable", true, "Enable fetching of validator-related information")
 	pflag.Bool("validators.balances.enable", false, "Enable fetching of validator balances (warning: creates a lot of data)")
-	pflag.Bool("beacon-committees.enable", true, "Enable fetching of beacom committee-related information")
+	pflag.Bool("beacon-committees.enable", true, "Enable fetching of beacon committee-related information")
 	pflag.Bool("proposer-duties.enable", true, "Enable fetching of proposer duty-related information")
+	pflag.Bool("sync-committees.enable", true, "Enable fetching of sync committee-related information")
+	pflag.Int32("sync-committees.start-period", -1, "Period from which to start fetching sync committees")
 	pflag.Bool("eth1deposits.enable", false, "Enable fetching of Ethereum 1 deposit information")
 	pflag.String("eth1deposits.start-block", "", "Ethereum 1 block from which to start fetching deposits")
 	pflag.String("eth1client.address", "", "Address for Ethereum 1 node")
@@ -253,8 +256,8 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 	chainTime, err := standardchaintime.New(ctx,
 		standardchaintime.WithLogLevel(util.LogLevel("chaintime")),
 		standardchaintime.WithGenesisTimeProvider(eth2Client.(eth2client.GenesisTimeProvider)),
-		standardchaintime.WithSlotDurationProvider(eth2Client.(eth2client.SlotDurationProvider)),
-		standardchaintime.WithSlotsPerEpochProvider(eth2Client.(eth2client.SlotsPerEpochProvider)),
+		standardchaintime.WithSpecProvider(eth2Client.(eth2client.SpecProvider)),
+		standardchaintime.WithForkScheduleProvider(eth2Client.(eth2client.ForkScheduleProvider)),
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to start chain time service")
@@ -292,16 +295,25 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 		return errors.Wrap(err, "failed to start spec service")
 	}
 
+	// Sync committees service is needed by blocks service.
+	log.Trace().Msg("Starting sync committees service")
+	if err := startSyncCommittees(ctx, eth2Client, chainDB, chainTime, monitor); err != nil {
+		return errors.Wrap(err, "failed to start sync committees service")
+	}
+
 	log.Trace().Msg("Starting blocks service")
 	blocks, err := startBlocks(ctx, eth2Client, chainDB, chainTime, monitor)
 	if err != nil {
 		return errors.Wrap(err, "failed to start blocks service")
 	}
 
-	log.Trace().Msg("Starting summarizer service")
-	summarizerSvc, err := startSummarizer(ctx, eth2Client, chainDB, chainTime, blocks, monitor)
-	if err != nil {
-		return errors.Wrap(err, "failed to start summarizer service")
+	var summarizerSvc summarizer.Service
+	if blocks != nil {
+		log.Trace().Msg("Starting summarizer service")
+		summarizerSvc, err = startSummarizer(ctx, eth2Client, chainDB, chainTime, blocks, monitor)
+		if err != nil {
+			return errors.Wrap(err, "failed to start summarizer service")
+		}
 	}
 
 	log.Trace().Msg("Starting finalizer service")
@@ -624,6 +636,41 @@ func startETH1Deposits(
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to start Ethereum 1 deposits service")
+	}
+
+	return nil
+}
+
+func startSyncCommittees(
+	ctx context.Context,
+	eth2Client eth2client.Service,
+	chainDB chaindb.Service,
+	chainTime chaintime.Service,
+	monitor metrics.Service,
+) error {
+	if !viper.GetBool("sync-committees.enable") {
+		return nil
+	}
+
+	var err error
+	if viper.GetString("sync-committees.address") != "" {
+		eth2Client, err = fetchClient(ctx, viper.GetString("sync-committees.address"))
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to fetch client %q", viper.GetString("sync-committees.address")))
+		}
+	}
+
+	_, err = standardsynccommittees.New(ctx,
+		standardsynccommittees.WithLogLevel(util.LogLevel("sync-committees")),
+		standardsynccommittees.WithMonitor(monitor),
+		standardsynccommittees.WithETH2Client(eth2Client),
+		standardsynccommittees.WithChainTime(chainTime),
+		standardsynccommittees.WithChainDB(chainDB),
+		standardsynccommittees.WithSpecProvider(chainDB.(eth2client.SpecProvider)),
+		standardsynccommittees.WithStartPeriod(viper.GetInt64("sync-committees.start-period")),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to create sync committees service")
 	}
 
 	return nil

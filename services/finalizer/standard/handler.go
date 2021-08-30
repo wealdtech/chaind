@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/spec"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
@@ -410,6 +411,9 @@ func (s *Service) fetchBlock(ctx context.Context, root phase0.Root) (*chaindb.Bl
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to obtain block from chain")
 		}
+		if signedBlock == nil {
+			return nil, nil
+		}
 
 		// We need to ensure the finalizer is not running ahead of the blocks service.  To do so, we compare the slot of the block
 		// we fetched with the highest known slot in the database.  If our block is higher than that already stored it means that
@@ -422,7 +426,15 @@ func (s *Service) fetchBlock(ctx context.Context, root phase0.Root) (*chaindb.Bl
 			// No blocks yet; bow out but no error.
 			return nil, nil
 		}
-		earliestAllowableSlot := signedBlock.Message.Slot
+		var earliestAllowableSlot phase0.Slot
+		switch signedBlock.Version {
+		case spec.DataVersionPhase0:
+			earliestAllowableSlot = signedBlock.Phase0.Message.Slot
+		case spec.DataVersionAltair:
+			earliestAllowableSlot = signedBlock.Altair.Message.Slot
+		default:
+			return nil, errors.New("unknown block version")
+		}
 		if earliestAllowableSlot < 1024 {
 			earliestAllowableSlot = 0
 		} else {

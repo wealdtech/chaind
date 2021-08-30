@@ -20,10 +20,10 @@ import (
 )
 
 type parameters struct {
-	logLevel              zerolog.Level
-	genesisTimeProvider   eth2client.GenesisTimeProvider
-	slotDurationProvider  eth2client.SlotDurationProvider
-	slotsPerEpochProvider eth2client.SlotsPerEpochProvider
+	logLevel             zerolog.Level
+	genesisTimeProvider  eth2client.GenesisTimeProvider
+	specProvider         eth2client.SpecProvider
+	forkScheduleProvider eth2client.ForkScheduleProvider
 }
 
 // Parameter is the interface for service parameters.
@@ -51,17 +51,17 @@ func WithGenesisTimeProvider(provider eth2client.GenesisTimeProvider) Parameter 
 	})
 }
 
-// WithSlotDurationProvider sets the seconds per slot provider.
-func WithSlotDurationProvider(provider eth2client.SlotDurationProvider) Parameter {
+// WithSpecProvider sets the spec provider.
+func WithSpecProvider(provider eth2client.SpecProvider) Parameter {
 	return parameterFunc(func(p *parameters) {
-		p.slotDurationProvider = provider
+		p.specProvider = provider
 	})
 }
 
-// WithSlotsPerEpochProvider sets the slots per epoch provider.
-func WithSlotsPerEpochProvider(provider eth2client.SlotsPerEpochProvider) Parameter {
+// WithForkScheduleProvider sets the fork schedule provider.
+func WithForkScheduleProvider(provider eth2client.ForkScheduleProvider) Parameter {
 	return parameterFunc(func(p *parameters) {
-		p.slotsPerEpochProvider = provider
+		p.forkScheduleProvider = provider
 	})
 }
 
@@ -76,14 +76,14 @@ func parseAndCheckParameters(params ...Parameter) (*parameters, error) {
 		}
 	}
 
+	if parameters.specProvider == nil {
+		return nil, errors.New("no spec provider specified")
+	}
 	if parameters.genesisTimeProvider == nil {
 		return nil, errors.New("no genesis time provider specified")
 	}
-	if parameters.slotDurationProvider == nil {
-		return nil, errors.New("no slot duration provider specified")
-	}
-	if parameters.slotsPerEpochProvider == nil {
-		return nil, errors.New("no slots per epoch provider specified")
+	if parameters.forkScheduleProvider == nil {
+		return nil, errors.New("no fork schedule provider specified")
 	}
 
 	return &parameters, nil
