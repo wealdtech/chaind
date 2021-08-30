@@ -224,15 +224,14 @@ func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 			failed++
 			cancel()
 			continue
-		} else {
-			log.Trace().Msg("Updated block")
-			// Remove this from the list of missed slots.
-			missedSlots := make([]phase0.Slot, len(md.MissedSlots)-1)
-			copy(missedSlots[:failed], md.MissedSlots[:failed])
-			copy(missedSlots[failed:], md.MissedSlots[i+1:])
-			md.MissedSlots = missedSlots
-			i--
 		}
+		log.Trace().Msg("Updated block")
+		// Remove this from the list of missed slots.
+		missedSlots := make([]phase0.Slot, len(md.MissedSlots)-1)
+		copy(missedSlots[:failed], md.MissedSlots[:failed])
+		copy(missedSlots[failed:], md.MissedSlots[i+1:])
+		md.MissedSlots = missedSlots
+		i--
 
 		if err := s.setMetadata(ctx, md); err != nil {
 			log.Error().Err(err).Msg("Failed to set metadata")

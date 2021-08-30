@@ -158,14 +158,13 @@ func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 			failed++
 			cancel()
 			continue
-		} else {
-			// Remove this from the list of missed epochs.
-			missedEpochs := make([]phase0.Epoch, len(md.MissedEpochs)-1)
-			copy(missedEpochs[:failed], md.MissedEpochs[:failed])
-			copy(missedEpochs[failed:], md.MissedEpochs[i+1:])
-			md.MissedEpochs = missedEpochs
-			i--
 		}
+		// Remove this from the list of missed epochs.
+		missedEpochs := make([]phase0.Epoch, len(md.MissedEpochs)-1)
+		copy(missedEpochs[:failed], md.MissedEpochs[:failed])
+		copy(missedEpochs[failed:], md.MissedEpochs[i+1:])
+		md.MissedEpochs = missedEpochs
+		i--
 
 		if err := s.setMetadata(ctx, md); err != nil {
 			log.Error().Err(err).Msg("Failed to set metadata")
