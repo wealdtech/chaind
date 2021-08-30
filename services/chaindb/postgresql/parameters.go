@@ -22,6 +22,13 @@ import (
 type parameters struct {
 	logLevel      zerolog.Level
 	connectionURL string
+	server        string
+	port          int32
+	user          string
+	password      string
+	clientCert    []byte
+	clientKey     []byte
+	caCert        []byte
 }
 
 // Parameter is the interface for service parameters.
@@ -43,9 +50,59 @@ func WithLogLevel(logLevel zerolog.Level) Parameter {
 }
 
 // WithConnectionURL sets the connection URL for this module.
+// Deprecated.  Use the individual Server/User/Port/... functions.
 func WithConnectionURL(connectionURL string) Parameter {
 	return parameterFunc(func(p *parameters) {
 		p.connectionURL = connectionURL
+	})
+}
+
+// WithServer sets the server for this module.
+func WithServer(server string) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.server = server
+	})
+}
+
+// WithUser sets the user for this module.
+func WithUser(user string) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.user = user
+	})
+}
+
+// WithPassword sets the password for this module.
+func WithPassword(password string) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.password = password
+	})
+}
+
+// WithPort sets the port for this module.
+func WithPort(port int32) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.port = port
+	})
+}
+
+// WithClientCert sets the bytes of the client TLS certificate.
+func WithClientCert(cert []byte) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.clientCert = cert
+	})
+}
+
+// WithClientKey sets the bytes of the client TLS key.
+func WithClientKey(key []byte) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.clientKey = key
+	})
+}
+
+// WithCACert sets the bytes of the certificate authority TLS certificate.
+func WithCACert(cert []byte) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.caCert = cert
 	})
 }
 
@@ -60,8 +117,19 @@ func parseAndCheckParameters(params ...Parameter) (*parameters, error) {
 		}
 	}
 
-	if parameters.connectionURL == "" {
-		return nil, errors.New("no connection URL specified")
+	if parameters.connectionURL != "" {
+		// Allow deprecated connection URL.
+		return &parameters, nil
+	}
+
+	if parameters.server == "" {
+		return nil, errors.New("no server specified")
+	}
+	if parameters.user == "" {
+		return nil, errors.New("no user specified")
+	}
+	if parameters.port == 0 {
+		return nil, errors.New("no port specified")
 	}
 
 	return &parameters, nil

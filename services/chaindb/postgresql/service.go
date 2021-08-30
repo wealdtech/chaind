@@ -15,7 +15,14 @@ package postgresql
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"strings"
 
+	"github.com/jackc/pgtype"
+	shopspring "github.com/jackc/pgtype/ext/shopspring-numeric"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -40,10 +47,60 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	// Set logging.
 	log = zerologger.With().Str("service", "chaindb").Str("impl", "postgresql").Logger().Level(parameters.logLevel)
 
-	pool, err := pgxpool.Connect(context.Background(), parameters.connectionURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to connect to database")
+	var pool *pgxpool.Pool
+	if parameters.connectionURL != "" {
+		// Use deprecated connection URL method.
+		pool, err = pgxpool.Connect(context.Background(), parameters.connectionURL)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to connect to database")
+		}
+	} else {
+		dsnItems := make([]string, 0, 16)
+		dsnItems = append(dsnItems, fmt.Sprintf("host=%s", parameters.server))
+		dsnItems = append(dsnItems, fmt.Sprintf("user=%s", parameters.user))
+		if parameters.password != "" {
+			dsnItems = append(dsnItems, fmt.Sprintf("password=%s", parameters.password))
+		}
+		dsnItems = append(dsnItems, fmt.Sprintf("port=%d", parameters.port))
+
+		var tlsConfig *tls.Config
+		if parameters.caCert != nil || parameters.clientCert != nil {
+			dsnItems = append(dsnItems, "sslmode=verify-full")
+
+			// Add TLS configuration.
+			tlsConfig = &tls.Config{
+				ServerName: parameters.server,
+				MinVersion: tls.VersionTLS13,
+			}
+			if parameters.clientCert != nil {
+				clientPair, err := tls.X509KeyPair(parameters.clientCert, parameters.clientKey)
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to create client certificate")
+				}
+				tlsConfig.Certificates = []tls.Certificate{clientPair}
+			}
+			if parameters.caCert != nil {
+				rootCAs := x509.NewCertPool()
+				if !rootCAs.AppendCertsFromPEM(parameters.caCert) {
+					return nil, errors.New("failed to append root CA certificates")
+				}
+				tlsConfig.RootCAs = rootCAs
+			}
+		}
+
+		config, err := pgxpool.ParseConfig(strings.Join(dsnItems, " "))
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to generate pgx config")
+		}
+		config.AfterConnect = registerCustomTypes
+		config.ConnConfig.TLSConfig = tlsConfig
+
+		pool, err = pgxpool.ConnectConfig(context.Background(), config)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to connect to database")
+		}
 	}
+
 	go func() {
 		<-ctx.Done()
 		log.Trace().Msg("Context done; closing pool")
@@ -55,4 +112,13 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}
 
 	return s, nil
+}
+
+func registerCustomTypes(ctx context.Context, conn *pgx.Conn) error {
+	conn.ConnInfo().RegisterDataType(pgtype.DataType{
+		Value: &shopspring.Numeric{},
+		Name:  "numeric",
+		OID:   pgtype.NumericOID,
+	})
+	return nil
 }
