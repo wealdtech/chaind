@@ -26,7 +26,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(3)
+var currentVersion = uint64(4)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -61,6 +61,11 @@ var upgrades = map[uint64]*upgrade{
 			createSyncCommittees,
 			createSyncAggregates,
 			addValidatorSummaryTimely,
+		},
+	},
+	4: {
+		funcs: []func(context.Context, *Service) error{
+			addDepositsIndex,
 		},
 	},
 }
@@ -181,6 +186,10 @@ func createDeposits(ctx context.Context, s *Service) error {
 
 	if _, err := tx.Exec(ctx, "CREATE UNIQUE INDEX i_deposits_1 ON t_deposits(f_inclusion_slot,f_inclusion_block_root,f_inclusion_index)"); err != nil {
 		return errors.Wrap(err, "failed to create deposits index")
+	}
+
+	if _, err := tx.Exec(ctx, "CREATE INDEX i_deposits_2 ON t_deposits(f_validator_pubkey,f_inclusion_slot)"); err != nil {
+		return errors.Wrap(err, "failed to create deposits index (2)")
 	}
 
 	return nil
@@ -1030,6 +1039,20 @@ ALTER TABLE t_validator_epoch_summaries
 ADD COLUMN f_attestation_head_timely BOOL
 `); err != nil {
 		return errors.Wrap(err, "failed to add f_attestation_head_timely to validator epoch summaries table")
+	}
+
+	return nil
+}
+
+// addDepositsIndex adds the i_deposits_2 index to the t_deposits table.
+func addDepositsIndex(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, "CREATE INDEX IF NOT EXISTS i_deposits_2 ON t_deposits(f_validator_pubkey,f_inclusion_slot)"); err != nil {
+		return errors.Wrap(err, "failed to create deposits index (2)")
 	}
 
 	return nil

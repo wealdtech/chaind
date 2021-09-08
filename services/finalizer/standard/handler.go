@@ -108,8 +108,7 @@ func (s *Service) updateCanonicalBlocks(ctx context.Context, root phase0.Root) e
 		return errors.Wrap(err, "failed to obtain block")
 	}
 	if block == nil {
-		// No block to update; return without error.
-		return nil
+		return errors.New("missing canonical block")
 	}
 
 	if err := s.canonicalizeBlocks(ctx, root, md.LatestCanonicalSlot); err != nil {

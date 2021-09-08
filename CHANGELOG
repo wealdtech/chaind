@@ -1,3 +1,6 @@
+0.4.2:
+  - add index to t_deposits for validator public key
+
 0.4.1:
   - provide a more nuanced method for connecting to the chain database other than simple URL
 

@@ -438,6 +438,7 @@ func (s *Service) dbSyncAggregate(
 		var err error
 		syncCommittee, err = s.syncCommitteesProvider.SyncCommittee(ctx, period)
 		if err != nil {
+			log.Warn().Err(err).Uint64("slot", uint64(slot)).Uint64("sync_committee_period", period).Msg("Failed to obtain sync committee period")
 			return nil, errors.Wrap(err, "failed to obtain sync committee")
 		}
 		s.syncCommittees[period] = syncCommittee
