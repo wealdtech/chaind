@@ -174,7 +174,7 @@ func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) 
 
 	validators := make([]*chaindb.Validator, 0)
 	for rows.Next() {
-		validator, err := s.validatorFromRow(ctx, rows)
+		validator, err := validatorFromRow(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -225,7 +225,7 @@ func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []phase0.BL
 
 	validators := make(map[phase0.BLSPubKey]*chaindb.Validator)
 	for rows.Next() {
-		validator, err := s.validatorFromRow(ctx, rows)
+		validator, err := validatorFromRow(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -269,7 +269,7 @@ func (s *Service) ValidatorsByIndex(ctx context.Context, indices []phase0.Valida
 
 	validators := make(map[phase0.ValidatorIndex]*chaindb.Validator)
 	for rows.Next() {
-		validator, err := s.validatorFromRow(ctx, rows)
+		validator, err := validatorFromRow(rows)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
@@ -318,7 +318,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpoch(
 	validatorBalances := make(map[phase0.ValidatorIndex]*chaindb.ValidatorBalance, len(validatorIndices))
 
 	for rows.Next() {
-		validatorBalance, err := s.validatorBalanceFromRow(ctx, rows)
+		validatorBalance, err := validatorBalanceFromRow(rows)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
@@ -384,7 +384,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 
 	validatorBalances := make(map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance, len(validatorIndices))
 	for rows.Next() {
-		validatorBalance, err := s.validatorBalanceFromRow(ctx, rows)
+		validatorBalance, err := validatorBalanceFromRow(rows)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
@@ -397,7 +397,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 
 	// If a validator is not present until after the beginning of the range, for example we ask for epochs 5->10 and
 	// the validator is first present at epoch 7, we need to front-pad the data for that validator with 0s.
-	if err := padValidatorBalances(ctx, validatorBalances, int(uint64(endEpoch)-uint64(startEpoch)), startEpoch); err != nil {
+	if err := padValidatorBalances(validatorBalances, int(uint64(endEpoch)-uint64(startEpoch)), startEpoch); err != nil {
 		return nil, err
 	}
 
@@ -459,7 +459,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochs(
 
 	validatorBalances := make(map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance, len(validatorIndices))
 	for rows.Next() {
-		validatorBalance, err := s.validatorBalanceFromRow(ctx, rows)
+		validatorBalance, err := validatorBalanceFromRow(rows)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
@@ -473,7 +473,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochs(
 	return validatorBalances, nil
 }
 
-func padValidatorBalances(ctx context.Context, validatorBalances map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance, entries int, startEpoch phase0.Epoch) error {
+func padValidatorBalances(validatorBalances map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance, entries int, startEpoch phase0.Epoch) error {
 	for validatorIndex, balances := range validatorBalances {
 		if len(balances) != entries {
 			paddedBalances := make([]*chaindb.ValidatorBalance, entries)
@@ -499,7 +499,7 @@ func padValidatorBalances(ctx context.Context, validatorBalances map[phase0.Vali
 }
 
 // validatorFromRow converts a SQL row in to a validator.
-func (s *Service) validatorFromRow(ctx context.Context, rows pgx.Rows) (*chaindb.Validator, error) {
+func validatorFromRow(rows pgx.Rows) (*chaindb.Validator, error) {
 	var publicKey []byte
 	var activationEligibilityEpoch sql.NullInt64
 	var activationEpoch sql.NullInt64
@@ -545,7 +545,7 @@ func (s *Service) validatorFromRow(ctx context.Context, rows pgx.Rows) (*chaindb
 }
 
 // validatorBalanceFromRow converts a SQL row in to a validator balance.
-func (s *Service) validatorBalanceFromRow(ctx context.Context, rows pgx.Rows) (*chaindb.ValidatorBalance, error) {
+func validatorBalanceFromRow(rows pgx.Rows) (*chaindb.ValidatorBalance, error) {
 	validatorBalance := &chaindb.ValidatorBalance{}
 	err := rows.Scan(
 		&validatorBalance.Index,
