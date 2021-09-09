@@ -24,6 +24,7 @@ import (
 )
 
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
+// skipcq: RVV-A0005
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
 	slot phase0.Slot,
@@ -34,7 +35,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	epoch := s.chainTime.SlotToEpoch(slot)
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 
-	if !epochTransition { // skipcq: RVV-A0005
+	if !epochTransition {
 		// Only interested in epoch transitions.
 		return
 	}
