@@ -117,6 +117,32 @@ func (s *Service) SetValidatorBalance(ctx context.Context, balance *chaindb.Vali
 	return err
 }
 
+// SetValidatorBalances sets multiple validator balances.
+func (s *Service) SetValidatorBalances(ctx context.Context, balances []*chaindb.ValidatorBalance) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	_, err := tx.CopyFrom(ctx,
+		pgx.Identifier{"t_validator_balances"},
+		[]string{
+			"f_validator_index",
+			"f_epoch",
+			"f_balance",
+			"f_effective_balance",
+		},
+		pgx.CopyFromSlice(len(balances), func(i int) ([]interface{}, error) {
+			return []interface{}{
+				balances[i].Index,
+				balances[i].Epoch,
+				balances[i].Balance,
+				balances[i].EffectiveBalance,
+			}, nil
+		}))
+	return err
+}
+
 // Validators fetches all validators.
 func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) {
 	tx := s.tx(ctx)

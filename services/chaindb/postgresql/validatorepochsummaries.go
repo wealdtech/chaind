@@ -17,8 +17,49 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
+
+// SetValidatorEpochSummaries sets multiple validator epoch summaries.
+func (s *Service) SetValidatorEpochSummaries(ctx context.Context, summaries []*chaindb.ValidatorEpochSummary) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+	_, err := tx.CopyFrom(ctx,
+		pgx.Identifier{"t_validator_epoch_summaries"},
+		[]string{
+			"f_validator_index",
+			"f_epoch",
+			"f_proposer_duties",
+			"f_proposals_included",
+			"f_attestation_included",
+			"f_attestation_target_correct",
+			"f_attestation_head_correct",
+			"f_attestation_inclusion_delay",
+			"f_attestation_source_timely",
+			"f_attestation_target_timely",
+			"f_attestation_head_timely",
+		},
+		pgx.CopyFromSlice(len(summaries), func(i int) ([]interface{}, error) {
+			return []interface{}{
+				summaries[i].Index,
+				summaries[i].Epoch,
+				summaries[i].ProposerDuties,
+				summaries[i].ProposalsIncluded,
+				summaries[i].AttestationIncluded,
+				summaries[i].AttestationTargetCorrect,
+				summaries[i].AttestationHeadCorrect,
+				summaries[i].AttestationInclusionDelay,
+				summaries[i].AttestationSourceTimely,
+				summaries[i].AttestationTargetTimely,
+				summaries[i].AttestationHeadTimely,
+			}, nil
+		}))
+
+	return err
+}
 
 // SetValidatorEpochSummary sets a validator epoch summary.
 func (s *Service) SetValidatorEpochSummary(ctx context.Context, summary *chaindb.ValidatorEpochSummary) error {
