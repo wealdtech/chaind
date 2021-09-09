@@ -24,11 +24,12 @@ import (
 )
 
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
+// skipcq: RVV-A0005
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
 	slot phase0.Slot,
-	blockRoot phase0.Root,
-	stateRoot phase0.Root,
+	_ phase0.Root,
+	_ phase0.Root,
 	epochTransition bool,
 ) {
 	epoch := s.chainTime.SlotToEpoch(slot)
@@ -119,6 +120,7 @@ func (s *Service) onEpochTransitionValidatorBalances(ctx context.Context,
 	}
 
 	for epoch := md.LatestBalancesEpoch; epoch <= transitionedEpoch; epoch++ {
+		log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 		stateID := fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(epoch))
 		log.Trace().Uint64("slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch))).Msg("Fetching validators")
 		validators, err := s.eth2Client.(eth2client.ValidatorsProvider).Validators(ctx, stateID, nil)
@@ -126,32 +128,43 @@ func (s *Service) onEpochTransitionValidatorBalances(ctx context.Context,
 			return errors.Wrap(err, "failed to obtain validators for validator balances")
 		}
 
-		ctx, cancel, err := s.chainDB.BeginTx(ctx)
+		dbCtx, cancel, err := s.chainDB.BeginTx(ctx)
 		if err != nil {
 			return errors.Wrap(err, "failed to begin transaction for validator balances")
 		}
-		for index, validator := range validators {
-			if s.balances {
-				dbValidatorBalance := &chaindb.ValidatorBalance{
+		if s.balances {
+			dbValidatorBalances := make([]*chaindb.ValidatorBalance, 0, len(validators))
+			for index, validator := range validators {
+				dbValidatorBalances = append(dbValidatorBalances, &chaindb.ValidatorBalance{
 					Index:            index,
 					Epoch:            epoch,
 					Balance:          validator.Balance,
 					EffectiveBalance: validator.Validator.EffectiveBalance,
+				})
+			}
+			if err := s.validatorsSetter.SetValidatorBalances(dbCtx, dbValidatorBalances); err != nil {
+				log.Trace().Err(err).Msg("Bulk insert failed; falling back to individual insert")
+				// This error will have caused the transaction to fail, so cancel it and start a new one.
+				cancel()
+				dbCtx, cancel, err = s.chainDB.BeginTx(ctx)
+				if err != nil {
+					return errors.Wrap(err, "failed to begin transaction for validator balances (2)")
 				}
-				if err := s.validatorsSetter.SetValidatorBalance(ctx, dbValidatorBalance); err != nil {
-					cancel()
-					return errors.Wrap(err, "failed to set validator balance")
+				for _, dbValidatorBalance := range dbValidatorBalances {
+					if err := s.validatorsSetter.SetValidatorBalance(dbCtx, dbValidatorBalance); err != nil {
+						return errors.Wrap(err, "failed to set validator balance")
+					}
 				}
 			}
+			md.LatestBalancesEpoch = epoch
 		}
-		md.LatestBalancesEpoch = epoch
 
-		if err := s.setMetadata(ctx, md); err != nil {
+		if err := s.setMetadata(dbCtx, md); err != nil {
 			cancel()
 			return errors.Wrap(err, "failed to set metadata for validator balances")
 		}
 
-		if err := s.chainDB.CommitTx(ctx); err != nil {
+		if err := s.chainDB.CommitTx(dbCtx); err != nil {
 			cancel()
 			return errors.Wrap(err, "failed to set commit transaction for validator balances")
 		}

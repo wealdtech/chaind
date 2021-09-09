@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
@@ -32,6 +33,7 @@ func (s *Service) updateSummaryForEpoch(ctx context.Context,
 	bool,
 	error,
 ) {
+	started := time.Now()
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	if !s.epochSummaries {
 		log.Trace().Msg("Epoch summaries not enabled")
@@ -50,6 +52,7 @@ func (s *Service) updateSummaryForEpoch(ctx context.Context,
 	if len(activeIndices) == 0 {
 		return false, errors.New("no active validators to summarize for epoch")
 	}
+	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set validator summary stats")
 
 	// Active balance and active effective balance.
 	balances, err := s.validatorsProvider.ValidatorBalancesByIndexAndEpoch(ctx, activeIndices, epoch)
@@ -65,32 +68,36 @@ func (s *Service) updateSummaryForEpoch(ctx context.Context,
 		summary.ActiveRealBalance += balance.Balance
 		summary.ActiveBalance += balance.EffectiveBalance
 	}
+	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set validator balances")
 
 	err = s.blockStatsForEpoch(ctx, epoch, summary)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to calculate block summary statistics for epoch")
 	}
+	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set block summary stats")
 
 	err = s.slashingsStatsForEpoch(ctx, epoch, summary)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to calculate slashings summary statistics for epoch")
 	}
+	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set slashing stats")
 
 	err = s.attestationStatsForEpoch(ctx, epoch, balances, summary)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to calculate attestation summary statistics for epoch")
 	}
+	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set attestation stats")
 
 	err = s.depositStatsForEpoch(ctx, epoch, summary)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to calculate deposit summary statistics for epoch")
 	}
+	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set deposit stats")
 
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to begin transaction to set epoch summary")
 	}
-	log.Trace().Uint64("epoch", uint64(epoch)).Msg("Setting epoch summary")
 	if err := s.chainDB.(chaindb.EpochSummariesSetter).SetEpochSummary(ctx, summary); err != nil {
 		cancel()
 		return false, err
@@ -104,6 +111,7 @@ func (s *Service) updateSummaryForEpoch(ctx context.Context,
 		cancel()
 		return false, errors.Wrap(err, "failed to set commit transaction to set epoch summary")
 	}
+	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set summary")
 
 	return true, nil
 }

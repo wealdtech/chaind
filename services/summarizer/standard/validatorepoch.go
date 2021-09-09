@@ -15,6 +15,7 @@ package standard
 
 import (
 	"context"
+	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
@@ -26,6 +27,8 @@ func (s *Service) updateValidatorSummariesForEpoch(ctx context.Context,
 	md *metadata,
 	epoch phase0.Epoch,
 ) error {
+	started := time.Now()
+
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	if !s.validatorSummaries {
 		log.Trace().Msg("Validator epoch summaries not enabled")
@@ -37,22 +40,26 @@ func (s *Service) updateValidatorSummariesForEpoch(ctx context.Context,
 	if err != nil {
 		return err
 	}
+	log.Trace().Dur("elapsed", time.Since(started)).Msg("Fetched proposer duties")
 
 	validatorProposals, err := s.validatorProposalsForEpoch(ctx, epoch, proposerDuties, validatorProposerDuties)
 	if err != nil {
 		return err
 	}
+	log.Trace().Dur("elapsed", time.Since(started)).Msg("Fetched proposals")
 
 	attestationsIncluded, attestationsTargetCorrect, attestationsHeadCorrect, attestationsInclusionDelay, attestationsSourceTimely, attestationsTargetTimely, attestationsHeadTimely, err := s.attestationsForEpoch(ctx, epoch)
 	if err != nil {
 		return err
 	}
+	log.Trace().Dur("elapsed", time.Since(started)).Msg("Fetched attestations")
 
 	// Store the data.
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to begin transaction to set validator epoch summary")
 	}
+	summaries := make([]*chaindb.ValidatorEpochSummary, 0, len(attestationsIncluded))
 	for index := range attestationsIncluded {
 		summary := &chaindb.ValidatorEpochSummary{
 			Index:               index,
@@ -80,12 +87,15 @@ func (s *Service) updateValidatorSummariesForEpoch(ctx context.Context,
 				}
 			}
 		}
-
-		if err := s.chainDB.(chaindb.ValidatorEpochSummariesSetter).SetValidatorEpochSummary(ctx, summary); err != nil {
-			cancel()
-			return err
-		}
+		summaries = append(summaries, summary)
 	}
+
+	if err := s.chainDB.(chaindb.ValidatorEpochSummariesSetter).SetValidatorEpochSummaries(ctx, summaries); err != nil {
+		cancel()
+		return err
+	}
+
+	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set summary")
 	md.LastValidatorEpoch = epoch
 	if err := s.setMetadata(ctx, md); err != nil {
 		cancel()

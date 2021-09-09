@@ -31,8 +31,8 @@ func TestService(t *testing.T) {
 		err           string
 	}{
 		{
-			name: "ConnectionURLMissing",
-			err:  "problem with parameters: no connection URL specified",
+			name: "ServerMissing",
+			err:  "problem with parameters: no server specified",
 		},
 		{
 			name:          "Good",

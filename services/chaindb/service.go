@@ -306,6 +306,9 @@ type ValidatorsSetter interface {
 
 	// SetValidatorBalance sets a validator balance.
 	SetValidatorBalance(ctx context.Context, validatorBalance *ValidatorBalance) error
+
+	// SetValidatorBalances sets multiple validator balances.
+	SetValidatorBalances(ctx context.Context, validatorBalances []*ValidatorBalance) error
 }
 
 // DepositsProvider defines functions to access deposits.
@@ -334,6 +337,9 @@ type VoluntaryExitsSetter interface {
 type ValidatorEpochSummariesSetter interface {
 	// SetValidatorEpochSummary sets a validator epoch summary.
 	SetValidatorEpochSummary(ctx context.Context, summary *ValidatorEpochSummary) error
+
+	// SetValidatorEpochSummaries sets multiple validator epoch summaries.
+	SetValidatorEpochSummaries(ctx context.Context, summaries []*ValidatorEpochSummary) error
 }
 
 // BlockSummariesSetter defines functions to create and update block summaries.
