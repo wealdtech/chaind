@@ -27,14 +27,14 @@ import (
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
 	slot phase0.Slot,
-	blockRoot phase0.Root,
-	stateRoot phase0.Root,
+	_ phase0.Root,
+	_ phase0.Root,
 	epochTransition bool,
 ) {
 	epoch := s.chainTime.SlotToEpoch(slot)
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 
-	if !epochTransition {
+	if !epochTransition { // skipcq: RVV-A0005
 		// Only interested in epoch transitions.
 		return
 	}
