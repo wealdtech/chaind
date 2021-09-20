@@ -72,10 +72,11 @@ createdb -E UTF8 --owner=chain chain
 ```
 
 ### Beacon node
-`chaind` supports Teku, Prysm and Lighthouse beacon nodes.  The current state of obtaining data from beacon nodes is as follows:
+`chaind` supports Teku and Lighthouse beacon nodes.  The current state of obtaining data from beacon nodes is as follows:
 
   - Teku: must be run in [archive mode](https://docs.teku.consensys.net/en/latest/Reference/CLI/CLI-Syntax/#data-storage-mode) to allow `chaind` to obtain historical data
-  - Prysm: beacon committee information is not available.  Run `chaind` with `--beacon-committees.enable=false` to disabled fetching this information
+
+At current Prysm is not supported due to its lack of Altair-related information in its gRPC and HTTP APIs.  We expect to be able to support Prysm again soon.
 
 ### Example
 To start a Teku node suitable for `chaind` download teku and run the following command:
