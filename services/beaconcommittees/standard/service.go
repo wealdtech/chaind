@@ -122,7 +122,8 @@ func (s *Service) catchup(ctx context.Context, md *metadata) {
 
 		if err := s.updateBeaconCommitteesForEpoch(ctx, epoch); err != nil {
 			log.Warn().Err(err).Msg("Failed to update beacon committees")
-			md.MissedEpochs = append(md.MissedEpochs, epoch)
+			cancel()
+			return
 		}
 
 		md.LatestEpoch = epoch
