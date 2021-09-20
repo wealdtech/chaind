@@ -151,5 +151,6 @@ func (s *Service) catchup(ctx context.Context, md *metadata) {
 			cancel()
 			return
 		}
+		log.Trace().Msg("Added sync committee")
 	}
 }
