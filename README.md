@@ -55,7 +55,7 @@ Data gathers four pieces of information from the beacon node, broken down by the
     - deposits
     - voluntary exits; and
   - **Ethereum 1 deposits** The Ethereum 1 deposits module provides information on deposits made on the Ethereum 1 network;
-  - **Finalizer** The finalizer module augments the information prsent in the database from finalized states.  This includes:
+  - **Finalizer** The finalizer module augments the information present in the database from finalized states.  This includes:
     - the canonical state of blocks.
 
 In addition, the summarizer module takes the finalized information and generates summary statistics at the validator, block and epoch level.
@@ -75,6 +75,7 @@ createdb -E UTF8 --owner=chain chain
 `chaind` supports Teku and Lighthouse beacon nodes.  The current state of obtaining data from beacon nodes is as follows:
 
   - Teku: must be run in [archive mode](https://docs.teku.consensys.net/en/latest/Reference/CLI/CLI-Syntax/#data-storage-mode) to allow `chaind` to obtain historical data
+  - Lighthouse: Make sure to run with `--slots-per-restore-point 64`, else fetching historical information will be **very** slow. For more information on the trade off between Freezer DB size and fetching performance, please refer to [Database Configuration](https://lighthouse-book.sigmaprime.io/advanced_database.html) in the Lighthouse Book.
 
 At current Prysm is not supported due to its lack of Altair-related information in its gRPC and HTTP APIs.  We expect to be able to support Prysm again soon.
 
