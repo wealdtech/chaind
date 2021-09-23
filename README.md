@@ -89,7 +89,7 @@ teku --rest-api-enabled --data-storage-mode=archive
 Once Teku has finished syncing, run:
 
 ```sh
-chaind --ethclient-address=http://localhost:5051/
+chaind --eth2client-address=http://localhost:5051/
 ```
 
 ## Upgrading `chaind`
