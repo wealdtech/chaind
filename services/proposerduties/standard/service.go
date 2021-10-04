@@ -115,26 +115,26 @@ func (s *Service) catchup(ctx context.Context, md *metadata) {
 	for epoch := md.LatestEpoch; epoch <= s.chainTime.CurrentEpoch(); epoch++ {
 		log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 		// Each update goes in to its own transaction, to make the data available sooner.
-		ctx, cancel, err := s.chainDB.BeginTx(ctx)
+		dbCtx, cancel, err := s.chainDB.BeginTx(ctx)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to begin transaction on update after restart")
 			return
 		}
 
-		if err := s.updateProposerDutiesForEpoch(ctx, epoch); err != nil {
+		if err := s.updateProposerDutiesForEpoch(dbCtx, epoch); err != nil {
 			log.Error().Err(err).Msg("Failed to update proposer duties")
 			cancel()
 			return
 		}
 
 		md.LatestEpoch = epoch
-		if err := s.setMetadata(ctx, md); err != nil {
+		if err := s.setMetadata(dbCtx, md); err != nil {
 			log.Error().Err(err).Msg("Failed to set metadata")
 			cancel()
 			return
 		}
 
-		if err := s.chainDB.CommitTx(ctx); err != nil {
+		if err := s.chainDB.CommitTx(dbCtx); err != nil {
 			log.Error().Err(err).Msg("Failed to commit transaction")
 			cancel()
 			return
@@ -147,13 +147,13 @@ func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 	for i := 0; i < len(md.MissedEpochs); i++ {
 		log := log.With().Uint64("epoch", uint64(md.MissedEpochs[i])).Logger()
 		// Each update goes in to its own transaction, to make the data available sooner.
-		ctx, cancel, err := s.chainDB.BeginTx(ctx)
+		dbCtx, cancel, err := s.chainDB.BeginTx(ctx)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to begin transaction on update after restart")
 			return
 		}
 
-		if err := s.updateProposerDutiesForEpoch(ctx, md.MissedEpochs[i]); err != nil {
+		if err := s.updateProposerDutiesForEpoch(dbCtx, md.MissedEpochs[i]); err != nil {
 			log.Warn().Err(err).Msg("Failed to update proposer duties")
 			failed++
 			cancel()
@@ -166,13 +166,13 @@ func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 		md.MissedEpochs = missedEpochs
 		i--
 
-		if err := s.setMetadata(ctx, md); err != nil {
+		if err := s.setMetadata(dbCtx, md); err != nil {
 			log.Error().Err(err).Msg("Failed to set metadata")
 			cancel()
 			return
 		}
 
-		if err := s.chainDB.CommitTx(ctx); err != nil {
+		if err := s.chainDB.CommitTx(dbCtx); err != nil {
 			log.Error().Err(err).Msg("Failed to commit transaction")
 			cancel()
 			return
