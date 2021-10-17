@@ -1,4 +1,5 @@
 Development:
+  - add f_parent_distance to t_block_summaries
   - use bulk insert for validator balances and validator epoch summaries
 
 0.4.2:

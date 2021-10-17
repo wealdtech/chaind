@@ -39,7 +39,7 @@ func (s *Service) updateBlockSummariesForEpoch(ctx context.Context,
 
 	for slot := minSlot; slot < maxSlot; slot++ {
 		if err := s.updateBlockSummaryForSlot(ctx, slot); err != nil {
-			return errors.Wrap(err, "failed to create summary for block")
+			return errors.Wrap(err, fmt.Sprintf("failed to create summary for block %d", slot))
 		}
 	}
 
@@ -64,14 +64,37 @@ func (s *Service) updateBlockSummaryForSlot(ctx context.Context, slot phase0.Slo
 		Slot: slot,
 	}
 
-	err := s.attestationStatsForBlock(ctx, slot, summary)
+	blocks, err := s.blocksProvider.BlocksBySlot(ctx, slot)
 	if err != nil {
-		return errors.Wrap(err, "failed to calculate block attestation summary statistics for epoch")
+		return errors.Wrap(err, "failed to obtain blocks for slot")
+	}
+	if len(blocks) == 0 {
+		// No block for this slot.
+		return nil
 	}
 
+	var block *chaindb.Block
+	for i := range blocks {
+		if blocks[i].Canonical != nil && *blocks[i].Canonical {
+			block = blocks[i]
+			break
+		}
+	}
+	if block == nil {
+		// No canonical block for this slot.
+		return nil
+	}
+
+	if err := s.attestationStatsForBlock(ctx, slot, summary, block); err != nil {
+		return errors.Wrap(err, "failed to calculate block attestation summary statistics for epoch")
+	}
 	if summary.VotesForBlock == 0 {
 		// No votes implies no block.
 		return nil
+	}
+
+	if err := s.parentDistanceForBlock(ctx, slot, summary, block); err != nil {
+		return errors.Wrap(err, "failed to calculate parent distance summary statistics for epoch")
 	}
 
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
@@ -93,26 +116,8 @@ func (s *Service) updateBlockSummaryForSlot(ctx context.Context, slot phase0.Slo
 func (s *Service) attestationStatsForBlock(ctx context.Context,
 	slot phase0.Slot,
 	summary *chaindb.BlockSummary,
+	block *chaindb.Block,
 ) error {
-	// Ensure the block is canonical.
-	blocks, err := s.blocksProvider.BlocksForSlotRange(ctx, slot, slot+1)
-	if err != nil {
-		return errors.Wrap(err, "failed to obtain block")
-	}
-	if len(blocks) == 0 {
-		return nil
-	}
-	var block *chaindb.Block
-	for i := range blocks {
-		if blocks[i].Canonical != nil && *blocks[i].Canonical {
-			block = blocks[i]
-			break
-		}
-	}
-	if block == nil {
-		// No canonical block found.
-		return nil
-	}
 	log.Trace().Uint64("slot", uint64(slot)).Str("root", fmt.Sprintf("%#x", block.Root)).Msg("Fetching attestations for canonical block")
 
 	attestations, err := s.attestationsProvider.AttestationsForBlock(ctx, block.Root)
@@ -159,6 +164,27 @@ func (s *Service) attestationStatsForBlock(ctx context.Context,
 		}
 	}
 	summary.VotesForBlock = len(votesForBlock)
+
+	return nil
+}
+
+func (s *Service) parentDistanceForBlock(ctx context.Context,
+	slot phase0.Slot,
+	summary *chaindb.BlockSummary,
+	block *chaindb.Block,
+) error {
+	if slot == 0 {
+		return nil
+	}
+
+	log.Trace().Uint64("slot", uint64(slot)).Str("root", fmt.Sprintf("%#x", block.Root)).Msg("Fetching parent for canonical block")
+
+	parentBlock, err := s.blocksProvider.BlockByRoot(ctx, block.ParentRoot)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain parent block")
+	}
+
+	summary.ParentDistance = int(slot - parentBlock.Slot)
 
 	return nil
 }

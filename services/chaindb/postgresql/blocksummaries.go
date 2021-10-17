@@ -30,18 +30,21 @@ func (s *Service) SetBlockSummary(ctx context.Context, summary *chaindb.BlockSum
       INSERT INTO t_block_summaries(f_slot
                                    ,f_attestations_for_block
                                    ,f_duplicate_attestations_for_block
-                                   ,f_votes_for_block)
-      VALUES($1,$2,$3,$4)
+                                   ,f_votes_for_block
+                                   ,f_parent_distance)
+      VALUES($1,$2,$3,$4,$5)
       ON CONFLICT (f_slot) DO
       UPDATE
       SET f_attestations_for_block = excluded.f_attestations_for_block
          ,f_duplicate_attestations_for_block = excluded.f_duplicate_attestations_for_block
          ,f_votes_for_block = excluded.f_votes_for_block
+         ,f_parent_distance = excluded.f_parent_distance
 		 `,
 		summary.Slot,
 		summary.AttestationsForBlock,
 		summary.DuplicateAttestationsForBlock,
 		summary.VotesForBlock,
+		summary.ParentDistance,
 	)
 
 	return err
