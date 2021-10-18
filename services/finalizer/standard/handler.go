@@ -47,16 +47,61 @@ func (s *Service) OnFinalityCheckpointReceived(
 	}
 	defer s.activitySem.Release(1)
 
-	// We have the finalized root but should canonicalize blocks from the justified
-	// root, so fetch finality to obtain that root.
-	finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, "head")
+	// Find the latest canonicalized slot
+	md, err := s.getMetadata(ctx)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to obtain finality")
+		log.Error().Err(err).Msg("Failed to obtain finalizer metadata")
 		return
 	}
+	lastestKnownCanonicalSlot := md.LatestCanonicalSlot
 
-	if err := s.runFinalityTransaction(ctx, finality.Justified.Root, epoch); err != nil {
-		log.Error().Err(err).Msg("Failed to run finality transaction")
+	// We have the finalized root but should canonicalize blocks from the justified
+	// root. We fetch all the blocks from the latest canonical slot, and then 
+	// update them in groups of ~256 to avoid massive Postgres transactions.
+	var rootStack []phase0.Root
+	var epochStack []phase0.Epoch
+	state := "head"
+	slotsPerCommit := int64(256) // Commit every ~256 slots
+
+	for {
+		finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, state)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to obtain finality for state")
+			break
+		}
+		slot := s.chainTime.FirstSlotOfEpoch(finality.Justified.Epoch)
+		if (lastestKnownCanonicalSlot > slot || slot < 1024) {
+			break
+		}
+
+		rootStack = append(rootStack, finality.Justified.Root)
+		epochStack = append(epochStack, finality.Justified.Epoch)
+		nextState := int64(slot) - slotsPerCommit
+
+		if (nextState <= 0) {
+			state = "0"
+		} else {
+			state = fmt.Sprintf("%d", nextState)
+		}
+	}
+
+	for {
+		if (len(rootStack) == 0) {
+			break
+		}
+		rootIndex := len(rootStack) - 1
+		root := (rootStack)[rootIndex]
+		rootStack = (rootStack)[:rootIndex]
+
+		epochIndex := len(epochStack) - 1
+		epoch := (epochStack)[epochIndex]
+		epochStack = (epochStack)[:epochIndex]
+
+		if err := s.runFinalityTransaction(ctx, root, epoch); err != nil {
+			log.Error().Err(err).Msg("Failed to run finality transaction")
+			break
+		}
+
 	}
 
 	monitorEpochProcessed(epoch)
