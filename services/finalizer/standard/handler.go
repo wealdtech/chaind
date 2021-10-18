@@ -51,19 +51,37 @@ func (s *Service) OnFinalityCheckpointReceived(
 	// root, so fetch finality to obtain that root.
 	finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, "head")
 	if err != nil {
-		log.Error().Err(err).Msg("failed to obtain finality")
+		log.Error().Err(err).Msg("Failed to obtain finality")
 		return
 	}
+
+	if err := s.runFinalityTransaction(ctx, finality.Justified.Root, epoch); err != nil {
+		log.Error().Err(err).Msg("Failed to run finality transaction")
+	}
+
+	monitorEpochProcessed(epoch)
+	log.Trace().Msg("Finished handling finality checkpoint")
+
+	// Notify that finality has been updated.
+	for _, finalityHandler := range s.finalityHandlers {
+		go finalityHandler.OnFinalityUpdated(ctx, epoch)
+	}
+}
+
+func (s *Service) runFinalityTransaction(
+	ctx context.Context,
+	root phase0.Root,
+	epoch phase0.Epoch,
+) error {
 
 	opCtx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to begin transaction on finality")
-		return
+		return errors.Wrap(err, "Failed to start transaction on finality")
 	}
 
 	log.Trace().Msg("Updating canonical blocks on finality")
-	if err := s.updateCanonicalBlocks(opCtx, finality.Justified.Root); err != nil {
-		log.Warn().Err(err).Msg("Failed to update canonical blocks on finality")
+	if err := s.updateCanonicalBlocks(opCtx, root); err != nil {
+		return errors.Wrap(err, "Failed to update canonical blocks on finality")
 	}
 
 	log.Trace().Msg("Updating attestation votes on finality")
@@ -82,17 +100,10 @@ func (s *Service) OnFinalityCheckpointReceived(
 
 	if err := s.chainDB.CommitTx(opCtx); err != nil {
 		cancel()
-		log.Error().Err(err).Msg("Failed to commit transaction on finality")
-		return
+		return errors.Wrap(err, "Failed to commit transaction on finality")
 	}
 
-	monitorEpochProcessed(epoch)
-	log.Trace().Msg("Finished handling finality checkpoint")
-
-	// Notify that finality has been updated.
-	for _, finalityHandler := range s.finalityHandlers {
-		go finalityHandler.OnFinalityUpdated(ctx, epoch)
-	}
+	return nil
 }
 
 // updateCanonicalBlocks updates all canonical blocks given a canonical block root.
