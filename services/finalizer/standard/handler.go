@@ -47,43 +47,61 @@ func (s *Service) OnFinalityCheckpointReceived(
 	}
 	defer s.activitySem.Release(1)
 
+	// Find the latest canonicalized slot.
+	md, err := s.getMetadata(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to obtain finalizer metadata")
+		return
+	}
+	lastestKnownCanonicalSlot := md.LatestCanonicalSlot
+
 	// We have the finalized root but should canonicalize blocks from the justified
-	// root, so fetch finality to obtain that root.
-	finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, "head")
-	if err != nil {
-		log.Error().Err(err).Msg("failed to obtain finality")
-		return
+	// root. We fetch all the blocks from the latest canonical slot, and then
+	// update them in groups of ~256 to avoid massive Postgres transactions.
+	var rootStack []phase0.Root
+	var epochStack []phase0.Epoch
+	state := "head"
+	slotsPerCommit := int64(256) // Commit every ~256 slots.
+
+	for {
+		finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, state)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to obtain finality for state")
+			break
+		}
+		slot := s.chainTime.FirstSlotOfEpoch(finality.Justified.Epoch)
+		if lastestKnownCanonicalSlot > slot || slot < 1024 {
+			break
+		}
+
+		rootStack = append(rootStack, finality.Justified.Root)
+		epochStack = append(epochStack, finality.Justified.Epoch)
+		nextState := int64(slot) - slotsPerCommit
+
+		if nextState <= 0 {
+			state = "0"
+		} else {
+			state = fmt.Sprintf("%d", nextState)
+		}
 	}
 
-	opCtx, cancel, err := s.chainDB.BeginTx(ctx)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to begin transaction on finality")
-		return
-	}
+	for {
+		if len(rootStack) == 0 {
+			break
+		}
+		rootIndex := len(rootStack) - 1
+		root := rootStack[rootIndex]
+		rootStack = rootStack[:rootIndex]
 
-	log.Trace().Msg("Updating canonical blocks on finality")
-	if err := s.updateCanonicalBlocks(opCtx, finality.Justified.Root); err != nil {
-		log.Warn().Err(err).Msg("Failed to update canonical blocks on finality")
-	}
+		epochIndex := len(epochStack) - 1
+		epoch := epochStack[epochIndex]
+		epochStack = epochStack[:epochIndex]
 
-	log.Trace().Msg("Updating attestation votes on finality")
-	// We have canonicalized blocks up to the justified root, which is usually the
-	// first slot of the epoch following the finalized epoch.  Because it is possible
-	// for attestations for the finalized epoch to be in blocks beyond this (specifically
-	// in the other 31 slots of the epoch containing the justified root) we update
-	// attestations for the epoch prior to the finalized epoch.
-	if err := s.updateAttestations(opCtx, epoch-1); err != nil {
-		// It is possible for a finalized block to arrive after block finalization has
-		// completed, in which case we will receive an error here (because the block is
-		// not marked as finalized).  As such we do not log this error as a problem; the
-		// block and related attestations will be finalized again next time around.
-		log.Debug().Err(err).Msg("Failed to update attestations on finality")
-	}
+		if err := s.runFinalityTransaction(ctx, root, epoch); err != nil {
+			log.Error().Err(err).Msg("Failed to run finality transaction")
+			break
+		}
 
-	if err := s.chainDB.CommitTx(opCtx); err != nil {
-		cancel()
-		log.Error().Err(err).Msg("Failed to commit transaction on finality")
-		return
 	}
 
 	monitorEpochProcessed(epoch)
@@ -93,6 +111,44 @@ func (s *Service) OnFinalityCheckpointReceived(
 	for _, finalityHandler := range s.finalityHandlers {
 		go finalityHandler.OnFinalityUpdated(ctx, epoch)
 	}
+}
+
+func (s *Service) runFinalityTransaction(
+	ctx context.Context,
+	root phase0.Root,
+	epoch phase0.Epoch,
+) error {
+
+	ctx, cancel, err := s.chainDB.BeginTx(ctx)
+	if err != nil {
+		return errors.Wrap(err, "Failed to start transaction on finality")
+	}
+
+	log.Trace().Msg("Updating canonical blocks on finality")
+	if err := s.updateCanonicalBlocks(ctx, root); err != nil {
+		return errors.Wrap(err, "Failed to update canonical blocks on finality")
+	}
+
+	log.Trace().Msg("Updating attestation votes on finality")
+	// We have canonicalized blocks up to the justified root, which is usually the
+	// first slot of the epoch following the finalized epoch.  Because it is possible
+	// for attestations for the finalized epoch to be in blocks beyond this (specifically
+	// in the other 31 slots of the epoch containing the justified root) we update
+	// attestations for the epoch prior to the finalized epoch.
+	if err := s.updateAttestations(ctx, epoch-1); err != nil {
+		// It is possible for a finalized block to arrive after block finalization has
+		// completed, in which case we will receive an error here (because the block is
+		// not marked as finalized).  As such we do not log this error as a problem; the
+		// block and related attestations will be finalized again next time around.
+		log.Debug().Err(err).Msg("Failed to update attestations on finality")
+	}
+
+	if err := s.chainDB.CommitTx(ctx); err != nil {
+		cancel()
+		return errors.Wrap(err, "Failed to commit transaction on finality")
+	}
+
+	return nil
 }
 
 // updateCanonicalBlocks updates all canonical blocks given a canonical block root.
