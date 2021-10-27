@@ -56,7 +56,6 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	md, err := s.getMetadata(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to obtain metadata")
-		md.MissedSlots = append(md.MissedSlots, slot)
 		return
 	}
 
