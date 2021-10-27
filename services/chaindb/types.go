@@ -215,6 +215,7 @@ type BlockSummary struct {
 	AttestationsForBlock          int
 	DuplicateAttestationsForBlock int
 	VotesForBlock                 int
+	ParentDistance                int
 }
 
 // EpochSummary provides a summary of an epoch.

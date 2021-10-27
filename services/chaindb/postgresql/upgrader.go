@@ -26,7 +26,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(4)
+var currentVersion = uint64(5)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -66,6 +66,11 @@ var upgrades = map[uint64]*upgrade{
 	4: {
 		funcs: []func(context.Context, *Service) error{
 			addDepositsIndex,
+		},
+	},
+	5: {
+		funcs: []func(context.Context, *Service) error{
+			addBlockParentDistance,
 		},
 	},
 }
@@ -964,6 +969,7 @@ CREATE TABLE t_block_summaries (
  ,f_attestations_for_block           INTEGER NOT NULL
  ,f_duplicate_attestations_for_block INTEGER NOT NULL
  ,f_votes_for_block                  INTEGER NOT NULL
+ ,f_parent_distance                  INTEGER NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS i_block_summaries_1 ON t_block_summaries(f_slot);
 
@@ -1053,6 +1059,56 @@ func addDepositsIndex(ctx context.Context, s *Service) error {
 
 	if _, err := tx.Exec(ctx, "CREATE INDEX IF NOT EXISTS i_deposits_2 ON t_deposits(f_validator_pubkey,f_inclusion_slot)"); err != nil {
 		return errors.Wrap(err, "failed to create deposits index (2)")
+	}
+
+	return nil
+}
+
+// addBlockParentDistance adds f_parent_distance index to the t_block_summaries table.
+func addBlockParentDistance(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	// Add column.
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_block_summaries
+ADD COLUMN f_parent_distance INTEGER
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_parent_distance to block epoch summaries table")
+	}
+
+	// Populate column.
+	if _, err := tx.Exec(ctx, `
+WITH new_values AS (
+  WITH cte AS (
+    SELECT f_slot,f_parent_root
+	FROM t_blocks
+	WHERE f_slot != 0
+  )
+  SELECT cte.f_slot
+        ,cte.f_slot - t_blocks.f_slot AS f_parent_distance
+  FROM cte
+  LEFT JOIN t_blocks ON cte.f_parent_root = t_blocks.f_root
+  UNION
+  SELECT 0 AS f_slot, 0 as f_parent_distance
+)
+UPDATE t_block_summaries
+SET f_parent_distance = new_values.f_parent_distance
+FROM new_values
+WHERE new_values.f_slot = t_block_summaries.f_slot
+`); err != nil {
+		return errors.Wrap(err, "failed to drop NOT NULL constraint on f_parent_distance")
+	}
+
+	// Drop NOT NULL constraints.
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_block_summaries
+ALTER COLUMN f_parent_distance
+SET NOT NULL
+`); err != nil {
+		return errors.Wrap(err, "failed to drop NOT NULL constraint on f_parent_distance")
 	}
 
 	return nil
