@@ -37,6 +37,8 @@ type Service interface {
 	SlotToEpoch(slot phase0.Slot) phase0.Epoch
 	// SlotToSyncCommitteePeriod provides the sync committee period of the given slot.
 	SlotToSyncCommitteePeriod(slot phase0.Slot) uint64
+	// EpochToSyncCommitteePeriod provides the sync committee period of the given epoch.
+	EpochToSyncCommitteePeriod(epoch phase0.Epoch) uint64
 	// FirstSlotOfEpoch provides the first slot of the given epoch.
 	FirstSlotOfEpoch(epoch phase0.Epoch) phase0.Slot
 	// TimestampToSlot provides the slot of the given timestamp.

@@ -146,6 +146,11 @@ func (s *Service) SlotToSyncCommitteePeriod(slot phase0.Slot) uint64 {
 	return uint64(s.SlotToEpoch(slot)) / s.epochsPerSyncCommitteePeriod
 }
 
+// EpochToSyncCommitteePeriod provides the sync committee period of the given epoch.
+func (s *Service) EpochToSyncCommitteePeriod(epoch phase0.Epoch) uint64 {
+	return uint64(epoch) / s.epochsPerSyncCommitteePeriod
+}
+
 // FirstSlotOfEpoch provides the first slot of the given epoch.
 func (s *Service) FirstSlotOfEpoch(epoch phase0.Epoch) phase0.Slot {
 	return phase0.Slot(uint64(epoch) * s.slotsPerEpoch)

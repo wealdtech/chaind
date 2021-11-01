@@ -1,3 +1,6 @@
+dev
+  - fix missed sync committee information if first block of period is missed
+
 0.5.0
   - add f_parent_distance to t_block_summaries
   - fix crash on database disconnect
