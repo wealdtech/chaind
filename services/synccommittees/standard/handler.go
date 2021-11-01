@@ -30,35 +30,39 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	stateRoot phase0.Root,
 	epochTransition bool,
 ) {
-	if !epochTransition {
-		// Only interested in epoch transitions.
-		return
-	}
-
-	epoch := s.chainTime.SlotToEpoch(slot)
-	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
-
-	if uint64(epoch)%s.epochsPerSyncCommitteePeriod != 0 && epoch != s.chainTime.AltairInitialEpoch() {
-		// Only interested in sync period boundaries.
-		return
-	}
-
 	// Only allow 1 handler to be active.
 	acquired := s.activitySem.TryAcquire(1)
 	if !acquired {
 		log.Debug().Msg("Another handler running")
 		return
 	}
+	defer s.activitySem.Release(1)
+
+	epoch := s.chainTime.SlotToEpoch(slot)
+	period := s.chainTime.EpochToSyncCommitteePeriod(epoch)
+	log := log.With().Uint64("slot", uint64(slot)).Uint64("epoch", uint64(epoch)).Uint64("period", period).Logger()
+
+	if period < s.chainTime.AltairInitialSyncCommitteePeriod() {
+		log.Trace().Msg("Chain is not yet generating sync committees")
+		return
+	}
 
 	md, err := s.getMetadata(ctx)
 	if err != nil {
-		s.activitySem.Release(1)
 		log.Error().Err(err).Msg("Failed to obtain metadata")
 		return
 	}
 
+	// Due to LatestPeriod being a uint64 we can't tell if we have already
+	// obtained sync committees for period 0.  This is inefficient, but given
+	// that no chains meet this condition we take the hit on efficiency rather
+	// than complicate the logic.
+	if period <= md.LatestPeriod && period != 0 {
+		log.Trace().Msg("Already have sync committees for this period")
+		return
+	}
+
 	s.catchup(ctx, md)
-	s.activitySem.Release(1)
 }
 
 func (s *Service) updateSyncCommitteeForPeriod(ctx context.Context, period uint64) error {
