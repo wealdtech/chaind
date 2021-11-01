@@ -117,7 +117,7 @@ func (s *Service) updateAfterRestart(ctx context.Context, startPeriod int64) {
 	// Set up the handler for new chain head updates.
 	if err := s.eventsProvider.Events(ctx, []string{"head"}, func(event *api.Event) {
 		eventData := event.Data.(*api.HeadEvent)
-		s.OnBeaconChainHeadUpdated(ctx, eventData.Slot, eventData.Block, eventData.State, eventData.EpochTransition)
+		s.OnBeaconChainHeadUpdated(ctx, eventData.Slot)
 	}); err != nil {
 		log.Fatal().Err(err).Msg("Failed to add sync chain head updated handler")
 	}

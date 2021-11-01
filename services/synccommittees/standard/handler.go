@@ -26,9 +26,6 @@ import (
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
 	slot phase0.Slot,
-	blockRoot phase0.Root,
-	stateRoot phase0.Root,
-	epochTransition bool,
 ) {
 	// Only allow 1 handler to be active.
 	acquired := s.activitySem.TryAcquire(1)
