@@ -33,6 +33,10 @@ func (s *Service) SetSyncAggregate(ctx context.Context, syncAggregate *chaindb.S
                                    ,f_indices
                                   )
       VALUES($1,$2,$3,$4)
+      ON CONFLICT (f_inclusion_slot, f_inclusion_block_root) DO
+      UPDATE
+      SET f_bits = excluded.f_bits
+         ,f_indices = excluded.f_indices
 	  `,
 		syncAggregate.InclusionSlot,
 		syncAggregate.InclusionBlockRoot[:],

@@ -101,13 +101,15 @@ func (s *Service) updateAfterRestart(ctx context.Context, startPeriod int64) {
 	}
 	if startPeriod >= 0 {
 		// Explicit requirement to start at a given epoch.
-		md.LatestPeriod = uint64(startPeriod)
-	} else if md.LatestPeriod > 0 {
-		// We have a definite hit on this being the last processed period; increment it to avoid duplication of work.
-		md.LatestPeriod++
+		// N.B. start period is latest period + 1.
+		md.LatestPeriod = uint64(startPeriod) - 1
 	}
 	if s.chainTime.AltairInitialSyncCommitteePeriod() > md.LatestPeriod {
 		md.LatestPeriod = s.chainTime.AltairInitialSyncCommitteePeriod()
+		// Decrement if possible.
+		if md.LatestPeriod > 0 {
+			md.LatestPeriod--
+		}
 	}
 
 	log.Info().Uint64("period", md.LatestPeriod).Msg("Catching up from period")
@@ -124,7 +126,14 @@ func (s *Service) updateAfterRestart(ctx context.Context, startPeriod int64) {
 }
 
 func (s *Service) catchup(ctx context.Context, md *metadata) {
-	for period := md.LatestPeriod; period <= s.chainTime.CurrentSyncCommitteePeriod(); period++ {
+	// If latest period is 0 we assume it means 'no latest period' rather than
+	// 'latest period is 0', so keep period at 0.
+	period := md.LatestPeriod
+	if period > 0 {
+		// Start at the next period.
+		period++
+	}
+	for ; period <= s.chainTime.CurrentSyncCommitteePeriod(); period++ {
 		log := log.With().Uint64("period", period).Logger()
 		// Each update goes in to its own transaction, to make the data available sooner.
 		ctx, cancel, err := s.chainDB.BeginTx(ctx)

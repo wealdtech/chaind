@@ -1,4 +1,4 @@
-dev
+0.5.1
   - fix missed sync committee information if first block of period is missed
 
 0.5.0
