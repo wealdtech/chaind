@@ -92,3 +92,46 @@ func (s *Service) ProposerDutiesForSlotRange(ctx context.Context,
 
 	return proposerDuties, nil
 }
+
+// ProposerDutiesForValidator provides all proposer duties for the given validator index.
+func (s *Service) ProposerDutiesForValidator(ctx context.Context, proposer phase0.ValidatorIndex) ([]*chaindb.ProposerDuty, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+SELECT f_slot
+FROM t_proposer_duties
+WHERE f_validator_index = $1
+ORDER BY f_slot
+`,
+		proposer,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	proposerDuties := make([]*chaindb.ProposerDuty, 0)
+
+	for rows.Next() {
+		proposerDuty := &chaindb.ProposerDuty{
+			ValidatorIndex: proposer,
+		}
+		err := rows.Scan(
+			&proposerDuty.Slot,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		proposerDuties = append(proposerDuties, proposerDuty)
+	}
+
+	return proposerDuties, nil
+}

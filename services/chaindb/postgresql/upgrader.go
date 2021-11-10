@@ -808,7 +808,7 @@ CREATE TABLE t_beacon_committees (
 );
 CREATE UNIQUE INDEX i_beacon_committees_1 ON t_beacon_committees(f_slot, f_index);
 
--- t_propser_duties contains all proposer duties.
+-- t_proposer_duties contains all proposer duties.
 -- N.B. in the case of a chain re-org the duties can alter.
 CREATE TABLE t_proposer_duties (
   f_slot BIGINT NOT NULL

@@ -178,6 +178,9 @@ type ProposerDutiesProvider interface {
 	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 	// proposer duties for slots 2 and 3.
 	ProposerDutiesForSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*ProposerDuty, error)
+
+	// ProposerDutiesForValidator provides all proposer duties for the given validator index.
+	ProposerDutiesForValidator(ctx context.Context, proposer phase0.ValidatorIndex) ([]*ProposerDuty, error)
 }
 
 // ProposerDutiesSetter defines the functions to create and update proposer duties.
@@ -340,6 +343,12 @@ type ValidatorEpochSummariesSetter interface {
 
 	// SetValidatorEpochSummaries sets multiple validator epoch summaries.
 	SetValidatorEpochSummaries(ctx context.Context, summaries []*ValidatorEpochSummary) error
+}
+
+// ValidatorEpochSummariesProvider defines functions to fetch validator epoch summaries.
+type ValidatorEpochSummariesProvider interface {
+	// ValidatorSummariesForEpoch obtains all summaries for a given epoch.
+	ValidatorSummariesForEpoch(ctx context.Context, epoch phase0.Epoch) ([]*ValidatorEpochSummary, error)
 }
 
 // BlockSummariesSetter defines functions to create and update block summaries.

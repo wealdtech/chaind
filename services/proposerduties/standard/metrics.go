@@ -47,7 +47,7 @@ func registerPrometheusMetrics(ctx context.Context) error {
 	latestEpoch = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "latest_epoch",
-		Help:      "Latest epoch processed for propser duties",
+		Help:      "Latest epoch processed for proposer duties",
 	})
 	if err := prometheus.Register(latestEpoch); err != nil {
 		return errors.Wrap(err, "failed to register latest_epoch")
