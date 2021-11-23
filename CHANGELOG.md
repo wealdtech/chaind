@@ -1,3 +1,6 @@
+development
+  - correct summary value for attestations in epoch
+
 0.5.1
   - fix missed sync committee information if first block of period is missed
 

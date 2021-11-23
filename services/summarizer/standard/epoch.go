@@ -196,13 +196,14 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
 	maxSlot := s.chainTime.FirstSlotOfEpoch(epoch + 1)
 
-	attestations, err := s.attestationsProvider.AttestationsForSlotRange(ctx, minSlot, maxSlot)
+	attestationsForEpoch, err := s.attestationsProvider.AttestationsForSlotRange(ctx, minSlot, maxSlot)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain attestations")
 	}
+	log.Trace().Uint64("epoch", uint64(epoch)).Uint64("min_slot", uint64(minSlot)).Uint64("max_slot", uint64(maxSlot)).Int("attestations", len(attestationsForEpoch)).Msg("Obtained attestations for epoch")
 	epochAttestations := make([]*chaindb.Attestation, 0)
 	seenAttestations := make(map[phase0.Root]bool)
-	for _, attestation := range attestations {
+	for _, attestation := range attestationsForEpoch {
 		specAttestation := &phase0.Attestation{
 			AggregationBits: attestation.AggregationBits,
 			Data: &phase0.AttestationData{
@@ -233,16 +234,21 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 		}
 		seenAttestations[specAttestationRoot] = true
 		if attestation.Canonical == nil || !*attestation.Canonical {
+			log.Trace().Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Uint64("inclusion_index", attestation.InclusionIndex).Msg("Attestation is not canonical; ignoring")
 			continue
 		}
 		if attestation.Slot >= minSlot && attestation.Slot < maxSlot {
 			summary.AttestationsForEpoch++
 			epochAttestations = append(epochAttestations, attestation)
 		}
-		if attestation.InclusionSlot >= minSlot && attestation.InclusionSlot < maxSlot {
-			summary.AttestationsInEpoch++
-		}
 	}
+
+	// Fetch all attestations in the epoch for a simple count.
+	attestationsInEpoch, err := s.attestationsProvider.AttestationsInSlotRange(ctx, minSlot, maxSlot)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain attestations in epoch")
+	}
+	summary.AttestationsInEpoch = len(attestationsInEpoch)
 
 	// epochAttestations contains the list of attestations we need to process.
 	attestingValidatorBalances := make(map[phase0.ValidatorIndex]phase0.Gwei)
