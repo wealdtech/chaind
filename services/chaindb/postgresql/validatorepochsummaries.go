@@ -233,3 +233,92 @@ ORDER BY f_validator_index
 
 	return summaries, nil
 }
+
+// ValidatorSummaryForEpoch obtains the summary of a validator for a given epoch.
+func (s *Service) ValidatorSummaryForEpoch(ctx context.Context,
+	index phase0.ValidatorIndex,
+	epoch phase0.Epoch,
+) (
+	*chaindb.ValidatorEpochSummary,
+	error,
+) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	summary := &chaindb.ValidatorEpochSummary{}
+	var attestationTargetCorrect sql.NullBool
+	var attestationHeadCorrect sql.NullBool
+	var attestationInclusionDelay sql.NullInt32
+	var attestationSourceTimely sql.NullBool
+	var attestationTargetTimely sql.NullBool
+	var attestationHeadTimely sql.NullBool
+
+	err := tx.QueryRow(ctx, `
+SELECT f_validator_index
+      ,f_epoch
+      ,f_proposer_duties
+      ,f_proposals_included
+      ,f_attestation_included
+      ,f_attestation_target_correct
+      ,f_attestation_head_correct
+      ,f_attestation_inclusion_delay
+      ,f_attestation_source_timely
+      ,f_attestation_target_timely
+      ,f_attestation_head_timely
+FROM t_validator_epoch_summaries
+WHERE f_validator_index = $1
+  AND f_epoch = $2
+`,
+		index,
+		epoch,
+	).Scan(
+		&summary.Index,
+		&summary.Epoch,
+		&summary.ProposerDuties,
+		&summary.ProposalsIncluded,
+		&summary.AttestationIncluded,
+		&attestationTargetCorrect,
+		&attestationHeadCorrect,
+		&attestationInclusionDelay,
+		&attestationSourceTimely,
+		&attestationTargetTimely,
+		&attestationHeadTimely,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to scan row")
+	}
+
+	if attestationTargetCorrect.Valid {
+		val := attestationTargetCorrect.Bool
+		summary.AttestationTargetCorrect = &val
+	}
+	if attestationHeadCorrect.Valid {
+		val := attestationHeadCorrect.Bool
+		summary.AttestationHeadCorrect = &val
+	}
+	if attestationInclusionDelay.Valid {
+		val := int(attestationInclusionDelay.Int32)
+		summary.AttestationInclusionDelay = &val
+	}
+	if attestationSourceTimely.Valid {
+		val := attestationSourceTimely.Bool
+		summary.AttestationSourceTimely = &val
+	}
+	if attestationTargetTimely.Valid {
+		val := attestationTargetTimely.Bool
+		summary.AttestationTargetTimely = &val
+	}
+	if attestationHeadTimely.Valid {
+		val := attestationHeadTimely.Bool
+		summary.AttestationHeadTimely = &val
+	}
+
+	return summary, nil
+}
