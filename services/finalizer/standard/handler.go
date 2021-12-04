@@ -47,7 +47,7 @@ func (s *Service) OnFinalityCheckpointReceived(
 	}
 	defer s.activitySem.Release(1)
 
-	// Find the latest canonicalized slot
+	// Find the latest canonicalized slot.
 	md, err := s.getMetadata(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to obtain finalizer metadata")
@@ -56,12 +56,13 @@ func (s *Service) OnFinalityCheckpointReceived(
 	lastestKnownCanonicalSlot := md.LatestCanonicalSlot
 
 	// We have the finalized root but should canonicalize blocks from the justified
-	// root. We fetch all the blocks from the latest canonical slot, and then 
-	// update them in groups of ~256 to avoid massive Postgres transactions.
+	// root. We fetch all the blocks from the latest canonical slot, and then
+	// update them in groups of ~256 to avoid massive transactions.
 	var rootStack []phase0.Root
 	var epochStack []phase0.Epoch
 	state := "head"
-	slotsPerCommit := int64(256) // Commit every ~256 slots
+	// Commit every ~256 slots.
+	slotsPerCommit := int64(256)
 
 	for {
 		finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, state)
@@ -70,7 +71,7 @@ func (s *Service) OnFinalityCheckpointReceived(
 			break
 		}
 		slot := s.chainTime.FirstSlotOfEpoch(finality.Justified.Epoch)
-		if (lastestKnownCanonicalSlot > slot || slot < 1024) {
+		if lastestKnownCanonicalSlot > slot || slot < 1024 {
 			break
 		}
 
@@ -78,30 +79,30 @@ func (s *Service) OnFinalityCheckpointReceived(
 		epochStack = append(epochStack, finality.Justified.Epoch)
 		nextState := int64(slot) - slotsPerCommit
 
-		if (nextState <= 0) {
+		if nextState <= 0 {
 			state = "0"
 		} else {
 			state = fmt.Sprintf("%d", nextState)
 		}
 	}
+	log.Trace().Int("stack", len(rootStack)).Msg("Obtained roots and epochs")
 
 	for {
-		if (len(rootStack) == 0) {
+		if len(rootStack) == 0 {
 			break
 		}
 		rootIndex := len(rootStack) - 1
-		root := (rootStack)[rootIndex]
-		rootStack = (rootStack)[:rootIndex]
+		root := rootStack[rootIndex]
+		rootStack = rootStack[:rootIndex]
 
 		epochIndex := len(epochStack) - 1
-		epoch := (epochStack)[epochIndex]
-		epochStack = (epochStack)[:epochIndex]
+		epoch := epochStack[epochIndex]
+		epochStack = epochStack[:epochIndex]
 
 		if err := s.runFinalityTransaction(ctx, root, epoch); err != nil {
 			log.Error().Err(err).Msg("Failed to run finality transaction")
 			break
 		}
-
 	}
 
 	monitorEpochProcessed(epoch)
@@ -118,14 +119,15 @@ func (s *Service) runFinalityTransaction(
 	root phase0.Root,
 	epoch phase0.Epoch,
 ) error {
+	log := log.With().Uint64("epoch", uint64(epoch)).Str("root", fmt.Sprintf("%#x", root)).Logger()
 
-	opCtx, cancel, err := s.chainDB.BeginTx(ctx)
+	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
 		return errors.Wrap(err, "Failed to start transaction on finality")
 	}
 
 	log.Trace().Msg("Updating canonical blocks on finality")
-	if err := s.updateCanonicalBlocks(opCtx, root); err != nil {
+	if err := s.updateCanonicalBlocks(ctx, root); err != nil {
 		return errors.Wrap(err, "Failed to update canonical blocks on finality")
 	}
 
@@ -135,7 +137,7 @@ func (s *Service) runFinalityTransaction(
 	// for attestations for the finalized epoch to be in blocks beyond this (specifically
 	// in the other 31 slots of the epoch containing the justified root) we update
 	// attestations for the epoch prior to the finalized epoch.
-	if err := s.updateAttestations(opCtx, epoch-1); err != nil {
+	if err := s.updateAttestations(ctx, epoch-1); err != nil {
 		// It is possible for a finalized block to arrive after block finalization has
 		// completed, in which case we will receive an error here (because the block is
 		// not marked as finalized).  As such we do not log this error as a problem; the
@@ -143,7 +145,7 @@ func (s *Service) runFinalityTransaction(
 		log.Debug().Err(err).Msg("Failed to update attestations on finality")
 	}
 
-	if err := s.chainDB.CommitTx(opCtx); err != nil {
+	if err := s.chainDB.CommitTx(ctx); err != nil {
 		cancel()
 		return errors.Wrap(err, "Failed to commit transaction on finality")
 	}
@@ -286,7 +288,7 @@ func (s *Service) updateAttestations(ctx context.Context, epoch phase0.Epoch) er
 
 	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("latest_epoch", uint64(epoch)).Msg("Epochs over which to update attestations")
 	for curEpoch := firstEpoch; curEpoch <= epoch; curEpoch++ {
-		if err := s.updateAttestationsForEpoch(ctx, curEpoch); err != nil {
+		if err := s.updateAttestationsInEpoch(ctx, curEpoch); err != nil {
 			return errors.Wrap(err, "failed to update attestations for epoch")
 		}
 		md.LastFinalizedEpoch = curEpoch
@@ -298,13 +300,13 @@ func (s *Service) updateAttestations(ctx context.Context, epoch phase0.Epoch) er
 	return nil
 }
 
-func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch phase0.Epoch) error {
+func (s *Service) updateAttestationsInEpoch(ctx context.Context, epoch phase0.Epoch) error {
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	log.Trace().Msg("Updating attestation finality for epoch")
 
-	attestations, err := s.chainDB.(chaindb.AttestationsProvider).AttestationsForSlotRange(ctx, s.chainTime.FirstSlotOfEpoch(epoch), s.chainTime.FirstSlotOfEpoch(epoch+1))
+	attestations, err := s.chainDB.(chaindb.AttestationsProvider).AttestationsInSlotRange(ctx, s.chainTime.FirstSlotOfEpoch(epoch), s.chainTime.FirstSlotOfEpoch(epoch+1))
 	if err != nil {
-		return errors.Wrap(err, "failed to obtain attestations for epoch")
+		return errors.Wrap(err, "failed to obtain attestations in epoch")
 	}
 
 	// Keep track of block canonical state for slots to reduce lookups.
