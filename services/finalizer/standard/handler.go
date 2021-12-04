@@ -230,8 +230,8 @@ func (s *Service) updateAttestations(ctx context.Context, epoch phase0.Epoch) er
 
 	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("latest_epoch", uint64(epoch)).Msg("Epochs over which to update attestations")
 	for curEpoch := firstEpoch; curEpoch <= epoch; curEpoch++ {
-		if err := s.updateAttestationsForEpoch(ctx, curEpoch); err != nil {
-			return errors.Wrap(err, "failed to update attestations for epoch")
+		if err := s.updateAttestationsInEpoch(ctx, curEpoch); err != nil {
+			return errors.Wrap(err, "failed to update attestations in epoch")
 		}
 		md.LastFinalizedEpoch = curEpoch
 		if err := s.setMetadata(ctx, md); err != nil {
@@ -242,13 +242,13 @@ func (s *Service) updateAttestations(ctx context.Context, epoch phase0.Epoch) er
 	return nil
 }
 
-func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch phase0.Epoch) error {
+func (s *Service) updateAttestationsInEpoch(ctx context.Context, epoch phase0.Epoch) error {
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	log.Trace().Msg("Updating attestation finality for epoch")
 
-	attestations, err := s.chainDB.(chaindb.AttestationsProvider).AttestationsForSlotRange(ctx, s.chainTime.FirstSlotOfEpoch(epoch), s.chainTime.FirstSlotOfEpoch(epoch+1))
+	attestations, err := s.chainDB.(chaindb.AttestationsProvider).AttestationsInSlotRange(ctx, s.chainTime.FirstSlotOfEpoch(epoch), s.chainTime.FirstSlotOfEpoch(epoch+1))
 	if err != nil {
-		return errors.Wrap(err, "failed to obtain attestations for epoch")
+		return errors.Wrap(err, "failed to obtain attestations in epoch")
 	}
 
 	// Keep track of block canonical state for slots to reduce lookups.
