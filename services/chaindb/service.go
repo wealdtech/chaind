@@ -345,8 +345,17 @@ type ValidatorEpochSummariesSetter interface {
 	SetValidatorEpochSummaries(ctx context.Context, summaries []*ValidatorEpochSummary) error
 }
 
+// BlockSummariesProvider defines functions to fetch block summaries.
+type BlockSummariesProvider interface {
+	// BlockSummaryForSlot obtains the summary of a block for a given slot.
+	BlockSummaryForSlot(ctx context.Context, slot phase0.Slot) (*BlockSummary, error)
+}
+
 // ValidatorEpochSummariesProvider defines functions to fetch validator epoch summaries.
 type ValidatorEpochSummariesProvider interface {
+	// ValidatorSummaries provides summaries according to the filter.
+	ValidatorSummaries(ctx context.Context, filter *ValidatorSummaryFilter) ([]*ValidatorEpochSummary, error)
+
 	// ValidatorSummariesForEpoch obtains all summaries for a given epoch.
 	ValidatorSummariesForEpoch(ctx context.Context, epoch phase0.Epoch) ([]*ValidatorEpochSummary, error)
 

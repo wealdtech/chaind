@@ -16,6 +16,8 @@ package postgresql
 import (
 	"context"
 
+	"github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
@@ -48,4 +50,41 @@ func (s *Service) SetBlockSummary(ctx context.Context, summary *chaindb.BlockSum
 	)
 
 	return err
+}
+
+// BlockSummaryForSlot obtains the summary of a block for a given slot.
+func (s *Service) BlockSummaryForSlot(ctx context.Context, slot phase0.Slot) (*chaindb.BlockSummary, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	summary := &chaindb.BlockSummary{
+		Slot: slot,
+	}
+	err := tx.QueryRow(ctx, `
+SELECT f_attestations_for_block
+      ,f_duplicate_attestations_for_block
+      ,f_votes_for_block
+      ,f_parent_distance
+FROM t_block_summaries
+WHERE f_slot = $1
+`,
+		slot,
+	).Scan(
+		&summary.AttestationsForBlock,
+		&summary.DuplicateAttestationsForBlock,
+		&summary.VotesForBlock,
+		&summary.ParentDistance,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to scan row")
+	}
+
+	return summary, nil
 }

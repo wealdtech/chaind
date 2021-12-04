@@ -16,6 +16,9 @@ package postgresql
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/jackc/pgx/v4"
@@ -141,6 +144,144 @@ func (s *Service) SetValidatorEpochSummary(ctx context.Context, summary *chaindb
 	)
 
 	return err
+}
+
+// ValidatorSummaries provides summaries according to the filter.
+func (s *Service) ValidatorSummaries(ctx context.Context, filter *chaindb.ValidatorSummaryFilter) ([]*chaindb.ValidatorEpochSummary, error) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	// Build the query.
+	queryBuilder := strings.Builder{}
+	queryVals := make([]interface{}, 0)
+
+	queryBuilder.WriteString(`
+SELECT f_validator_index
+      ,f_epoch
+      ,f_proposer_duties
+      ,f_proposals_included
+      ,f_attestation_included
+      ,f_attestation_target_correct
+      ,f_attestation_head_correct
+      ,f_attestation_inclusion_delay
+      ,f_attestation_source_timely
+      ,f_attestation_target_timely
+      ,f_attestation_head_timely
+FROM t_validator_epoch_summaries`)
+
+	wherestr := "WHERE"
+
+	if filter.From != nil {
+		queryVals = append(queryVals, *filter.From)
+		queryBuilder.WriteString(fmt.Sprintf(`
+%s f_epoch >= $%d`, wherestr, len(queryVals)))
+		wherestr = "  AND"
+	}
+
+	if filter.To != nil {
+		queryVals = append(queryVals, *filter.To)
+		queryBuilder.WriteString(fmt.Sprintf(`
+%s f_epoch <= $%d`, wherestr, len(queryVals)))
+	}
+
+	if filter.ValidatorIndices != nil && len(*filter.ValidatorIndices) > 0 {
+		queryVals = append(queryVals, *filter.ValidatorIndices)
+		queryBuilder.WriteString(fmt.Sprintf(`
+%s f_validator_index = ANY($%d)`, wherestr, len(queryVals)))
+	}
+
+	switch filter.Order {
+	case chaindb.OrderEarliest:
+		queryBuilder.WriteString(`
+ORDER BY f_epoch, f_validator_index`)
+	case chaindb.OrderLatest:
+		queryBuilder.WriteString(`
+ORDER BY f_epoch DESC,f_validator_index DESC`)
+	default:
+		return nil, errors.New("no order specified")
+	}
+
+	queryVals = append(queryVals, filter.Limit)
+	queryBuilder.WriteString(fmt.Sprintf(`
+LIMIT $%d`, len(queryVals)))
+
+	rows, err := tx.Query(ctx,
+		queryBuilder.String(),
+		queryVals...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	summaries := make([]*chaindb.ValidatorEpochSummary, 0)
+	for rows.Next() {
+		summary := &chaindb.ValidatorEpochSummary{}
+		var attestationTargetCorrect sql.NullBool
+		var attestationHeadCorrect sql.NullBool
+		var attestationInclusionDelay sql.NullInt32
+		var attestationSourceTimely sql.NullBool
+		var attestationTargetTimely sql.NullBool
+		var attestationHeadTimely sql.NullBool
+		err := rows.Scan(
+			&summary.Index,
+			&summary.Epoch,
+			&summary.ProposerDuties,
+			&summary.ProposalsIncluded,
+			&summary.AttestationIncluded,
+			&attestationTargetCorrect,
+			&attestationHeadCorrect,
+			&attestationInclusionDelay,
+			&attestationSourceTimely,
+			&attestationTargetTimely,
+			&attestationHeadTimely,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		if attestationTargetCorrect.Valid {
+			val := attestationTargetCorrect.Bool
+			summary.AttestationTargetCorrect = &val
+		}
+		if attestationHeadCorrect.Valid {
+			val := attestationHeadCorrect.Bool
+			summary.AttestationHeadCorrect = &val
+		}
+		if attestationInclusionDelay.Valid {
+			val := int(attestationInclusionDelay.Int32)
+			summary.AttestationInclusionDelay = &val
+		}
+		if attestationSourceTimely.Valid {
+			val := attestationSourceTimely.Bool
+			summary.AttestationSourceTimely = &val
+		}
+		if attestationTargetTimely.Valid {
+			val := attestationTargetTimely.Bool
+			summary.AttestationTargetTimely = &val
+		}
+		if attestationHeadTimely.Valid {
+			val := attestationHeadTimely.Bool
+			summary.AttestationHeadTimely = &val
+		}
+		summaries = append(summaries, summary)
+	}
+
+	// Always return order of epoch then validator index.
+	sort.Slice(summaries, func(i int, j int) bool {
+		if summaries[i].Epoch != summaries[j].Epoch {
+			return summaries[i].Epoch < summaries[j].Epoch
+		}
+		return summaries[i].Index < summaries[j].Index
+	})
+	return summaries, nil
+
 }
 
 // ValidatorSummariesForEpoch obtains all summaries for a given epoch.
