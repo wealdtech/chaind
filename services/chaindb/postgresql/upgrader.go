@@ -1071,6 +1071,16 @@ func addBlockParentDistance(ctx context.Context, s *Service) error {
 		return ErrNoTransaction
 	}
 
+	// This exists in the initial SQL, so don't attempt to add it if already present.
+	alreadyPresent, err := s.columnExists(ctx, "t_block_summaries", "f_parent_distance")
+	if err != nil {
+		return errors.Wrap(err, "failed to check if f_parent_distance is present in t_block_summaries")
+	}
+	if alreadyPresent {
+		// Nothing more to do.
+		return nil
+	}
+
 	// Add column.
 	if _, err := tx.Exec(ctx, `
 ALTER TABLE t_block_summaries
