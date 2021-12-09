@@ -1,4 +1,4 @@
-development
+0.5.3
   - correct summary value for attestations in epoch
   - batch finality updates, reducing memory usage and increasing responsiveness
   - avoid issue of duplicate column when upgrading f_parent_distance
