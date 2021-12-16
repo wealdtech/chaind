@@ -32,6 +32,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	slot phase0.Slot,
 	blockRoot phase0.Root,
 	stateRoot phase0.Root,
+	// skipcq: RVV-A0005
 	epochTransition bool,
 ) {
 	// Only allow 1 handler to be active.
