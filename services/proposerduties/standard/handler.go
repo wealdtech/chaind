@@ -28,6 +28,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	slot phase0.Slot,
 	_ phase0.Root,
 	_ phase0.Root,
+	// skipcq: RVV-A0005
 	epochTransition bool,
 ) {
 	if !epochTransition {

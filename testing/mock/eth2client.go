@@ -36,7 +36,7 @@ func NewGenesisTimeProvider(genesisTime time.Time) eth2client.GenesisTimeProvide
 }
 
 // GenesisTime is a mock.
-func (m *GenesisTimeProvider) GenesisTime(ctx context.Context) (time.Time, error) {
+func (m *GenesisTimeProvider) GenesisTime(_ context.Context) (time.Time, error) {
 	return m.genesisTime, nil
 }
 
