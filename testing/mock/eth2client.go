@@ -107,7 +107,7 @@ func NewAttestationSubmitter() eth2client.AttestationsSubmitter {
 }
 
 // SubmitAttestations is a mock.
-func (m *AttestationsSubmitter) SubmitAttestations(_ context.Context, attestations []*phase0.Attestation) error {
+func (*AttestationsSubmitter) SubmitAttestations(_ context.Context, _ []*phase0.Attestation) error {
 	return nil
 }
 
@@ -120,7 +120,7 @@ func NewBeaconBlockSubmitter() eth2client.BeaconBlockSubmitter {
 }
 
 // SubmitBeaconBlock is a mock.
-func (m *BeaconBlockSubmitter) SubmitBeaconBlock(_ context.Context, _ *spec.VersionedSignedBeaconBlock) error {
+func (*BeaconBlockSubmitter) SubmitBeaconBlock(_ context.Context, _ *spec.VersionedSignedBeaconBlock) error {
 	return nil
 }
 
@@ -133,7 +133,7 @@ func NewAggregateAttestationsSubmitter() eth2client.AggregateAttestationsSubmitt
 }
 
 // SubmitAggregateAttestations is a mock.
-func (m *AggregateAttestationsSubmitter) SubmitAggregateAttestations(_ context.Context, _ []*phase0.SignedAggregateAndProof) error {
+func (*AggregateAttestationsSubmitter) SubmitAggregateAttestations(_ context.Context, _ []*phase0.SignedAggregateAndProof) error {
 	return nil
 }
 
@@ -146,6 +146,6 @@ func NewBeaconCommitteeSubscriptionsSubmitter() eth2client.BeaconCommitteeSubscr
 }
 
 // SubmitBeaconCommitteeSubscriptions is a mock.
-func (m *BeaconCommitteeSubscriptionsSubmitter) SubmitBeaconCommitteeSubscriptions(_ context.Context, _ []*api.BeaconCommitteeSubscription) error {
+func (*BeaconCommitteeSubscriptionsSubmitter) SubmitBeaconCommitteeSubscriptions(_ context.Context, _ []*api.BeaconCommitteeSubscription) error {
 	return nil
 }
