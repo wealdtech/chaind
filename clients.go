@@ -47,7 +47,7 @@ func fetchClient(ctx context.Context, address string) (eth2client.Service, error
 			return nil, errors.Wrap(err, "failed to initiate client")
 		}
 		// Confirm that the client provides the required interfaces.
-		if err := confirmClientInterfaces(ctx, client); err != nil {
+		if err := confirmClientInterfaces(client); err != nil {
 			return nil, errors.Wrap(err, "missing required interface")
 		}
 		clients[address] = client
@@ -56,7 +56,7 @@ func fetchClient(ctx context.Context, address string) (eth2client.Service, error
 	return client, nil
 }
 
-func confirmClientInterfaces(ctx context.Context, client eth2client.Service) error {
+func confirmClientInterfaces(client eth2client.Service) error {
 	if _, isProvider := client.(eth2client.GenesisTimeProvider); !isProvider {
 		return errors.New("client is not a GenesisTimeProvider")
 	}

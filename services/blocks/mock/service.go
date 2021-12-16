@@ -29,6 +29,6 @@ func New() *Service {
 
 // OnBlock handles a block.
 // This requires the context to hold an active transaction.
-func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.VersionedSignedBeaconBlock) error {
+func (*Service) OnBlock(_ context.Context, _ *spec.VersionedSignedBeaconBlock) error {
 	return nil
 }

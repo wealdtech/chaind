@@ -79,7 +79,9 @@ func main2() int {
 	}
 
 	// runCommands will not return if a command is run.
-	runCommands(ctx)
+	if exit := runCommands(); exit {
+		return 0
+	}
 
 	logModules()
 	log.Info().Str("version", ReleaseVersion).Msg("Starting chaind")
@@ -341,7 +343,7 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 	}
 
 	log.Trace().Msg("Starting Ethereum 1 deposits service")
-	if err := startETH1Deposits(ctx, eth2Client, chainDB, chainTime, monitor); err != nil {
+	if err := startETH1Deposits(ctx, chainDB, monitor); err != nil {
 		return errors.Wrap(err, "failed to start Ethereum 1 deposits service")
 	}
 
@@ -615,9 +617,7 @@ func startProposerDuties(
 
 func startETH1Deposits(
 	ctx context.Context,
-	eth2Client eth2client.Service,
 	chainDB chaindb.Service,
-	chainTime chaintime.Service,
 	monitor metrics.Service,
 ) error {
 	if !viper.GetBool("eth1deposits.enable") {
@@ -676,9 +676,13 @@ func startSyncCommittees(
 	return nil
 }
 
-func runCommands(ctx context.Context) {
+// runCommands runs commands if required.
+// Returns true if an exit is required.
+func runCommands() bool {
 	if viper.GetBool("version") {
 		fmt.Printf("%s\n", ReleaseVersion)
-		os.Exit(0)
+		return true
 	}
+
+	return false
 }

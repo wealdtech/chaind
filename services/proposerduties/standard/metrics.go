@@ -43,6 +43,7 @@ func registerMetrics(ctx context.Context, monitor metrics.Service) error {
 	return nil
 }
 
+// skipcq: RVV-B0012
 func registerPrometheusMetrics(ctx context.Context) error {
 	latestEpoch = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,

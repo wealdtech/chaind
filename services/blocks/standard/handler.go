@@ -300,7 +300,8 @@ func (s *Service) dbBlock(
 	}
 }
 
-func (s *Service) dbBlockPhase0(
+// skipcq: RVV-B0012
+func (*Service) dbBlockPhase0(
 	ctx context.Context,
 	block *phase0.BeaconBlock,
 ) (*chaindb.Block, error) {
@@ -338,7 +339,8 @@ func (s *Service) dbBlockPhase0(
 	return dbBlock, nil
 }
 
-func (s *Service) dbBlockAltair(
+// skipcq: RVV-B0012
+func (*Service) dbBlockAltair(
 	ctx context.Context,
 	block *altair.BeaconBlock,
 ) (*chaindb.Block, error) {
@@ -464,7 +466,8 @@ func (s *Service) dbSyncAggregate(
 	return dbSyncAggregate, nil
 }
 
-func (s *Service) dbDeposit(
+// skipcq: RVV-B0012
+func (*Service) dbDeposit(
 	ctx context.Context,
 	slot phase0.Slot,
 	blockRoot phase0.Root,
@@ -483,7 +486,8 @@ func (s *Service) dbDeposit(
 	return dbDeposit, nil
 }
 
-func (s *Service) dbVoluntaryExit(
+// skipcq: RVV-B0012
+func (*Service) dbVoluntaryExit(
 	ctx context.Context,
 	slot phase0.Slot,
 	blockRoot phase0.Root,
@@ -501,7 +505,8 @@ func (s *Service) dbVoluntaryExit(
 	return dbVoluntaryExit, nil
 }
 
-func (s *Service) dbAttesterSlashing(
+// skipcq: RVV-B0012
+func (*Service) dbAttesterSlashing(
 	ctx context.Context,
 	slot phase0.Slot,
 	blockRoot phase0.Root,
@@ -545,7 +550,8 @@ func (s *Service) dbAttesterSlashing(
 	return dbAttesterSlashing, nil
 }
 
-func (s *Service) dbProposerSlashing(
+// skipcq: RVV-B0012
+func (*Service) dbProposerSlashing(
 	ctx context.Context,
 	slot phase0.Slot,
 	blockRoot phase0.Root,

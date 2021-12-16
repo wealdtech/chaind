@@ -27,8 +27,8 @@ import (
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
 	slot phase0.Slot,
-	blockRoot phase0.Root,
-	stateRoot phase0.Root,
+	_ phase0.Root,
+	_ phase0.Root,
 	epochTransition bool,
 ) {
 	if !epochTransition {
