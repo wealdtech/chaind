@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Trading.
+// Copyright © 2021, 2022 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -26,7 +26,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(5)
+var currentVersion = uint64(6)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -71,6 +71,11 @@ var upgrades = map[uint64]*upgrade{
 	5: {
 		funcs: []func(context.Context, *Service) error{
 			addBlockParentDistance,
+		},
+	},
+	6: {
+		funcs: []func(context.Context, *Service) error{
+			fixSyncAggregatesIndex,
 		},
 	},
 }
@@ -723,6 +728,48 @@ CREATE UNIQUE INDEX i_sync_aggregates_1 ON t_sync_aggregates(f_inclusion_slot, f
 	return nil
 }
 
+// fixSyncAggregatesIndex fixes the t_sync_aggregates table index.
+func fixSyncAggregatesIndex(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	// See if we need to fix it.
+	var goodIndices uint64
+	err := tx.QueryRow(ctx, `
+SELECT COUNT(*)
+FROM pg_indexes
+WHERE indexname = 'i_sync_aggregates_1'
+  AND indexdef LIKE '%f_inclusion_block_root%'
+`).Scan(
+		&goodIndices,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain sync aggregates index information")
+	}
+	log.Info().Uint64("good_indices", goodIndices).Msg("Found number of good indices")
+
+	if goodIndices == 1 {
+		// The index is already good.
+		return nil
+	}
+
+	log.Info().Msg("Dropping existing index")
+	if _, err := tx.Exec(ctx, `DROP INDEX IF EXISTS i_sync_aggregates_1`); err != nil {
+		return errors.Wrap(err, "failed to drop i_sync_aggregates_1 index")
+	}
+
+	log.Info().Msg("Creating new index")
+	if _, err := tx.Exec(ctx, `
+CREATE UNIQUE INDEX i_sync_aggregates_1 ON t_sync_aggregates(f_inclusion_slot, f_inclusion_block_root)
+`); err != nil {
+		return errors.Wrap(err, "failed to create i_sync_aggregates_1 index")
+	}
+
+	return nil
+}
+
 // Init initialises the database.
 func (s *Service) Init(ctx context.Context) (bool, error) {
 	ctx, cancel, err := s.BeginTx(ctx)
@@ -845,7 +892,7 @@ CREATE TABLE t_sync_aggregates (
  ,f_bits                 BYTEA NOT NULL
  ,f_indices              BIGINT[] -- REFERENCES t_validators(f_index)
 );
-CREATE UNIQUE INDEX i_sync_aggregates_1 ON t_sync_aggregates(f_inclusion_slot);
+CREATE UNIQUE INDEX i_sync_aggregates_1 ON t_sync_aggregates(f_inclusion_slot, f_inclusion_block_root);
 
 -- t_attester_slashings contains all attester slashings included in blocks.
 CREATE TABLE t_attester_slashings (

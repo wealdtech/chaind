@@ -1,3 +1,6 @@
+0.5.5
+  - fix bad index for sync aggregates
+
 0.5.3
   - correct summary value for attestations in epoch
   - batch finality updates, reducing memory usage and increasing responsiveness
