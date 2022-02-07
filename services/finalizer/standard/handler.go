@@ -171,8 +171,8 @@ func (s *Service) updateCanonicalBlocks(ctx context.Context, root phase0.Root) e
 		return errors.Wrap(err, "failed to update canonical blocks from canonical root")
 	}
 
-	if err := s.noncanonicalizeBlocks(ctx, block.Slot); err != nil {
-		return errors.Wrap(err, "failed to update non-canonical blocks from canonical root")
+	if err := s.updateIndeterminateBlocks(ctx, block.Slot); err != nil {
+		return errors.Wrap(err, "failed to update indeterminate blocks from canonical root")
 	}
 
 	md.LatestCanonicalSlot = block.Slot
@@ -224,17 +224,27 @@ func (s *Service) canonicalizeBlocks(ctx context.Context, root phase0.Root, limi
 	return nil
 }
 
-// noncanonicalizeBlocks marks all indeterminate blocks before the given slot as non-canonical.
-func (s *Service) noncanonicalizeBlocks(ctx context.Context, slot phase0.Slot) error {
+// updateIndeterminateBlocks marks all indeterminate blocks before the given slot as canonical
+// if they have a canonical child else as non-canonical.
+func (s *Service) updateIndeterminateBlocks(ctx context.Context, slot phase0.Slot) error {
 	nonCanonicalRoots, err := s.blocksProvider.IndeterminateBlocks(ctx, 0, slot)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain indeterminate blocks")
 	}
-	canonical := false
 	for _, nonCanonicalRoot := range nonCanonicalRoots {
 		nonCanonicalBlock, err := s.blocksProvider.BlockByRoot(ctx, nonCanonicalRoot)
 		if err != nil {
 			return err
+		}
+		childrenBlocks, err := s.blocksProvider.BlocksByParentRoot(ctx, nonCanonicalRoot)
+		if err != nil {
+			return err
+		}
+		canonical := false
+		for _, child := range childrenBlocks {
+			if child.Canonical != nil && *child.Canonical {
+				canonical = true
+			}
 		}
 		nonCanonicalBlock.Canonical = &canonical
 		if err := s.blocksSetter.SetBlock(ctx, nonCanonicalBlock); err != nil {
