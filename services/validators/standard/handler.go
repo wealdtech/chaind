@@ -1,4 +1,4 @@
-// Copyright © 2020, 2021 Weald Technology Limited.
+// Copyright © 2020 - 2022 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -120,7 +120,13 @@ func (s *Service) onEpochTransitionValidatorBalances(ctx context.Context,
 		return nil
 	}
 
-	for epoch := md.LatestBalancesEpoch; epoch <= transitionedEpoch; epoch++ {
+	// Do not repeat the latest epoch unless it is epoch 0, as that could be the first
+	// time that we process this epoch.
+	firstEpoch := md.LatestBalancesEpoch
+	if firstEpoch > 0 {
+		firstEpoch++
+	}
+	for epoch := firstEpoch; epoch <= transitionedEpoch; epoch++ {
 		log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 		stateID := fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(epoch))
 		log.Trace().Uint64("slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch))).Msg("Fetching validators")
@@ -153,6 +159,7 @@ func (s *Service) onEpochTransitionValidatorBalances(ctx context.Context,
 				}
 				for _, dbValidatorBalance := range dbValidatorBalances {
 					if err := s.validatorsSetter.SetValidatorBalance(dbCtx, dbValidatorBalance); err != nil {
+						cancel()
 						return errors.Wrap(err, "failed to set validator balance")
 					}
 				}

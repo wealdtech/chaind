@@ -1,3 +1,6 @@
+dev:
+  - do not fetch validator data twice for the same epoch
+
 0.5.5
   - fix bad index for sync aggregates
 
