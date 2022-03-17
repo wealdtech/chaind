@@ -17,10 +17,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/big"
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/attestantio/go-eth2-client/spec"
 	"github.com/attestantio/go-eth2-client/spec/altair"
+	"github.com/attestantio/go-eth2-client/spec/bellatrix"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
@@ -106,6 +108,8 @@ func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.VersionedSigned
 		return s.onBlockPhase0(ctx, signedBlock.Phase0, dbBlock)
 	case spec.DataVersionAltair:
 		return s.onBlockAltair(ctx, signedBlock.Altair, dbBlock)
+	case spec.DataVersionBellatrix:
+		return s.onBlockBellatrix(ctx, signedBlock.Bellatrix, dbBlock)
 	default:
 		return errors.New("unknown block version")
 	}
@@ -146,6 +150,46 @@ func (s *Service) onBlockPhase0(ctx context.Context, signedBlock *phase0.SignedB
 }
 
 func (s *Service) onBlockAltair(ctx context.Context, signedBlock *altair.SignedBeaconBlock, dbBlock *chaindb.Block) error {
+	if err := s.updateAttestationsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.Attestations); err != nil {
+		return errors.Wrap(err, "failed to update attestations")
+	}
+	if err := s.updateProposerSlashingsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.ProposerSlashings); err != nil {
+		return errors.Wrap(err, "failed to update proposer slashings")
+	}
+	if err := s.updateAttesterSlashingsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.AttesterSlashings); err != nil {
+		return errors.Wrap(err, "failed to update attester slashings")
+	}
+	if err := s.updateDepositsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.Deposits); err != nil {
+		return errors.Wrap(err, "failed to update deposits")
+	}
+	if err := s.updateVoluntaryExitsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.VoluntaryExits); err != nil {
+		return errors.Wrap(err, "failed to update voluntary exits")
+	}
+	if err := s.updateSyncAggregateForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.SyncAggregate); err != nil {
+		return errors.Wrap(err, "failed to update sync aggregate")
+	}
+	return nil
+}
+
+func (s *Service) onBlockBellatrix(ctx context.Context, signedBlock *bellatrix.SignedBeaconBlock, dbBlock *chaindb.Block) error {
 	if err := s.updateAttestationsForBlock(ctx,
 		signedBlock.Message.Slot,
 		dbBlock.Root,
@@ -296,6 +340,8 @@ func (s *Service) dbBlock(
 		return s.dbBlockPhase0(ctx, block.Phase0.Message)
 	case spec.DataVersionAltair:
 		return s.dbBlockAltair(ctx, block.Altair.Message)
+	case spec.DataVersionBellatrix:
+		return s.dbBlockBellatrix(ctx, block.Bellatrix.Message)
 	default:
 		return nil, errors.New("unknown block version")
 	}
@@ -374,6 +420,68 @@ func (*Service) dbBlockAltair(
 		ETH1BlockHash:    block.Body.ETH1Data.BlockHash,
 		ETH1DepositCount: block.Body.ETH1Data.DepositCount,
 		ETH1DepositRoot:  block.Body.ETH1Data.DepositRoot,
+	}
+
+	return dbBlock, nil
+}
+
+func (*Service) dbBlockBellatrix(
+	// skipcq: RVV-B0012
+	ctx context.Context,
+	block *bellatrix.BeaconBlock,
+) (*chaindb.Block, error) {
+	bodyRoot, err := block.Body.HashTreeRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to calculate body root")
+	}
+
+	header := &phase0.BeaconBlockHeader{
+		Slot:          block.Slot,
+		ProposerIndex: block.ProposerIndex,
+		ParentRoot:    block.ParentRoot,
+		StateRoot:     block.StateRoot,
+		BodyRoot:      bodyRoot,
+	}
+	root, err := header.HashTreeRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to calculate block root")
+	}
+
+	// base fee per gas is stored little-endian but we need it
+	// big-endian for big.Int.
+	var baseFeePerGasBEBytes [32]byte
+	for i := 0; i < 32; i++ {
+		baseFeePerGasBEBytes[i] = block.Body.ExecutionPayload.BaseFeePerGas[32-1-i]
+	}
+	baseFeePerGas := new(big.Int).SetBytes(baseFeePerGasBEBytes[:])
+
+	dbBlock := &chaindb.Block{
+		Slot:             block.Slot,
+		ProposerIndex:    block.ProposerIndex,
+		Root:             root,
+		Graffiti:         block.Body.Graffiti,
+		RANDAOReveal:     block.Body.RANDAOReveal,
+		BodyRoot:         bodyRoot,
+		ParentRoot:       block.ParentRoot,
+		StateRoot:        block.StateRoot,
+		ETH1BlockHash:    block.Body.ETH1Data.BlockHash,
+		ETH1DepositCount: block.Body.ETH1Data.DepositCount,
+		ETH1DepositRoot:  block.Body.ETH1Data.DepositRoot,
+		ExecutionPayload: &chaindb.ExecutionPayload{
+			ParentHash:    block.Body.ExecutionPayload.ParentHash,
+			FeeRecipient:  block.Body.ExecutionPayload.FeeRecipient,
+			StateRoot:     block.Body.ExecutionPayload.StateRoot,
+			ReceiptsRoot:  block.Body.ExecutionPayload.ReceiptsRoot,
+			LogsBloom:     block.Body.ExecutionPayload.LogsBloom,
+			PrevRandao:    block.Body.ExecutionPayload.PrevRandao,
+			BlockNumber:   block.Body.ExecutionPayload.BlockNumber,
+			GasLimit:      block.Body.ExecutionPayload.GasLimit,
+			GasUsed:       block.Body.ExecutionPayload.GasUsed,
+			Timestamp:     block.Body.ExecutionPayload.Timestamp,
+			ExtraData:     block.Body.ExecutionPayload.ExtraData,
+			BaseFeePerGas: baseFeePerGas,
+			BlockHash:     block.Body.ExecutionPayload.BlockHash,
+		},
 	}
 
 	return dbBlock, nil

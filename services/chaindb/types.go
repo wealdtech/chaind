@@ -14,6 +14,7 @@
 package chaindb
 
 import (
+	"math/big"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
@@ -33,6 +34,8 @@ type Block struct {
 	ETH1BlockHash    []byte
 	ETH1DepositCount uint64
 	ETH1DepositRoot  phase0.Root
+	// Information only available from Bellatrix onwards.
+	ExecutionPayload *ExecutionPayload
 }
 
 // Validator holds information about a validator.
@@ -246,4 +249,22 @@ type EpochSummary struct {
 type SyncCommittee struct {
 	Period    uint64
 	Committee []phase0.ValidatorIndex
+}
+
+// ExecutionPayload holds information about a block's execution payload.
+type ExecutionPayload struct {
+	ParentHash    [32]byte
+	FeeRecipient  [20]byte
+	StateRoot     [32]byte
+	ReceiptsRoot  [32]byte
+	LogsBloom     [256]byte
+	PrevRandao    [32]byte
+	BlockNumber   uint64
+	GasLimit      uint64
+	GasUsed       uint64
+	Timestamp     uint64
+	ExtraData     []byte
+	BaseFeePerGas *big.Int
+	BlockHash     [32]byte
+	// No transactions.
 }

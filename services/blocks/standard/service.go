@@ -205,6 +205,7 @@ func (s *Service) catchup(ctx context.Context, md *metadata) {
 			return
 		}
 		log.Trace().Msg("Updated block")
+		monitorBlockProcessed(slot)
 	}
 }
 

@@ -1,3 +1,6 @@
+0.6.0
+  - Bellatrix support
+
 0.5.6
   - do not fetch validator data twice for the same epoch
 

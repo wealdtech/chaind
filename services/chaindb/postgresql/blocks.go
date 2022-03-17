@@ -34,7 +34,7 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 		canonical.Valid = true
 		canonical.Bool = *block.Canonical
 	}
-	_, err := tx.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
       INSERT INTO t_blocks(f_slot
                           ,f_proposer_index
                           ,f_root
@@ -75,13 +75,16 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 		block.ETH1BlockHash,
 		block.ETH1DepositCount,
 		block.ETH1DepositRoot[:],
-	)
-	if canonical.Valid {
-		val := canonical.Bool
-		block.Canonical = &val
+	); err != nil {
+		return err
 	}
 
-	return err
+	// Also set execution payload (will return wihtout error if payload is not set).
+	if err := s.setExecutionPayload(ctx, block); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // BlocksBySlot fetches all blocks with the given slot.

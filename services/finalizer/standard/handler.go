@@ -501,6 +501,8 @@ func (s *Service) fetchBlock(ctx context.Context, root phase0.Root) (*chaindb.Bl
 			earliestAllowableSlot = signedBlock.Phase0.Message.Slot
 		case spec.DataVersionAltair:
 			earliestAllowableSlot = signedBlock.Altair.Message.Slot
+		case spec.DataVersionBellatrix:
+			earliestAllowableSlot = signedBlock.Bellatrix.Message.Slot
 		default:
 			return nil, errors.New("unknown block version")
 		}

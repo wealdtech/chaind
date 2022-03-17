@@ -32,6 +32,7 @@ type Service struct {
 	slotsPerEpoch                uint64
 	epochsPerSyncCommitteePeriod uint64
 	altairForkEpoch              phase0.Epoch
+	bellatrixForkEpoch           phase0.Epoch
 }
 
 // module-wide log.
@@ -91,6 +92,12 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		altairForkEpoch = 0xffffffffffffffff
 	}
 	log.Trace().Uint64("epoch", uint64(altairForkEpoch)).Msg("Obtained Altair fork epoch")
+	bellatrixForkEpoch, err := fetchBellatrixForkEpoch(ctx, parameters.forkScheduleProvider)
+	if err != nil {
+		// Set to far future epoch.
+		altairForkEpoch = 0xffffffffffffffff
+	}
+	log.Trace().Uint64("epoch", uint64(bellatrixForkEpoch)).Msg("Obtained Bellatrix fork epoch")
 
 	s := &Service{
 		genesisTime:                  genesisTime,
@@ -98,6 +105,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		slotsPerEpoch:                slotsPerEpoch,
 		epochsPerSyncCommitteePeriod: epochsPerSyncCommitteePeriod,
 		altairForkEpoch:              altairForkEpoch,
+		bellatrixForkEpoch:           bellatrixForkEpoch,
 	}
 
 	return s, nil
@@ -199,12 +207,35 @@ func fetchAltairForkEpoch(ctx context.Context, provider eth2client.ForkScheduleP
 	if err != nil {
 		return 0, err
 	}
+	forkVersion := 0
 	for i := range forkSchedule {
 		if bytes.Equal(forkSchedule[i].CurrentVersion[:], forkSchedule[i].PreviousVersion[:]) {
 			// This is the genesis fork; ignore it.
 			continue
 		}
-		return forkSchedule[i].Epoch, nil
+		forkVersion++
+		if forkVersion == 1 {
+			return forkSchedule[i].Epoch, nil
+		}
 	}
 	return 0, errors.New("no altair fork obtained")
+}
+
+func fetchBellatrixForkEpoch(ctx context.Context, provider eth2client.ForkScheduleProvider) (phase0.Epoch, error) {
+	forkSchedule, err := provider.ForkSchedule(ctx)
+	if err != nil {
+		return 0, err
+	}
+	forkVersion := 0
+	for i := range forkSchedule {
+		if bytes.Equal(forkSchedule[i].CurrentVersion[:], forkSchedule[i].PreviousVersion[:]) {
+			// This is the genesis fork; ignore it.
+			continue
+		}
+		forkVersion++
+		if forkVersion == 2 {
+			return forkSchedule[i].Epoch, nil
+		}
+	}
+	return 0, errors.New("no bellatrix fork obtained")
 }
