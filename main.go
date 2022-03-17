@@ -58,7 +58,7 @@ import (
 )
 
 // ReleaseVersion is the release version for the code.
-var ReleaseVersion = "0.5.6"
+var ReleaseVersion = "0.6.0"
 
 func main() {
 	os.Exit(main2())
@@ -79,8 +79,15 @@ func main2() int {
 	}
 
 	// runCommands will not return if a command is run.
-	if exit := runCommands(); exit {
-		return 0
+	exit, err := runCommands(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Command returned error")
+	}
+	if exit {
+		if err == nil {
+			return 0
+		}
+		return 1
 	}
 
 	logModules()
@@ -223,26 +230,36 @@ func startMonitor(ctx context.Context) (metrics.Service, error) {
 	return monitor, nil
 }
 
-func startServices(ctx context.Context, monitor metrics.Service) error {
+func startDatabase(ctx context.Context) (chaindb.Service, error) {
 	log.Trace().Msg("Starting chain database service")
 	chainDB, err := postgresqlchaindb.New(ctx,
 		postgresqlchaindb.WithLogLevel(util.LogLevel("chaindb")),
 		postgresqlchaindb.WithConnectionURL(viper.GetString("chaindb.url")),
 	)
 	if err != nil {
-		return errors.Wrap(err, "failed to start chain database service")
+		return nil, errors.Wrap(err, "failed to start chain database service")
+	}
+	return chainDB, err
+}
+
+func startServices(ctx context.Context, monitor metrics.Service) error {
+	log.Trace().Msg("Checking for schema upgrades")
+	chainDB, err := startDatabase(ctx)
+	if err != nil {
+		return err
 	}
 
-	log.Trace().Msg("Checking for schema upgrades")
-	requiresRefetch, err := chainDB.Upgrade(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to upgrade chain database")
-	}
-	if requiresRefetch {
-		// The upgrade requires us to refetch blocks, so set up the options accordingly.
-		// These will be picked up by the blocks service.
-		viper.Set("blocks.start-slot", 0)
-		viper.Set("blocks.refetch", true)
+	if _, isUpgrader := chainDB.(*postgresqlchaindb.Service); isUpgrader {
+		requiresRefetch, err := chainDB.(*postgresqlchaindb.Service).Upgrade(ctx)
+		if err != nil {
+			return errors.Wrap(err, "failed to upgrade chain database")
+		}
+		if requiresRefetch {
+			// The upgrade requires us to refetch blocks, so set up the options accordingly.
+			// These will be picked up by the blocks service.
+			viper.Set("blocks.start-slot", 0)
+			viper.Set("blocks.refetch", true)
+		}
 	}
 
 	log.Trace().Msg("Starting Ethereum 2 client service")
@@ -678,11 +695,11 @@ func startSyncCommittees(
 
 // runCommands runs commands if required.
 // Returns true if an exit is required.
-func runCommands() bool {
+func runCommands(_ context.Context) (bool, error) {
 	if viper.GetBool("version") {
 		fmt.Printf("%s\n", ReleaseVersion)
-		return true
+		return true, nil
 	}
 
-	return false
+	return false, nil
 }

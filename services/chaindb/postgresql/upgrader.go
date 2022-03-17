@@ -26,7 +26,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(6)
+var currentVersion = uint64(7)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -76,6 +76,11 @@ var upgrades = map[uint64]*upgrade{
 	6: {
 		funcs: []func(context.Context, *Service) error{
 			fixSyncAggregatesIndex,
+		},
+	},
+	7: {
+		funcs: []func(context.Context, *Service) error{
+			addBellatrixSubtable,
 		},
 	},
 }
@@ -846,6 +851,23 @@ CREATE UNIQUE INDEX i_blocks_1 ON t_blocks(f_slot,f_root);
 CREATE UNIQUE INDEX i_blocks_2 ON t_blocks(f_root);
 CREATE INDEX i_blocks_3 ON t_blocks(f_parent_root);
 
+-- t_block_execution_payloads is a subtable for t_blocks.
+CREATE TABLE t_block_execution_payloads (
+  f_block_root       BYTEA UNIQUE NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_block_number     BIGINT NOT NULL
+ ,f_block_hash       BYTEA NOT NULL
+ ,f_parent_hash      BYTEA NOT NULL
+ ,f_fee_recipient    BYTEA NOT NULL
+ ,f_state_root       BYTEA NOT NULL
+ ,f_receipts_root    BYTEA NOT NULL
+ ,f_logs_bloom       BYTEA NOT NULL
+ ,f_prev_randao      BYTEA NOT NULL
+ ,f_gas_limit        BIGINT NOT NULL
+ ,f_gas_used         BIGINT NOT NULL
+ ,f_base_fee_per_gas NUMERIC NOT NULL
+ ,f_extra_data       BYTEA
+);
+
 -- t_beacon_committees contains all beacon committees.
 -- N.B. in the case of a chain re-org the committees can alter.
 CREATE TABLE t_beacon_committees (
@@ -1166,6 +1188,47 @@ ALTER COLUMN f_parent_distance
 SET NOT NULL
 `); err != nil {
 		return errors.Wrap(err, "failed to drop NOT NULL constraint on f_parent_distance")
+	}
+
+	return nil
+}
+
+// addBellatrixSubtable adds bellatrix information as a subtable of t_blocks.
+func addBellatrixSubtable(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	// This exists in the initial SQL, so don't attempt to add it if already present.
+	alreadyPresent, err := s.tableExists(ctx, "t_block_execution_payloads")
+	if err != nil {
+		return errors.Wrap(err, "failed to check if t_block_execution_payloads exist")
+	}
+	if alreadyPresent {
+		// Nothing more to do.
+		return nil
+	}
+
+	// Add columns.
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE t_block_execution_payloads (
+  f_block_root       BYTEA UNIQUE NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_block_number     BIGINT NOT NULL
+ ,f_block_hash       BYTEA NOT NULL
+ ,f_parent_hash      BYTEA NOT NULL
+ ,f_fee_recipient    BYTEA NOT NULL
+ ,f_state_root       BYTEA NOT NULL
+ ,f_receipts_root    BYTEA NOT NULL
+ ,f_logs_bloom       BYTEA NOT NULL
+ ,f_prev_randao      BYTEA NOT NULL
+ ,f_gas_limit        BIGINT NOT NULL
+ ,f_gas_used         BIGINT NOT NULL
+ ,f_base_fee_per_gas NUMERIC NOT NULL
+ ,f_extra_data       BYTEA
+)
+`); err != nil {
+		return errors.Wrap(err, "failed to create subtable t_block_execution_payloads")
 	}
 
 	return nil
