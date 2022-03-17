@@ -139,7 +139,6 @@ func main2() int {
 func fetchConfig() error {
 	pflag.String("base-dir", "", "base directory for configuration files")
 	pflag.Bool("version", false, "show version and exit")
-	// pflag.Bool("rationalize", false, "rationalize the chain data and exit")
 	pflag.String("log-level", "info", "minimum level of messsages to log")
 	pflag.String("log-file", "", "redirect log output to a file")
 	pflag.String("profile-address", "", "Address on which to run Go profile server")
@@ -696,23 +695,11 @@ func startSyncCommittees(
 
 // runCommands runs commands if required.
 // Returns true if an exit is required.
-func runCommands(ctx context.Context) (bool, error) {
+func runCommands(_ context.Context) (bool, error) {
 	if viper.GetBool("version") {
 		fmt.Printf("%s\n", ReleaseVersion)
 		return true, nil
 	}
-	// if viper.GetBool("rationalize") {
-	// 	chainDB, err := startDatabase(ctx)
-	// 	if err != nil {
-	// 		return true, err
-	// 	}
-	// 	rationalizer, isRationalizer := chainDB.(chaindb.Rationalizer)
-	// 	if !isRationalizer {
-	// 		// Not an error.
-	// 		return true, nil
-	// 	}
-	// 	return true, rationalizer.Rationalize(ctx)
-	// }
 
 	return false, nil
 }
