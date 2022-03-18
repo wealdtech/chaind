@@ -1,3 +1,6 @@
+0.6.1
+  - fix issue in obtaining sync committees after restart
+
 0.6.0
   - Bellatrix support
 

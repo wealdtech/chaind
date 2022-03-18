@@ -95,7 +95,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	bellatrixForkEpoch, err := fetchBellatrixForkEpoch(ctx, parameters.forkScheduleProvider)
 	if err != nil {
 		// Set to far future epoch.
-		altairForkEpoch = 0xffffffffffffffff
+		bellatrixForkEpoch = 0xffffffffffffffff
 	}
 	log.Trace().Uint64("epoch", uint64(bellatrixForkEpoch)).Msg("Obtained Bellatrix fork epoch")
 
