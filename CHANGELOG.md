@@ -1,3 +1,6 @@
+0.6.2
+  - update to chain database libraries (no binary release)
+
 0.6.1
   - fix issue in obtaining sync committees after restart
 
