@@ -1,3 +1,7 @@
+0.6.3
+  - add f_timestamp to execution payload
+  - update go version to 1.18
+
 0.6.2
   - update to chain database libraries (no binary release)
 

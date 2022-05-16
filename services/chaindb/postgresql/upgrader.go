@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
@@ -26,7 +27,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(7)
+var currentVersion = uint64(8)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -81,6 +82,11 @@ var upgrades = map[uint64]*upgrade{
 	7: {
 		funcs: []func(context.Context, *Service) error{
 			addBellatrixSubtable,
+		},
+	},
+	8: {
+		funcs: []func(context.Context, *Service) error{
+			addTimestamp,
 		},
 	},
 }
@@ -794,7 +800,6 @@ CREATE TABLE t_metadata (
  ,f_value JSONB NOT NULL
 );
 CREATE UNIQUE INDEX i_metadata_1 ON t_metadata(f_key);
-INSERT INTO t_metadata VALUES('schema', '{"version": 3}');
 
 -- t_chain_spec contains the specification of the chain to which the rest of
 -- the tables relate.
@@ -1080,6 +1085,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS i_sync_committees_1 ON t_sync_committees(f_per
 		return false, errors.Wrap(err, "failed to create initial tables")
 	}
 
+	if err := s.setVersion(ctx, currentVersion); err != nil {
+		cancel()
+		return false, errors.Wrap(err, "failed to set initial schema version")
+	}
+
 	if err := s.CommitTx(ctx); err != nil {
 		cancel()
 		return false, errors.Wrap(err, "failed to commit initial tables transaction")
@@ -1229,6 +1239,54 @@ CREATE TABLE t_block_execution_payloads (
 )
 `); err != nil {
 		return errors.Wrap(err, "failed to create subtable t_block_execution_payloads")
+	}
+
+	return nil
+}
+
+// addTimestamp adds timestamp to t_block_execution_payloads
+func addTimestamp(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	// This exists in the initial SQL, so don't attempt to add it if already present.
+	alreadyPresent, err := s.columnExists(ctx, "t_block_execution_payloads", "f_timestamp")
+	if err != nil {
+		return errors.Wrap(err, "failed to check if f_timestamp exists in t_block_execution_payloads")
+	}
+	if alreadyPresent {
+		// Nothing more to do.
+		return nil
+	}
+
+	// Add column.
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_block_execution_payloads
+ADD COLUMN f_timestamp BIGINT NOT NULL DEFAULT 0
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_timestamp to t_block_execution_payloads")
+	}
+
+	// Set value for the column.
+	// The only merged chain at time this was placed is kiln, so use those values.
+	genesisTime := 1647007500
+	slotDuration := 12 * time.Second
+
+	if _, err := tx.Exec(ctx, fmt.Sprintf(`
+UPDATE t_block_execution_payloads
+SET f_timestamp = (SELECT %d + f_slot*%d FROM t_blocks WHERE t_blocks.f_root = t_block_execution_payloads.f_block_root)
+`, genesisTime, int(slotDuration.Seconds()))); err != nil {
+		return errors.Wrap(err, "failed to add f_timestamp to t_block_execution_payloads")
+	}
+
+	// Drop default.
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_block_execution_payloads
+ALTER COLUMN f_timestamp DROP DEFAULT
+`); err != nil {
+		return errors.Wrap(err, "failed to remove default for f_timestamp in t_block_execution_payloads")
 	}
 
 	return nil

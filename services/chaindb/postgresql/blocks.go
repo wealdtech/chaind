@@ -1,4 +1,4 @@
-// Copyright © 2020, 2021 Weald Technology Trading.
+// Copyright © 2020 - 2022 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -155,6 +155,10 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*chaind
 			block.Canonical = &val
 		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+		block.ExecutionPayload, err = s.executionPayload(ctx, block.Root)
+		if err != nil {
+			return nil, err
+		}
 		blocks = append(blocks, block)
 	}
 
@@ -237,6 +241,10 @@ func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot,
 			block.Canonical = &val
 		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+		block.ExecutionPayload, err = s.executionPayload(ctx, block.Root)
+		if err != nil {
+			return nil, err
+		}
 		blocks = append(blocks, block)
 	}
 
@@ -307,6 +315,10 @@ func (s *Service) BlockByRoot(ctx context.Context, root phase0.Root) (*chaindb.B
 		block.Canonical = &val
 	}
 	copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+	block.ExecutionPayload, err = s.executionPayload(ctx, block.Root)
+	if err != nil {
+		return nil, err
+	}
 	return block, nil
 }
 
@@ -426,6 +438,10 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot phase0.Root
 			block.Canonical = &val
 		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+		block.ExecutionPayload, err = s.executionPayload(ctx, block.Root)
+		if err != nil {
+			return nil, err
+		}
 		blocks = append(blocks, block)
 	}
 
@@ -583,6 +599,10 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
 			block.Canonical = &val
 		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+		block.ExecutionPayload, err = s.executionPayload(ctx, block.Root)
+		if err != nil {
+			return nil, err
+		}
 		blocks = append(blocks, block)
 	}
 

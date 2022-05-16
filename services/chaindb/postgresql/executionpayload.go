@@ -16,6 +16,8 @@ package postgresql
 import (
 	"context"
 
+	"github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/wealdtech/chaind/services/chaindb"
@@ -42,6 +44,12 @@ func (s *Service) setExecutionPayload(ctx context.Context, block *chaindb.Block)
 		return nil
 	}
 
+	// ExtraData can be null.
+	var extraData *[]byte
+	if len(block.ExecutionPayload.ExtraData) > 0 {
+		extraData = &block.ExecutionPayload.ExtraData
+	}
+
 	_, err := tx.Exec(ctx, `
 INSERT INTO t_block_execution_payloads(f_block_root
                                       ,f_block_number
@@ -55,9 +63,10 @@ INSERT INTO t_block_execution_payloads(f_block_root
                                       ,f_gas_limit
                                       ,f_gas_used
                                       ,f_base_fee_per_gas
+                                      ,f_timestamp
                                       ,f_extra_data
                                       )
-VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 ON CONFLICT (f_block_root) DO
 UPDATE
 SET f_block_number = excluded.f_block_number
@@ -71,6 +80,7 @@ SET f_block_number = excluded.f_block_number
    ,f_gas_limit = excluded.f_gas_limit
    ,f_gas_used = excluded.f_gas_used
    ,f_base_fee_per_gas = excluded.f_base_fee_per_gas
+   ,f_timestamp = excluded.f_timestamp
    ,f_extra_data = excluded.f_extra_data
 `,
 		block.Root[:],
@@ -85,8 +95,87 @@ SET f_block_number = excluded.f_block_number
 		block.ExecutionPayload.GasLimit,
 		block.ExecutionPayload.GasUsed,
 		decimal.NewFromBigInt(block.ExecutionPayload.BaseFeePerGas, 0),
-		block.ExecutionPayload.ExtraData,
+		block.ExecutionPayload.Timestamp,
+		extraData,
 	)
 
 	return err
+}
+
+// executionPayload fetches the execution payload of a block.
+func (s *Service) executionPayload(ctx context.Context,
+	root phase0.Root,
+) (
+	*chaindb.ExecutionPayload,
+	error,
+) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	payload := &chaindb.ExecutionPayload{}
+	var blockHash []byte
+	var parentHash []byte
+	var feeRecipient []byte
+	var stateRoot []byte
+	var receiptsRoot []byte
+	var logsBloom []byte
+	var prevRandao []byte
+	var baseFeePerGas decimal.Decimal
+
+	err := tx.QueryRow(ctx, `
+SELECT f_block_number
+      ,f_block_hash
+      ,f_parent_hash
+      ,f_fee_recipient
+      ,f_state_root
+      ,f_receipts_root
+      ,f_logs_bloom
+      ,f_prev_randao
+      ,f_gas_limit
+      ,f_gas_used
+      ,f_base_fee_per_gas
+      ,f_timestamp
+      ,f_extra_data
+FROM t_block_execution_payloads
+WHERE f_block_root = $1`,
+		root[:],
+	).Scan(
+		&payload.BlockNumber,
+		&blockHash,
+		&parentHash,
+		&feeRecipient,
+		&stateRoot,
+		&receiptsRoot,
+		&logsBloom,
+		&prevRandao,
+		&payload.GasLimit,
+		&payload.GasUsed,
+		&baseFeePerGas,
+		&payload.Timestamp,
+		&payload.ExtraData,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			// Means there is no execution payload; this is fine.
+			return nil, nil
+		}
+		return nil, err
+	}
+	copy(payload.BlockHash[:], blockHash)
+	copy(payload.ParentHash[:], parentHash)
+	copy(payload.FeeRecipient[:], feeRecipient)
+	copy(payload.StateRoot[:], stateRoot)
+	copy(payload.ReceiptsRoot[:], receiptsRoot)
+	copy(payload.LogsBloom[:], logsBloom)
+	copy(payload.PrevRandao[:], prevRandao)
+	payload.BaseFeePerGas = baseFeePerGas.BigInt()
+
+	return payload, nil
 }
