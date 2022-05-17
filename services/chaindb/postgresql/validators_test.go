@@ -27,7 +27,7 @@ import (
 func TestSetValidators(t *testing.T) {
 	ctx := context.Background()
 	s, err := postgresql.New(ctx,
-		postgresql.WithConnectionURL(os.Getenv("CHAINDB_DATABASE_URL")),
+		postgresql.WithConnectionURL(os.Getenv("CHAINDB_URL")),
 	)
 	require.NoError(t, err)
 
@@ -89,7 +89,7 @@ func TestSetValidators(t *testing.T) {
 func TestValidators(t *testing.T) {
 	ctx := context.Background()
 	s, err := postgresql.New(ctx,
-		postgresql.WithConnectionURL(os.Getenv("CHAINDB_DATABASE_URL")),
+		postgresql.WithConnectionURL(os.Getenv("CHAINDB_URL")),
 	)
 	require.NoError(t, err)
 

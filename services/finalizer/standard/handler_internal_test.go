@@ -32,7 +32,7 @@ func TestUpdateAttestationHeadCorrect(t *testing.T) {
 
 	chainDB, err := postgresqlchaindb.New(ctx,
 		postgresqlchaindb.WithLogLevel(zerolog.Disabled),
-		postgresqlchaindb.WithConnectionURL(os.Getenv("CHAINDB_DATABASE_URL")),
+		postgresqlchaindb.WithConnectionURL(os.Getenv("CHAINDB_URL")),
 	)
 	require.NoError(t, err)
 

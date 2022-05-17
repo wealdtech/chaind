@@ -36,7 +36,7 @@ func TestService(t *testing.T) {
 		},
 		{
 			name:          "Good",
-			connectionURL: os.Getenv("CHAINDB_DATABASE_URL"),
+			connectionURL: os.Getenv("CHAINDB_URL"),
 		},
 	}
 
@@ -57,7 +57,7 @@ func TestService(t *testing.T) {
 
 func TestInterfaces(t *testing.T) {
 	ctx := context.Background()
-	s, err := postgresql.New(ctx, postgresql.WithConnectionURL(os.Getenv("CHAINDB_DATABASE_URL")))
+	s, err := postgresql.New(ctx, postgresql.WithConnectionURL(os.Getenv("CHAINDB_URL")))
 	require.NoError(t, err)
 
 	require.Implements(t, (*chaindb.Service)(nil), s)

@@ -29,7 +29,7 @@ func TestSetDeposits(t *testing.T) {
 	ctx := context.Background()
 	s, err := postgresql.New(ctx,
 		postgresql.WithLogLevel(zerolog.Disabled),
-		postgresql.WithConnectionURL(os.Getenv("CHAINDB_DATABASE_URL")),
+		postgresql.WithConnectionURL(os.Getenv("CHAINDB_URL")),
 	)
 	require.NoError(t, err)
 
@@ -82,7 +82,7 @@ func TestDeposits(t *testing.T) {
 	ctx := context.Background()
 	s, err := postgresql.New(ctx,
 		postgresql.WithLogLevel(zerolog.Disabled),
-		postgresql.WithConnectionURL(os.Getenv("CHAINDB_DATABASE_URL")),
+		postgresql.WithConnectionURL(os.Getenv("CHAINDB_URL")),
 	)
 	require.NoError(t, err)
 
