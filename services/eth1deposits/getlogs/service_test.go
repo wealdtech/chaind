@@ -43,7 +43,7 @@ func TestService(t *testing.T) {
 			params: []getlogs.Parameter{
 				getlogs.WithLogLevel(zerolog.Disabled),
 				getlogs.WithETH1DepositsSetter(chainDB),
-				getlogs.WithConnectionURL(os.Getenv("ETH1CLIENT_ADDRESS")),
+				getlogs.WithConnectionURL(os.Getenv("EXECCLIENT_URL")),
 			},
 			err: "problem with parameters: no chain database specified",
 		},
@@ -62,7 +62,7 @@ func TestService(t *testing.T) {
 				getlogs.WithLogLevel(zerolog.Disabled),
 				getlogs.WithChainDB(chainDB),
 				getlogs.WithETH1DepositsSetter(chainDB),
-				getlogs.WithConnectionURL(os.Getenv("ETH1CLIENT_ADDRESS")),
+				getlogs.WithConnectionURL(os.Getenv("EXECCLIENT_URL")),
 			},
 		},
 	}
