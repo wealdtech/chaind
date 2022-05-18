@@ -155,11 +155,15 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*chaind
 			block.Canonical = &val
 		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
-		block.ExecutionPayload, err = s.executionPayload(ctx, block.Root)
+		blocks = append(blocks, block)
+	}
+
+	// Add execution payload to the blocks where available.
+	for _, block := range blocks {
+		block.ExecutionPayload, err = s.executionPayload(ctx, tx, block.Root)
 		if err != nil {
 			return nil, err
 		}
-		blocks = append(blocks, block)
 	}
 
 	return blocks, nil
@@ -241,11 +245,15 @@ func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot,
 			block.Canonical = &val
 		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
-		block.ExecutionPayload, err = s.executionPayload(ctx, block.Root)
+		blocks = append(blocks, block)
+	}
+
+	// Add execution payload to the blocks where available.
+	for _, block := range blocks {
+		block.ExecutionPayload, err = s.executionPayload(ctx, tx, block.Root)
 		if err != nil {
 			return nil, err
 		}
-		blocks = append(blocks, block)
 	}
 
 	return blocks, nil
@@ -315,10 +323,13 @@ func (s *Service) BlockByRoot(ctx context.Context, root phase0.Root) (*chaindb.B
 		block.Canonical = &val
 	}
 	copy(block.ETH1DepositRoot[:], eth1DepositRoot)
-	block.ExecutionPayload, err = s.executionPayload(ctx, block.Root)
+
+	// Add execution payload to the block if available.
+	block.ExecutionPayload, err = s.executionPayload(ctx, tx, block.Root)
 	if err != nil {
 		return nil, err
 	}
+
 	return block, nil
 }
 
@@ -438,11 +449,15 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot phase0.Root
 			block.Canonical = &val
 		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
-		block.ExecutionPayload, err = s.executionPayload(ctx, block.Root)
+		blocks = append(blocks, block)
+	}
+
+	// Add execution payload to the blocks where available.
+	for _, block := range blocks {
+		block.ExecutionPayload, err = s.executionPayload(ctx, tx, block.Root)
 		if err != nil {
 			return nil, err
 		}
-		blocks = append(blocks, block)
 	}
 
 	return blocks, nil
@@ -599,11 +614,18 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
 			block.Canonical = &val
 		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
-		block.ExecutionPayload, err = s.executionPayload(ctx, block.Root)
 		if err != nil {
 			return nil, err
 		}
 		blocks = append(blocks, block)
+	}
+
+	// Add execution payload to the blocks where available.
+	for _, block := range blocks {
+		block.ExecutionPayload, err = s.executionPayload(ctx, tx, block.Root)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return blocks, nil

@@ -104,21 +104,12 @@ SET f_block_number = excluded.f_block_number
 
 // executionPayload fetches the execution payload of a block.
 func (s *Service) executionPayload(ctx context.Context,
+	tx pgx.Tx,
 	root phase0.Root,
 ) (
 	*chaindb.ExecutionPayload,
 	error,
 ) {
-	tx := s.tx(ctx)
-	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to begin transaction")
-		}
-		tx = s.tx(ctx)
-		defer cancel()
-	}
-
 	payload := &chaindb.ExecutionPayload{}
 	var blockHash []byte
 	var parentHash []byte
