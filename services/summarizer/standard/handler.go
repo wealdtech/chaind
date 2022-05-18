@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Limited.
+// Copyright © 2021, 2022 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,6 +15,7 @@ package standard
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
@@ -146,7 +147,7 @@ func (s *Service) onFinalityUpdatedValidators(ctx context.Context, finalizedEpoc
 	}
 	for epoch := lastValidatorEpoch; epoch <= finalizedEpoch; epoch++ {
 		if err := s.updateValidatorSummariesForEpoch(ctx, md, epoch); err != nil {
-			return errors.Wrap(err, "failed to update validator summaries for epoch")
+			return errors.Wrap(err, fmt.Sprintf("failed to update validator summaries for epoch %d", epoch))
 		}
 	}
 
