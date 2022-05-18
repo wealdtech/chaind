@@ -1,4 +1,4 @@
-Development
+0.6.5
   - store validator epoch summaries individually if batch store fails
 
 0.6.4
