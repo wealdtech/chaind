@@ -1,3 +1,6 @@
+0.6.4
+  - fix fetching of execution paylods with blocks
+
 0.6.3
   - add f_timestamp to execution payload
   - update go version to 1.18
