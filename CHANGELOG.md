@@ -1,3 +1,6 @@
+Development
+  - store validator epoch summaries individually if batch store fails
+
 0.6.4
   - fix fetching of execution paylods with blocks
 

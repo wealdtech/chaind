@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Limited.
+// Copyright © 2021, 2022 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -32,7 +32,14 @@ func (s *Service) SetValidatorEpochSummaries(ctx context.Context, summaries []*c
 	if tx == nil {
 		return ErrNoTransaction
 	}
-	_, err := tx.CopyFrom(ctx,
+
+	// Create a savepoint in case the copy fails.
+	nestedTx, err := tx.Begin(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to create nested transaction")
+	}
+
+	_, err = nestedTx.CopyFrom(ctx,
 		pgx.Identifier{"t_validator_epoch_summaries"},
 		[]string{
 			"f_validator_index",
@@ -62,6 +69,27 @@ func (s *Service) SetValidatorEpochSummaries(ctx context.Context, summaries []*c
 				summaries[i].AttestationHeadTimely,
 			}, nil
 		}))
+
+	if err == nil {
+		if err := nestedTx.Commit(ctx); err != nil {
+			return errors.Wrap(err, "failed to commit nested transaction")
+		}
+	} else {
+		if err := nestedTx.Rollback(ctx); err != nil {
+			return errors.Wrap(err, "failed to roll back nested transaction")
+		}
+
+		log.Debug().Err(err).Msg("Failed to copy insert blocks; applying one at a time")
+		for _, summary := range summaries {
+			if err := s.SetValidatorEpochSummary(ctx, summary); err != nil {
+				log.Info().Msg("Failure to insert individual summary")
+				return err
+			}
+		}
+
+		// Succeeded so clear the error.
+		err = nil
+	}
 
 	return err
 }
