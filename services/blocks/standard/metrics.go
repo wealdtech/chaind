@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Limited.
+// Copyright © 2021, 2022 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -66,12 +66,19 @@ func registerPrometheusMetrics(ctx context.Context) error {
 	return nil
 }
 
+// monitorLatestBlock sets the latest block without registering an
+// increase in blocks processed.  This does not usually need to be
+// called directly, as it is called as part ofr monitorBlockProcessed.
+func monitorLatestBlock(slot phase0.Slot) {
+	highestSlot = slot
+	latestBlock.Set(float64(slot))
+}
+
 func monitorBlockProcessed(slot phase0.Slot) {
 	if blocksProcessed != nil {
 		blocksProcessed.Inc()
 		if slot > highestSlot {
-			latestBlock.Set(float64(slot))
-			highestSlot = slot
+			monitorLatestBlock(slot)
 		}
 	}
 }

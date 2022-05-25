@@ -1,4 +1,4 @@
-// Copyright © 2020, 2021 Weald Technology Trading.
+// Copyright © 2020 - 2022 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -126,6 +126,13 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		activitySem:              semaphore.NewWeighted(1),
 		syncCommittees:           make(map[uint64]*chaindb.SyncCommittee),
 	}
+
+	// Note the current highest processed block for the monitor.
+	md, err := s.getMetadata(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to obtain metadata")
+	}
+	monitorLatestBlock(md.LatestSlot)
 
 	// Update to current epoch before starting (in the background).
 	go s.updateAfterRestart(ctx, parameters.startSlot)

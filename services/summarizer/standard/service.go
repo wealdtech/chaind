@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Limited.
+// Copyright © 2021, 2022 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -154,6 +154,13 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		validatorSummaries:              parameters.validatorSummaries,
 		activitySem:                     semaphore.NewWeighted(1),
 	}
+
+	// Note the current highest summarized epoch for the monitor.
+	md, err := s.getMetadata(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to obtain metadata")
+	}
+	monitorLatestEpoch(md.LastEpoch)
 
 	return s, nil
 }

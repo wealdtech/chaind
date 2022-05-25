@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Trading.
+// Copyright © 2021, 2022 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -90,6 +90,13 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}); err != nil {
 		return nil, errors.Wrap(err, "failed to add finality checkpoint received handler")
 	}
+
+	// Note the current highest finalized epoch for the monitor.
+	md, err := s.getMetadata(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to obtain metadata")
+	}
+	monitorLatestEpoch(md.LastFinalizedEpoch)
 
 	return s, nil
 }

@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Limited.
+// Copyright © 2021, 2022 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -65,12 +65,19 @@ func registerPrometheusMetrics(ctx context.Context) error {
 	return nil
 }
 
+// monitorLatestEpoch sets the latest epoch without registering an
+// increase in epochs processed.  This does not usually need to be
+// called directly, as it is called as part ofr monitorEpochProcessed.
+func monitorLatestEpoch(epoch phase0.Epoch) {
+	highestEpoch = epoch
+	latestEpoch.Set(float64(epoch))
+}
+
 func monitorEpochProcessed(epoch phase0.Epoch) {
 	if epochsProcessed != nil {
 		epochsProcessed.Inc()
 		if epoch > highestEpoch {
-			latestEpoch.Set(float64(epoch))
-			highestEpoch = epoch
+			monitorLatestEpoch(epoch)
 		}
 	}
 }

@@ -1,3 +1,6 @@
+0.6.6
+  - initialize monitoring metrics on startup to avoid drop to 0 on restart
+
 0.6.5
   - store validator epoch summaries individually if batch store fails
 
