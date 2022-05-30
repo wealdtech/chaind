@@ -1,3 +1,6 @@
+0.6.7
+  - attempt to fetch chain configuration prior to genesis
+
 0.6.6
   - initialize monitoring metrics on startup to avoid drop to 0 on restart
 

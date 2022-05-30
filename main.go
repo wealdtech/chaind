@@ -58,7 +58,7 @@ import (
 )
 
 // ReleaseVersion is the release version for the code.
-var ReleaseVersion = "0.6.6"
+var ReleaseVersion = "0.6.7"
 
 func main() {
 	os.Exit(main2())
@@ -283,8 +283,20 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 	}
 
 	// Wait for chainstart.
+	specServiceStarted := false
 	timeToGenesis := time.Until(chainTime.GenesisTime())
-	time.Sleep(timeToGenesis)
+	if timeToGenesis > 0 {
+		// See if we can obtain spec before the chain starts.  Not all beacon nodes support this,
+		// so don't worry if it fails but do note it so that the service can be started later.
+		log.Trace().Msg("Starting spec service (speculative pre-chain)")
+		err := startSpec(ctx, eth2Client, chainDB)
+		if err == nil {
+			specServiceStarted = true
+		}
+
+		log.Info().Time("chain_start", chainTime.GenesisTime()).Msg("Waiting for chain start.")
+		time.Sleep(timeToGenesis)
+	}
 
 	// Wait for the node to sync.
 	for {
@@ -309,9 +321,11 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 
 	// Spec should be the first service that starts.  This adds configuration data to
 	// chaindb so it is accessible to other services.
-	log.Trace().Msg("Starting spec service")
-	if err := startSpec(ctx, eth2Client, chainDB); err != nil {
-		return errors.Wrap(err, "failed to start spec service")
+	if !specServiceStarted {
+		log.Trace().Msg("Starting spec service")
+		if err := startSpec(ctx, eth2Client, chainDB); err != nil {
+			return errors.Wrap(err, "failed to start spec service")
+		}
 	}
 
 	// Sync committees service is needed by blocks service.
