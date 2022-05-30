@@ -75,7 +75,7 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot phase0.Slot) erro
 	if !s.refetch {
 		blocks, err := s.chainDB.(chaindb.BlocksProvider).BlocksBySlot(ctx, slot)
 		if err == nil && len(blocks) > 0 {
-			// Already have this block.
+			log.Debug().Msg("Already have this block; not re-fetching")
 			return nil
 		}
 	}

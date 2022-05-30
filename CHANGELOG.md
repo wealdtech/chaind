@@ -1,3 +1,6 @@
+0.6.8
+  - add missing column
+
 0.6.7
   - attempt to fetch chain configuration prior to genesis
 

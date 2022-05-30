@@ -871,6 +871,7 @@ CREATE TABLE t_block_execution_payloads (
  ,f_gas_used         BIGINT NOT NULL
  ,f_base_fee_per_gas NUMERIC NOT NULL
  ,f_extra_data       BYTEA
+ ,f_timestamp        BIGINT NOT NULL
 );
 
 -- t_beacon_committees contains all beacon committees.
