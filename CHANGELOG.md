@@ -1,3 +1,6 @@
+dev
+  - avoid double fetching of blocks
+
 0.6.8
   - add missing column
 

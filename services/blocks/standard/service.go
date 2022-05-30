@@ -184,7 +184,13 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 }
 
 func (s *Service) catchup(ctx context.Context, md *metadata) {
-	for slot := md.LatestSlot; slot <= s.chainTime.CurrentSlot(); slot++ {
+	firstSlot := md.LatestSlot
+	// Increment if not 0 (as we do not differentiate between 0 and unset).
+	if firstSlot > 0 {
+		firstSlot++
+	}
+
+	for slot := firstSlot; slot <= s.chainTime.CurrentSlot(); slot++ {
 		log := log.With().Uint64("slot", uint64(slot)).Logger()
 		// Each update goes in to its own transaction, to make the data available sooner.
 		ctx, cancel, err := s.chainDB.BeginTx(ctx)
