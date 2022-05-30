@@ -289,8 +289,7 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 		// See if we can obtain spec before the chain starts.  Not all beacon nodes support this,
 		// so don't worry if it fails but do note it so that the service can be started later.
 		log.Trace().Msg("Starting spec service (speculative pre-chain)")
-		err := startSpec(ctx, eth2Client, chainDB)
-		if err == nil {
+		if err := startSpec(ctx, eth2Client, chainDB); err == nil {
 			specServiceStarted = true
 		}
 
