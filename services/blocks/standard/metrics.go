@@ -71,7 +71,9 @@ func registerPrometheusMetrics(ctx context.Context) error {
 // called directly, as it is called as part ofr monitorBlockProcessed.
 func monitorLatestBlock(slot phase0.Slot) {
 	highestSlot = slot
-	latestBlock.Set(float64(slot))
+	if latestBlock != nil {
+		latestBlock.Set(float64(slot))
+	}
 }
 
 func monitorBlockProcessed(slot phase0.Slot) {

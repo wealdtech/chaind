@@ -70,7 +70,9 @@ func registerPrometheusMetrics(ctx context.Context) error {
 // called directly, as it is called as part ofr monitorEpochProcessed.
 func monitorLatestEpoch(epoch phase0.Epoch) {
 	highestEpoch = epoch
-	latestEpoch.Set(float64(epoch))
+	if latestEpoch != nil {
+		latestEpoch.Set(float64(epoch))
+	}
 }
 
 func monitorEpochProcessed(epoch phase0.Epoch) {
