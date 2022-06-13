@@ -1,4 +1,4 @@
-0.6.9
+0.6.10
   - avoid crash with uninitialised metrics
   - avoid double fetching of blocks
 
