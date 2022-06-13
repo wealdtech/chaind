@@ -1,4 +1,5 @@
-dev
+0.6.9
+  - avoid crash with uninitialised metrics
   - avoid double fetching of blocks
 
 0.6.8
