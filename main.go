@@ -58,7 +58,7 @@ import (
 )
 
 // ReleaseVersion is the release version for the code.
-var ReleaseVersion = "0.6.10"
+var ReleaseVersion = "0.6.11-dev"
 
 func main() {
 	os.Exit(main2())
@@ -163,6 +163,7 @@ func fetchConfig() error {
 	pflag.String("eth1deposits.start-block", "", "Ethereum 1 block from which to start fetching deposits")
 	pflag.String("eth1client.address", "", "Address for Ethereum 1 node")
 	pflag.String("chaindb.url", "", "URL for database")
+	pflag.Uint("chaindb.max-connections", 16, "maximum number of concurrent database connections")
 	pflag.Parse()
 	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
 		return errors.Wrap(err, "failed to bind pflags to viper")
@@ -235,6 +236,7 @@ func startDatabase(ctx context.Context) (chaindb.Service, error) {
 	chainDB, err := postgresqlchaindb.New(ctx,
 		postgresqlchaindb.WithLogLevel(util.LogLevel("chaindb")),
 		postgresqlchaindb.WithConnectionURL(viper.GetString("chaindb.url")),
+		postgresqlchaindb.WithMaxConnections(viper.GetUint("chaindb.max-connections")),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start chain database service")

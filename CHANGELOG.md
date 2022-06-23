@@ -1,3 +1,6 @@
+dev:
+  - add configurable database connection pool size
+
 0.6.10
   - avoid crash with uninitialised metrics
   - avoid double fetching of blocks

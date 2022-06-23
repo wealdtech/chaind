@@ -50,7 +50,12 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	var pool *pgxpool.Pool
 	if parameters.connectionURL != "" {
 		// Use deprecated connection URL method.
-		pool, err = pgxpool.Connect(context.Background(), parameters.connectionURL)
+		config, err := pgxpool.ParseConfig(parameters.connectionURL)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid connection URL")
+		}
+		config.MaxConns = int32(parameters.maxConnections)
+		pool, err = pgxpool.ConnectConfig(context.Background(), config)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to connect to database")
 		}
@@ -89,6 +94,8 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 				tlsConfig.RootCAs = rootCAs
 			}
 		}
+
+		dsnItems = append(dsnItems, fmt.Sprintf("pool_max_conns=%d", parameters.maxConnections))
 
 		config, err := pgxpool.ParseConfig(strings.Join(dsnItems, " "))
 		if err != nil {
