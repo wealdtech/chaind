@@ -743,17 +743,25 @@ func (s *Service) beaconCommittee(ctx context.Context,
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch beacon committees")
 	}
+	log.Debug().Uint64("slot", uint64(slot)).Msg("Obtained beacon committees from API")
+
 	for _, chainBeaconCommittee := range chainBeaconCommittees {
-		if chainBeaconCommittee.Slot == slot && chainBeaconCommittee.Index == index {
-			beaconCommittee = &chaindb.BeaconCommittee{
-				Slot:      slot,
-				Index:     index,
-				Committee: chainBeaconCommittee.Validators,
-			}
-			beaconCommittees[slot][index] = beaconCommittee
-			log.Debug().Uint64("slot", uint64(slot)).Uint64("index", uint64(index)).Msg("Obtained beacon committee from API")
-			return beaconCommittee, nil
+		newBeaconCommittee := &chaindb.BeaconCommittee{
+			Slot:      chainBeaconCommittee.Slot,
+			Index:     chainBeaconCommittee.Index,
+			Committee: chainBeaconCommittee.Validators,
 		}
+		_, slotExists := beaconCommittees[chainBeaconCommittee.Slot]
+		if !slotExists {
+			beaconCommittees[chainBeaconCommittee.Slot] = make(map[phase0.CommitteeIndex]*chaindb.BeaconCommittee)
+		}
+		beaconCommittees[chainBeaconCommittee.Slot][chainBeaconCommittee.Index] = newBeaconCommittee
 	}
+
+	beaconCommittee, exists = beaconCommittees[slot][index]
+	if exists {
+		return beaconCommittee, nil
+	}
+
 	return nil, errors.Wrap(err, "failed to obtain beacon committees")
 }
