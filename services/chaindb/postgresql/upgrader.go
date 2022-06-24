@@ -447,14 +447,16 @@ ADD COLUMN f_head_correct BOOL
 
 // columnExists returns true if the given column exists in the given table.
 func (s *Service) columnExists(ctx context.Context, tableName string, columnName string) (bool, error) {
+	var err error
+
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return false, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer cancel()
+		defer s.commitROTx(ctx)
 	}
 
 	query := fmt.Sprintf(`SELECT true
@@ -483,14 +485,16 @@ WHERE attrelid = '%s'::regclass
 
 // tableExists returns true if the given table exists.
 func (s *Service) tableExists(ctx context.Context, tableName string) (bool, error) {
+	var err error
+
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return false, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer cancel()
+		defer s.commitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `SELECT true

@@ -44,19 +44,20 @@ func (s *Service) SetMetadata(ctx context.Context, key string, value []byte) err
 
 // Metadata obtains the JSON value from a metadata key.
 func (s *Service) Metadata(ctx context.Context, key string) ([]byte, error) {
-	if !s.hasTx(ctx) {
-		var cancel context.CancelFunc
-		var err error
-		ctx, cancel, err = s.BeginTx(ctx)
+	var err error
+
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return nil, err
 		}
-		defer cancel()
+		tx = s.tx(ctx)
+		defer s.commitROTx(ctx)
 	}
-	tx := s.tx(ctx)
 
 	res := &pgtype.JSONB{}
-	err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
       SELECT f_value
       FROM t_metadata
       WHERE f_key = $1`,

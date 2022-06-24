@@ -1,5 +1,6 @@
 dev:
   - add configurable database connection pool size
+  - separate read-only and read-write transactions internally
 
 0.6.10
   - avoid crash with uninitialised metrics

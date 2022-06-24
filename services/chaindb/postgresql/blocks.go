@@ -85,14 +85,16 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 
 // BlocksBySlot fetches all blocks with the given slot.
 func (s *Service) BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*chaindb.Block, error) {
+	var err error
+
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer cancel()
+		defer s.commitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -173,14 +175,16 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*chaind
 // Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 // blocks duties for slots 2 and 3.
 func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*chaindb.Block, error) {
+	var err error
+
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer cancel()
+		defer s.commitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -261,14 +265,16 @@ func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot,
 
 // BlockByRoot fetches the block with the given root.
 func (s *Service) BlockByRoot(ctx context.Context, root phase0.Root) (*chaindb.Block, error) {
+	var err error
+
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer cancel()
+		defer s.commitROTx(ctx)
 	}
 
 	block := &chaindb.Block{}
@@ -280,7 +286,7 @@ func (s *Service) BlockByRoot(ctx context.Context, root phase0.Root) (*chaindb.B
 	var canonical sql.NullBool
 	var eth1DepositRoot []byte
 
-	err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
       SELECT f_slot
             ,f_proposer_index
             ,f_root
@@ -338,14 +344,16 @@ func (s *Service) BlockByRoot(ctx context.Context, root phase0.Root) (*chaindb.B
 // Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 // presence duties for slots 2 and 3.
 func (s *Service) CanonicalBlockPresenceForSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]bool, error) {
+	var err error
+
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer cancel()
+		defer s.commitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -380,14 +388,16 @@ func (s *Service) CanonicalBlockPresenceForSlotRange(ctx context.Context, startS
 
 // BlocksByParentRoot fetches the blocks with the given root.
 func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot phase0.Root) ([]*chaindb.Block, error) {
+	var err error
+
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer cancel()
+		defer s.commitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -465,14 +475,16 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot phase0.Root
 
 // EmptySlots fetches the slots in the given range without a block in the database.
 func (s *Service) EmptySlots(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]phase0.Slot, error) {
+	var err error
+
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer cancel()
+		defer s.commitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -504,14 +516,16 @@ func (s *Service) EmptySlots(ctx context.Context, minSlot phase0.Slot, maxSlot p
 
 // IndeterminateBlocks fetches the blocks in the given range that do not have a canonical status.
 func (s *Service) IndeterminateBlocks(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]phase0.Root, error) {
+	var err error
+
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer cancel()
+		defer s.commitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -546,14 +560,16 @@ func (s *Service) IndeterminateBlocks(ctx context.Context, minSlot phase0.Slot, 
 
 // LatestBlocks fetches the blocks with the highest slot number for in the database.
 func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
+	var err error
+
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer cancel()
+		defer s.commitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -633,18 +649,20 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
 
 // LatestCanonicalBlock returns the slot of the latest canonical block known in the database.
 func (s *Service) LatestCanonicalBlock(ctx context.Context) (phase0.Slot, error) {
+	var err error
+
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return 0, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer cancel()
+		defer s.commitROTx(ctx)
 	}
 
 	var slot phase0.Slot
-	err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
       SELECT COALESCE(MAX(f_slot),0)
       FROM t_blocks
       WHERE f_canonical = true`,
@@ -662,18 +680,20 @@ func (s *Service) LatestCanonicalBlock(ctx context.Context) (phase0.Slot, error)
 // Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 // blocks duties for slots 2 and 3.
 func (s *Service) ProposalCount(ctx context.Context, validatorIndices []phase0.ValidatorIndex, startSlot phase0.Slot, endSlot phase0.Slot) (uint64, error) {
+	var err error
+
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return 0, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer cancel()
+		defer s.commitROTx(ctx)
 	}
 
 	proposals := uint64(0)
-	err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
       SELECT COUNT(*)
 	  FROM t_blocks
       WHERE f_slot >= $1

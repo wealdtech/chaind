@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Limited.
+// Copyright © 2021, 2022 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -62,14 +62,16 @@ func (s *Service) SetChainSpecValue(ctx context.Context, key string, value inter
 
 // ChainSpec fetches all chain specification values.
 func (s *Service) ChainSpec(ctx context.Context) (map[string]interface{}, error) {
+	var err error
+
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err = s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer cancel()
+		defer s.commitROTx(ctx)
 	}
 
 	spec := make(map[string]interface{})
