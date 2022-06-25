@@ -123,7 +123,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		syncCommitteesProvider:   syncCommitteesProvider,
 		chainTime:                parameters.chainTime,
 		refetch:                  parameters.refetch,
-		activitySem:              semaphore.NewWeighted(1),
+		activitySem:              parameters.activitySem,
 		syncCommittees:           make(map[uint64]*chaindb.SyncCommittee),
 	}
 
@@ -141,9 +141,19 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 }
 
 func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
+	// Only allow 1 handler to be active.
+	acquired := s.activitySem.TryAcquire(1)
+	if !acquired {
+		log.Debug().Msg("Another handler running")
+		return
+	}
+	defer s.activitySem.Release(1)
+
 	// Work out the slot from which to start.
 	md, err := s.getMetadata(ctx)
 	if err != nil {
+		// This will exit so not release the semaphore, but it's exiting so we don't care.
+		//nolint:gocritic
 		log.Fatal().Err(err).Msg("Failed to obtain metadata before catchup")
 	}
 	if startSlot >= 0 {
@@ -156,18 +166,6 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 
 	log.Info().Uint64("slot", uint64(md.LatestSlot)).Msg("Catching up from slot")
 	s.catchup(ctx, md)
-	if len(md.MissedSlots) > 0 {
-		// Need this as a []uint64 for logging only.
-		missedSlots := make([]uint64, len(md.MissedSlots))
-		for i := range md.MissedSlots {
-			missedSlots[i] = uint64(md.MissedSlots[i])
-		}
-		log.Info().Uints64("missed_slots", missedSlots).Msg("Re-fetching missed slots")
-		s.handleMissed(ctx, md)
-		// Catchup again, in case handling the missed took a while.
-		log.Info().Uint64("slot", uint64(md.LatestSlot)).Msg("Catching up from slot")
-		s.catchup(ctx, md)
-	}
 	log.Info().Msg("Caught up")
 
 	// Set up the handler for new chain head updates.
@@ -219,44 +217,5 @@ func (s *Service) catchup(ctx context.Context, md *metadata) {
 		}
 		log.Trace().Msg("Updated block")
 		monitorBlockProcessed(slot)
-	}
-}
-
-func (s *Service) handleMissed(ctx context.Context, md *metadata) {
-	failed := 0
-	for i := 0; i < len(md.MissedSlots); i++ {
-		log := log.With().Uint64("slot", uint64(md.MissedSlots[i])).Logger()
-		// Each update goes in to its own transaction, to make the data available sooner.
-		ctx, cancel, err := s.chainDB.BeginTx(ctx)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to begin transaction on update after restart")
-			return
-		}
-
-		if err := s.updateBlockForSlot(ctx, md.MissedSlots[i]); err != nil {
-			log.Warn().Err(err).Msg("Failed to update block")
-			failed++
-			cancel()
-			continue
-		}
-		log.Trace().Msg("Updated block")
-		// Remove this from the list of missed slots.
-		missedSlots := make([]phase0.Slot, len(md.MissedSlots)-1)
-		copy(missedSlots[:failed], md.MissedSlots[:failed])
-		copy(missedSlots[failed:], md.MissedSlots[i+1:])
-		md.MissedSlots = missedSlots
-		i--
-
-		if err := s.setMetadata(ctx, md); err != nil {
-			log.Error().Err(err).Msg("Failed to set metadata")
-			cancel()
-			return
-		}
-
-		if err := s.chainDB.CommitTx(ctx); err != nil {
-			log.Error().Err(err).Uint64("slot", uint64(md.MissedSlots[i])).Msg("Failed to commit transaction")
-			cancel()
-			return
-		}
 	}
 }

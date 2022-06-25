@@ -55,6 +55,7 @@ import (
 	standardsynccommittees "github.com/wealdtech/chaind/services/synccommittees/standard"
 	standardvalidators "github.com/wealdtech/chaind/services/validators/standard"
 	"github.com/wealdtech/chaind/util"
+	"golang.org/x/sync/semaphore"
 )
 
 // ReleaseVersion is the release version for the code.
@@ -335,8 +336,11 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 		return errors.Wrap(err, "failed to start sync committees service")
 	}
 
+	// Shared activity sempahore for blocks and finalizer, to avoid potential deadlock.
+	activitySem := semaphore.NewWeighted(1)
+
 	log.Trace().Msg("Starting blocks service")
-	blocks, err := startBlocks(ctx, eth2Client, chainDB, chainTime, monitor)
+	blocks, err := startBlocks(ctx, eth2Client, chainDB, chainTime, monitor, activitySem)
 	if err != nil {
 		return errors.Wrap(err, "failed to start blocks service")
 	}
@@ -344,7 +348,7 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 	var summarizerSvc summarizer.Service
 	if blocks != nil {
 		log.Trace().Msg("Starting summarizer service")
-		summarizerSvc, err = startSummarizer(ctx, eth2Client, chainDB, chainTime, blocks, monitor)
+		summarizerSvc, err = startSummarizer(ctx, eth2Client, chainDB, chainTime, monitor)
 		if err != nil {
 			return errors.Wrap(err, "failed to start summarizer service")
 		}
@@ -355,7 +359,7 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 	if summarizerSvc != nil {
 		finalityHandlers = append(finalityHandlers, summarizerSvc.(handlers.FinalityHandler))
 	}
-	if err := startFinalizer(ctx, eth2Client, chainDB, chainTime, blocks, monitor, finalityHandlers); err != nil {
+	if err := startFinalizer(ctx, eth2Client, chainDB, chainTime, blocks, monitor, finalityHandlers, activitySem); err != nil {
 		return errors.Wrap(err, "failed to start finalizer service")
 	}
 
@@ -445,6 +449,7 @@ func startBlocks(
 	chainDB chaindb.Service,
 	chainTime chaintime.Service,
 	monitor metrics.Service,
+	activitySem *semaphore.Weighted,
 ) (
 	blocks.Service,
 	error,
@@ -469,6 +474,7 @@ func startBlocks(
 		standardblocks.WithChainDB(chainDB),
 		standardblocks.WithStartSlot(viper.GetInt64("blocks.start-slot")),
 		standardblocks.WithRefetch(viper.GetBool("blocks.refetch")),
+		standardblocks.WithActivitySem(activitySem),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create blocks service")
@@ -485,6 +491,7 @@ func startFinalizer(
 	blocks blocks.Service,
 	monitor metrics.Service,
 	finalityHandlers []handlers.FinalityHandler,
+	activitySem *semaphore.Weighted,
 ) error {
 	if !viper.GetBool("finalizer.enable") {
 		return nil
@@ -506,6 +513,7 @@ func startFinalizer(
 		standardfinalizer.WithChainDB(chainDB),
 		standardfinalizer.WithBlocks(blocks),
 		standardfinalizer.WithFinalityHandlers(finalityHandlers),
+		standardfinalizer.WithActivitySem(activitySem),
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create finalizer service")
@@ -519,7 +527,6 @@ func startSummarizer(
 	eth2Client eth2client.Service,
 	chainDB chaindb.Service,
 	chainTime chaintime.Service,
-	blocks blocks.Service,
 	monitor metrics.Service,
 ) (
 	summarizer.Service,
@@ -535,7 +542,6 @@ func startSummarizer(
 		standardsummarizer.WithETH2Client(eth2Client),
 		standardsummarizer.WithChainTime(chainTime),
 		standardsummarizer.WithChainDB(chainDB),
-		standardsummarizer.WithBlocks(blocks),
 		standardsummarizer.WithEpochSummaries(viper.GetBool("summarizer.epochs.enable")),
 		standardsummarizer.WithBlockSummaries(viper.GetBool("summarizer.blocks.enable")),
 		standardsummarizer.WithValidatorSummaries(viper.GetBool("summarizer.validators.enable")),

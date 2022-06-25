@@ -75,7 +75,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		chainTime:        parameters.chainTime,
 		blocks:           parameters.blocks,
 		finalityHandlers: parameters.finalityHandlers,
-		activitySem:      semaphore.NewWeighted(1),
+		activitySem:      parameters.activitySem,
 	}
 
 	// Set up the handler for new chain head updates.

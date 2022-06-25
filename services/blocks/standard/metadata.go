@@ -23,8 +23,7 @@ import (
 
 // metadata stored about this service.
 type metadata struct {
-	LatestSlot  phase0.Slot   `json:"latest_slot"`
-	MissedSlots []phase0.Slot `json:"missed_slots,omitempty"`
+	LatestSlot phase0.Slot `json:"latest_slot"`
 }
 
 // metadataKey is the key for the metadata.

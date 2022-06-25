@@ -22,7 +22,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
-	"github.com/wealdtech/chaind/services/blocks"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
 	"golang.org/x/sync/semaphore"
@@ -36,13 +35,11 @@ type Service struct {
 	proposerDutiesProvider          chaindb.ProposerDutiesProvider
 	attestationsProvider            chaindb.AttestationsProvider
 	blocksProvider                  chaindb.BlocksProvider
-	blocksSetter                    chaindb.BlocksSetter
 	depositsProvider                chaindb.DepositsProvider
 	validatorsProvider              chaindb.ValidatorsProvider
 	attesterSlashingsProvider       chaindb.AttesterSlashingsProvider
 	proposerSlashingsProvider       chaindb.ProposerSlashingsProvider
 	chainTime                       chaintime.Service
-	blocks                          blocks.Service
 	maxTimelyAttestationSourceDelay uint64
 	maxTimelyAttestationTargetDelay uint64
 	maxTimelyAttestationHeadDelay   uint64
@@ -82,11 +79,6 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	blocksProvider, isProvider := parameters.chainDB.(chaindb.BlocksProvider)
 	if !isProvider {
 		return nil, errors.New("chain DB does not provide blocks")
-	}
-
-	blocksSetter, isSetter := parameters.chainDB.(chaindb.BlocksSetter)
-	if !isSetter {
-		return nil, errors.New("chain DB does not support block setting")
 	}
 
 	depositsProvider, isProvider := parameters.chainDB.(chaindb.DepositsProvider)
@@ -139,13 +131,11 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		proposerDutiesProvider:          proposerDutiesProvider,
 		attestationsProvider:            attestationsProvider,
 		blocksProvider:                  blocksProvider,
-		blocksSetter:                    blocksSetter,
 		depositsProvider:                depositsProvider,
 		validatorsProvider:              validatorsProvider,
 		attesterSlashingsProvider:       attesterSlashingsProvider,
 		proposerSlashingsProvider:       proposerSlashingsProvider,
 		chainTime:                       parameters.chainTime,
-		blocks:                          parameters.blocks,
 		maxTimelyAttestationSourceDelay: uint64(math.Sqrt(float64(slotsPerEpoch))),
 		maxTimelyAttestationTargetDelay: slotsPerEpoch,
 		maxTimelyAttestationHeadDelay:   minAttestationInclusionDelay,

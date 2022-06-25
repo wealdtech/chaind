@@ -18,7 +18,6 @@ import (
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/rs/zerolog"
-	"github.com/wealdtech/chaind/services/blocks"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
 	"github.com/wealdtech/chaind/services/metrics"
@@ -30,7 +29,6 @@ type parameters struct {
 	eth2Client         eth2client.Service
 	chainDB            chaindb.Service
 	chainTime          chaintime.Service
-	blocks             blocks.Service
 	epochSummaries     bool
 	blockSummaries     bool
 	validatorSummaries bool
@@ -82,13 +80,6 @@ func WithChainTime(chainTime chaintime.Service) Parameter {
 	})
 }
 
-// WithBlocks sets the blocks service for this module.
-func WithBlocks(blocks blocks.Service) Parameter {
-	return parameterFunc(func(p *parameters) {
-		p.blocks = blocks
-	})
-}
-
 // WithEpochSummaries states if the module should generate epoch summaries.
 func WithEpochSummaries(enabled bool) Parameter {
 	return parameterFunc(func(p *parameters) {
@@ -129,9 +120,6 @@ func parseAndCheckParameters(params ...Parameter) (*parameters, error) {
 	}
 	if parameters.chainTime == nil {
 		return nil, errors.New("no chain time specified")
-	}
-	if parameters.blocks == nil {
-		return nil, errors.New("no blocks specified")
 	}
 
 	return &parameters, nil

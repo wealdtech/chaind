@@ -21,16 +21,18 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
 	"github.com/wealdtech/chaind/services/metrics"
+	"golang.org/x/sync/semaphore"
 )
 
 type parameters struct {
-	logLevel   zerolog.Level
-	monitor    metrics.Service
-	eth2Client eth2client.Service
-	chainDB    chaindb.Service
-	chainTime  chaintime.Service
-	startSlot  int64
-	refetch    bool
+	logLevel    zerolog.Level
+	monitor     metrics.Service
+	eth2Client  eth2client.Service
+	chainDB     chaindb.Service
+	chainTime   chaintime.Service
+	startSlot   int64
+	refetch     bool
+	activitySem *semaphore.Weighted
 }
 
 // Parameter is the interface for service parameters.
@@ -93,6 +95,13 @@ func WithRefetch(refetch bool) Parameter {
 	})
 }
 
+// WithActivitySem sets the activity semaphore for this module.
+func WithActivitySem(sem *semaphore.Weighted) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.activitySem = sem
+	})
+}
+
 // parseAndCheckParameters parses and checks parameters to ensure that mandatory parameters are present and correct.
 func parseAndCheckParameters(params ...Parameter) (*parameters, error) {
 	parameters := parameters{
@@ -113,6 +122,9 @@ func parseAndCheckParameters(params ...Parameter) (*parameters, error) {
 	}
 	if parameters.chainTime == nil {
 		return nil, errors.New("no chain time specified")
+	}
+	if parameters.activitySem == nil {
+		return nil, errors.New("no activity semaphore specified")
 	}
 
 	return &parameters, nil
