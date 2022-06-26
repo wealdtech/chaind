@@ -279,13 +279,12 @@ func (s *Service) ValidatorsByIndex(ctx context.Context, indices []phase0.Valida
 	return validators, nil
 }
 
-// ValidatorBalancesByIndexAndEpoch fetches the validator balances for the given validators and epoch.
-func (s *Service) ValidatorBalancesByIndexAndEpoch(
+// ValidatorBalancesByEpoch fetches the validator balances for the given validators and epoch.
+func (s *Service) ValidatorBalancesByEpoch(
 	ctx context.Context,
-	validatorIndices []phase0.ValidatorIndex,
 	epoch phase0.Epoch,
 ) (
-	map[phase0.ValidatorIndex]*chaindb.ValidatorBalance,
+	[]*chaindb.ValidatorBalance,
 	error,
 ) {
 	tx := s.tx(ctx)
@@ -304,10 +303,8 @@ func (s *Service) ValidatorBalancesByIndexAndEpoch(
             ,f_balance
             ,f_effective_balance
       FROM t_validator_balances
-      WHERE f_epoch = $2::BIGINT
-        AND f_validator_index = ANY($1)
+      WHERE f_epoch = $1::BIGINT
       ORDER BY f_validator_index`,
-		validatorIndices,
 		uint64(epoch),
 	)
 	if err != nil {
@@ -315,14 +312,17 @@ func (s *Service) ValidatorBalancesByIndexAndEpoch(
 	}
 	defer rows.Close()
 
-	validatorBalances := make(map[phase0.ValidatorIndex]*chaindb.ValidatorBalance, len(validatorIndices))
+	validatorBalances := make([]*chaindb.ValidatorBalance, 0)
 
 	for rows.Next() {
 		validatorBalance, err := validatorBalanceFromRow(rows)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
-		validatorBalances[validatorBalance.Index] = validatorBalance
+		validatorBalances = append(validatorBalances, validatorBalance)
+		if uint64(validatorBalance.Index) != uint64(len(validatorBalances)-1) {
+			panic(fmt.Sprintf("bad index %d with len %d", validatorBalance.Index, len(validatorBalances)))
+		}
 	}
 
 	return validatorBalances, nil

@@ -15,7 +15,6 @@ package standard
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"time"
 
@@ -45,17 +44,17 @@ func (s *Service) updateSummaryForEpoch(ctx context.Context,
 		Epoch: epoch,
 	}
 
-	activeIndices, err := s.validatorSummaryStatsForEpoch(ctx, epoch, summary)
+	activeValidators, err := s.validatorSummaryStatsForEpoch(ctx, epoch, summary)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to calculate validator summary statistics for epoch")
 	}
-	if len(activeIndices) == 0 {
+	if summary.ActiveValidators == 0 {
 		return false, errors.New("no active validators to summarize for epoch")
 	}
 	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set validator summary stats")
 
 	// Active balance and active effective balance.
-	balances, err := s.validatorsProvider.ValidatorBalancesByIndexAndEpoch(ctx, activeIndices, epoch)
+	balances, err := s.validatorsProvider.ValidatorBalancesByEpoch(ctx, epoch)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to obtain validator balances")
 	}
@@ -64,9 +63,11 @@ func (s *Service) updateSummaryForEpoch(ctx context.Context,
 		// the balances.  We return false but no error.
 		return false, nil
 	}
-	for _, balance := range balances {
-		summary.ActiveRealBalance += balance.Balance
-		summary.ActiveBalance += balance.EffectiveBalance
+	for i, balance := range balances {
+		if activeValidators[i] {
+			summary.ActiveRealBalance += balance.Balance
+			summary.ActiveBalance += balance.EffectiveBalance
+		}
 	}
 	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set validator balances")
 
@@ -120,34 +121,36 @@ func (s *Service) validatorSummaryStatsForEpoch(ctx context.Context,
 	epoch phase0.Epoch,
 	summary *chaindb.EpochSummary,
 ) (
-	[]phase0.ValidatorIndex,
+	[]bool,
 	error,
 ) {
-	activeIndices := make([]phase0.ValidatorIndex, 0)
 	// Number of validators that are active, became active, and exited in this epoch.
 	validators, err := s.validatorsProvider.Validators(ctx)
+	activeValidators := make([]bool, len(validators))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain validators")
 	}
-	for _, validator := range validators {
+	for i, validator := range validators {
 		switch {
 		case validator.ActivationEpoch == epoch:
 			summary.ActiveValidators++
 			summary.ActivatingValidators++
-			activeIndices = append(activeIndices, validator.Index)
+			activeValidators[i] = true
 		case validator.ExitEpoch == epoch:
 			summary.ExitingValidators++
+			activeValidators[i] = false
 		case validator.ActivationEpoch <= epoch &&
 			validator.ExitEpoch > epoch:
 			summary.ActiveValidators++
-			activeIndices = append(activeIndices, validator.Index)
+			activeValidators[i] = true
 		case validator.ActivationEligibilityEpoch <= epoch &&
 			validator.ActivationEpoch != s.farFutureEpoch &&
 			validator.ActivationEpoch > epoch:
 			summary.ActivationQueueLength++
+			activeValidators[i] = false
 		}
 	}
-	return activeIndices, nil
+	return activeValidators, nil
 }
 
 func (s *Service) blockStatsForEpoch(ctx context.Context,
@@ -190,7 +193,7 @@ func (s *Service) depositStatsForEpoch(ctx context.Context,
 
 func (s *Service) attestationStatsForEpoch(ctx context.Context,
 	epoch phase0.Epoch,
-	balances map[phase0.ValidatorIndex]*chaindb.ValidatorBalance,
+	balances []*chaindb.ValidatorBalance,
 	summary *chaindb.EpochSummary,
 ) error {
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
@@ -256,9 +259,6 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 	headCorrectBalances := make(map[phase0.ValidatorIndex]phase0.Gwei)
 	for _, attestation := range epochAttestations {
 		for _, index := range attestation.AggregationIndices {
-			if _, exists := balances[index]; !exists {
-				return fmt.Errorf("no balance for validator %d", index)
-			}
 			attestingValidatorBalances[index] = balances[index].EffectiveBalance
 			if attestation.TargetCorrect != nil && *attestation.TargetCorrect {
 				targetCorrectBalances[index] = balances[index].EffectiveBalance

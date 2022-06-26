@@ -231,13 +231,12 @@ type ValidatorsProvider interface {
 	// ValidatorsByIndex fetches all validators matching the given indices.
 	ValidatorsByIndex(ctx context.Context, indices []phase0.ValidatorIndex) (map[phase0.ValidatorIndex]*Validator, error)
 
-	// ValidatorBalancesByIndexAndEpoch fetches the validator balances for the given validators and epoch.
-	ValidatorBalancesByIndexAndEpoch(
+	// ValidatorBalancesByEpoch fetches all validator balances for the given epoch.
+	ValidatorBalancesByEpoch(
 		ctx context.Context,
-		indices []phase0.ValidatorIndex,
 		epoch phase0.Epoch,
 	) (
-		map[phase0.ValidatorIndex]*ValidatorBalance,
+		[]*ValidatorBalance,
 		error,
 	)
 
