@@ -86,20 +86,14 @@ func (s *Service) updateAfterRestart(ctx context.Context, startEpoch int64) {
 	}
 
 	log.Info().Uint64("epoch", uint64(md.LatestEpoch)).Msg("Catching up from epoch")
-	s.catchup(ctx, md)
-	if len(md.MissedEpochs) > 0 {
-		// Need this as a []uint64 for logging only.
-		missedEpochs := make([]uint64, len(md.MissedEpochs))
-		for i := range md.MissedEpochs {
-			missedEpochs[i] = uint64(md.MissedEpochs[i])
-		}
-		log.Info().Uints64("missed_epochs", missedEpochs).Msg("Re-fetching missed epochs")
-		s.handleMissed(ctx, md)
-		// Catchup again, in case handling the missed epochs took a while.
-		log.Info().Uint64("epoch", uint64(md.LatestEpoch)).Msg("Catching up from epoch")
-		s.catchup(ctx, md)
+	// Only allow 1 handler to be active.
+	acquired := s.activitySem.TryAcquire(1)
+	if !acquired {
+		log.Error().Msg("Failed to obtain activity semaphore; catchup deferred")
+		return
 	}
-	log.Info().Msg("Caught up")
+	s.catchup(ctx, md)
+	s.activitySem.Release(1)
 
 	// Set up the handler for new chain head updates.
 	if err := s.eth2Client.(eth2client.EventsProvider).Events(ctx, []string{"head"}, func(event *api.Event) {
@@ -127,44 +121,6 @@ func (s *Service) catchup(ctx context.Context, md *metadata) {
 		}
 
 		md.LatestEpoch = epoch
-		if err := s.setMetadata(ctx, md); err != nil {
-			log.Error().Err(err).Msg("Failed to set metadata")
-			cancel()
-			return
-		}
-
-		if err := s.chainDB.CommitTx(ctx); err != nil {
-			log.Error().Err(err).Msg("Failed to commit transaction")
-			cancel()
-			return
-		}
-	}
-}
-
-func (s *Service) handleMissed(ctx context.Context, md *metadata) {
-	failed := 0
-	for i := 0; i < len(md.MissedEpochs); i++ {
-		log := log.With().Uint64("epoch", uint64(md.MissedEpochs[i])).Logger()
-		// Each update goes in to its own transaction, to make the data available sooner.
-		ctx, cancel, err := s.chainDB.BeginTx(ctx)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to begin transaction on update after restart")
-			return
-		}
-
-		if err := s.updateBeaconCommitteesForEpoch(ctx, md.MissedEpochs[i]); err != nil {
-			log.Warn().Err(err).Msg("Failed to update beacon committees")
-			failed++
-			cancel()
-			continue
-		}
-		// Remove this from the list of missed epochs.
-		missedEpochs := make([]phase0.Epoch, len(md.MissedEpochs)-1)
-		copy(missedEpochs[:failed], md.MissedEpochs[:failed])
-		copy(missedEpochs[failed:], md.MissedEpochs[i+1:])
-		md.MissedEpochs = missedEpochs
-		i--
-
 		if err := s.setMetadata(ctx, md); err != nil {
 			log.Error().Err(err).Msg("Failed to set metadata")
 			cancel()
