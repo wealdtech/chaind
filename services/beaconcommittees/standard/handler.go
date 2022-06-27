@@ -58,6 +58,8 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	s.activitySem.Release(1)
 }
 
+// updateBeaconCommitteesForEpoch sets the beacon committee information for the given epoch.
+// This assumes that a database transaction is already in progress.
 func (s *Service) updateBeaconCommitteesForEpoch(ctx context.Context, epoch phase0.Epoch) error {
 	log.Trace().Uint64("epoch", uint64(epoch)).Msg("Updating beacon committees")
 
