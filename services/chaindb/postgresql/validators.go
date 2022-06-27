@@ -328,6 +328,55 @@ func (s *Service) ValidatorBalancesByEpoch(
 	return validatorBalances, nil
 }
 
+// ValidatorBalancesByIndexAndEpoch fetches the validator balances for the given validators and epoch.
+func (s *Service) ValidatorBalancesByIndexAndEpoch(
+	ctx context.Context,
+	validatorIndices []phase0.ValidatorIndex,
+	epoch phase0.Epoch,
+) (
+	map[phase0.ValidatorIndex]*chaindb.ValidatorBalance,
+	error,
+) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_validator_index
+            ,f_epoch
+            ,f_balance
+            ,f_effective_balance
+      FROM t_validator_balances
+      WHERE f_epoch = $2::BIGINT
+        AND f_validator_index = ANY($1)
+      ORDER BY f_validator_index`,
+		validatorIndices,
+		uint64(epoch),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	validatorBalances := make(map[phase0.ValidatorIndex]*chaindb.ValidatorBalance, len(validatorIndices))
+
+	for rows.Next() {
+		validatorBalance, err := validatorBalanceFromRow(rows)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		validatorBalances[validatorBalance.Index] = validatorBalance
+	}
+
+	return validatorBalances, nil
+}
+
 // ValidatorBalancesByIndexAndEpochRange fetches the validator balances for the given validators and epoch range.
 // Ranges are inclusive of start and exclusive of end i.e. a request with startEpoch 2 and endEpoch 4 will provide
 // balances for epochs 2 and 3.

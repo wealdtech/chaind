@@ -138,7 +138,6 @@ func (s *Service) validatorSummaryStatsForEpoch(ctx context.Context,
 			activeValidators[i] = true
 		case validator.ExitEpoch == epoch:
 			summary.ExitingValidators++
-			activeValidators[i] = false
 		case validator.ActivationEpoch <= epoch &&
 			validator.ExitEpoch > epoch:
 			summary.ActiveValidators++
@@ -147,7 +146,6 @@ func (s *Service) validatorSummaryStatsForEpoch(ctx context.Context,
 			validator.ActivationEpoch != s.farFutureEpoch &&
 			validator.ActivationEpoch > epoch:
 			summary.ActivationQueueLength++
-			activeValidators[i] = false
 		}
 	}
 	return activeValidators, nil
