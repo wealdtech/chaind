@@ -279,7 +279,7 @@ func (s *Service) ValidatorsByIndex(ctx context.Context, indices []phase0.Valida
 	return validators, nil
 }
 
-// ValidatorBalancesByEpoch fetches the validator balances for the given validators and epoch.
+// ValidatorBalancesByEpoch fetches the validator balances for the given epoch.
 func (s *Service) ValidatorBalancesByEpoch(
 	ctx context.Context,
 	epoch phase0.Epoch,

@@ -240,6 +240,16 @@ type ValidatorsProvider interface {
 		error,
 	)
 
+	// ValidatorBalancesByIndexAndEpoch fetches the validator balances for the given validators and epoch.
+	ValidatorBalancesByIndexAndEpoch(
+		ctx context.Context,
+		indices []phase0.ValidatorIndex,
+		epoch phase0.Epoch,
+	) (
+		map[phase0.ValidatorIndex]*ValidatorBalance,
+		error,
+	)
+
 	// ValidatorBalancesByIndexAndEpochRange fetches the validator balances for the given validators and epoch range.
 	// Ranges are inclusive of start and exclusive of end i.e. a request with startEpoch 2 and endEpoch 4 will provide
 	// balances for epochs 2 and 3.
