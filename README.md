@@ -80,7 +80,7 @@ createdb -E UTF8 --owner=chain chain
 At current Prysm is not supported due to its lack of Altair-related information in its gRPC and HTTP APIs.  We expect to be able to support Prysm again soon.
 
 ### Example
-To start a Teku node suitable for `chaind` download teku and run the following command:
+To start a Teku node suitable for `chaind` download Teku and run the following command:
 
 ```sh
 teku --rest-api-enabled --data-storage-mode=archive
@@ -105,7 +105,7 @@ The minimal requirements for `chaind` are references to the database and beacon 
 chaind --chaindb.url=postgres://chain:secret@localhost:5432 --eth2client.address=localhost:5051
 ```
 
-Here, `chaindb.url` is the URL of a local PostgreSQL database with pasword 'secret' and 'eth2client.address' is the address of a supported beacon client node (gRPC for Prysm, HTTP for Teku and Lighthouse).
+Here, `chaindb.url` is the URL of a local PostgreSQL database with password 'secret' and 'eth2client.address' is the address of a supported beacon client node (gRPC for Prysm, HTTP for Teku and Lighthouse).
 
 `chaind` allows additional configuration for itself and its modules.  It takes configuration from the command line, environment variables or a configuration file, but for the purposes of explaining the configuration options the configuration file is used.  This should be in the home directory and called `.chaind.yml`.  Alternatively, the configuration file can be placed in a different directory and referenced by `--base-dir`, for example `--base-dir=/home/user/config/chaind`; in this case the file should be called `chaind.yml` (without the leading period).
 
@@ -120,6 +120,7 @@ log-file: /var/log/chaind.log
 chaindb:
   # url is the URL of the PostgreSQL database.
   url: postgres://chain:secret@localhost:5432
+  max-connections: 16
 # eth2client contains configuration for the Ethereum 2 client.
 eth2client:
   # log-level is the log level of the specific module.  If not present the base log
@@ -164,7 +165,7 @@ proposer-duties:
 # finalizer updates tables with information available for finalized states.
 finalizer:
   enable: true
-# eth1deposits contains information about transacations made to the deposit contract
+# eth1deposits contains information about transactions made to the deposit contract
 # on the Ethereum 1 network.
 eth1deposits:
   enable: false
