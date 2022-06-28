@@ -279,6 +279,55 @@ func (s *Service) ValidatorsByIndex(ctx context.Context, indices []phase0.Valida
 	return validators, nil
 }
 
+// ValidatorBalancesByEpoch fetches the validator balances for the given epoch.
+func (s *Service) ValidatorBalancesByEpoch(
+	ctx context.Context,
+	epoch phase0.Epoch,
+) (
+	[]*chaindb.ValidatorBalance,
+	error,
+) {
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, cancel, err := s.BeginTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		tx = s.tx(ctx)
+		defer cancel()
+	}
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_validator_index
+            ,f_epoch
+            ,f_balance
+            ,f_effective_balance
+      FROM t_validator_balances
+      WHERE f_epoch = $1::BIGINT
+      ORDER BY f_validator_index`,
+		uint64(epoch),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	validatorBalances := make([]*chaindb.ValidatorBalance, 0)
+
+	for rows.Next() {
+		validatorBalance, err := validatorBalanceFromRow(rows)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		validatorBalances = append(validatorBalances, validatorBalance)
+		if uint64(validatorBalance.Index) != uint64(len(validatorBalances)-1) {
+			panic(fmt.Sprintf("bad index %d with len %d", validatorBalance.Index, len(validatorBalances)))
+		}
+	}
+
+	return validatorBalances, nil
+}
+
 // ValidatorBalancesByIndexAndEpoch fetches the validator balances for the given validators and epoch.
 func (s *Service) ValidatorBalancesByIndexAndEpoch(
 	ctx context.Context,
