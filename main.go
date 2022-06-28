@@ -336,7 +336,7 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 		return errors.Wrap(err, "failed to start sync committees service")
 	}
 
-	// Shared activity sempahore for blocks and finalizer, to avoid potential deadlock.
+	// Shared activity semaphore for blocks and finalizer, to avoid potential deadlock.
 	activitySem := semaphore.NewWeighted(1)
 
 	log.Trace().Msg("Starting blocks service")
