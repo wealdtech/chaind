@@ -49,6 +49,9 @@ func (s *Service) transactionByHash(ctx context.Context, txHash []byte) (*transa
 	if err := json.NewDecoder(respBodyReader).Decode(&response); err != nil {
 		return nil, errors.Wrap(err, "invalid response")
 	}
+	if response.Result == nil {
+		return nil, errors.Wrap(err, "invalid response")
+	}
 
 	return response.Result, nil
 }
