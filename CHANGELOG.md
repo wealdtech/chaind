@@ -5,6 +5,7 @@ dev:
   - ensure only a single beacon committees update can be run at any time
   - optimize caching of beacon committees during block processing (thanks to @ariskk)
   - optimize fetching of validator balances when calculating epoch summaries (thanks to @henridf)
+  - avoid crash when execution node does not return transaction for which it supplied a log entry
 
 0.6.10
   - avoid crash with uninitialised metrics

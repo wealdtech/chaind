@@ -16,6 +16,7 @@ package getlogs
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
@@ -44,6 +45,10 @@ func (s *Service) handleBlocks(ctx context.Context, startBlock uint64, endBlock 
 		if err != nil {
 			cancel()
 			return errors.Wrap(err, "failed to obtain transaction from transaction hash")
+		}
+		if tx == nil {
+			cancel()
+			return fmt.Errorf("no transaction returned for hash %#x", logEntry.TransactionHash)
 		}
 		receipt, err := s.transactionReceiptByHash(ctx, logEntry.TransactionHash)
 		if err != nil {
@@ -92,15 +97,15 @@ func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 			failed++
 			cancel()
 			continue
-		} else {
-			log.Trace().Msg("Updated block")
-			// Remove this from the list of missed blocks.
-			missedBlocks := make([]uint64, len(md.MissedBlocks)-1)
-			copy(missedBlocks[:failed], md.MissedBlocks[:failed])
-			copy(missedBlocks[failed:], md.MissedBlocks[i+1:])
-			md.MissedBlocks = missedBlocks
-			i--
 		}
+
+		log.Trace().Msg("Updated block")
+		// Remove this from the list of missed blocks.
+		missedBlocks := make([]uint64, len(md.MissedBlocks)-1)
+		copy(missedBlocks[:failed], md.MissedBlocks[:failed])
+		copy(missedBlocks[failed:], md.MissedBlocks[i+1:])
+		md.MissedBlocks = missedBlocks
+		i--
 
 		if err := s.setMetadata(ctx, md); err != nil {
 			log.Error().Err(err).Msg("Failed to set metadata")
