@@ -3,7 +3,8 @@ dev:
   - separate read-only and read-write transactions internally
   - share activity semaphore between blocks and finalizer modules
   - ensure only a single beacon committees update can be run at any time
-  - optimise caching of beacon committees during block processing (thanks to @ariskk)
+  - optimize caching of beacon committees during block processing (thanks to @ariskk)
+  - optimize fetching of validator balances when calculating epoch summaries (thanks to @henridf)
 
 0.6.10
   - avoid crash with uninitialised metrics
