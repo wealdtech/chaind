@@ -16,6 +16,7 @@ package getlogs
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
@@ -44,6 +45,10 @@ func (s *Service) handleBlocks(ctx context.Context, startBlock uint64, endBlock 
 		if err != nil {
 			cancel()
 			return errors.Wrap(err, "failed to obtain transaction from transaction hash")
+		}
+		if tx == nil {
+			cancel()
+			return fmt.Errorf("no transaction returned for hash %#x", logEntry.TransactionHash)
 		}
 		receipt, err := s.transactionReceiptByHash(ctx, logEntry.TransactionHash)
 		if err != nil {
