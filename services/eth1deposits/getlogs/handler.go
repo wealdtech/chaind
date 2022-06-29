@@ -97,15 +97,15 @@ func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 			failed++
 			cancel()
 			continue
-		} else {
-			log.Trace().Msg("Updated block")
-			// Remove this from the list of missed blocks.
-			missedBlocks := make([]uint64, len(md.MissedBlocks)-1)
-			copy(missedBlocks[:failed], md.MissedBlocks[:failed])
-			copy(missedBlocks[failed:], md.MissedBlocks[i+1:])
-			md.MissedBlocks = missedBlocks
-			i--
 		}
+
+		log.Trace().Msg("Updated block")
+		// Remove this from the list of missed blocks.
+		missedBlocks := make([]uint64, len(md.MissedBlocks)-1)
+		copy(missedBlocks[:failed], md.MissedBlocks[:failed])
+		copy(missedBlocks[failed:], md.MissedBlocks[i+1:])
+		md.MissedBlocks = missedBlocks
+		i--
 
 		if err := s.setMetadata(ctx, md); err != nil {
 			log.Error().Err(err).Msg("Failed to set metadata")
