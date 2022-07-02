@@ -1,4 +1,4 @@
-dev:
+0.6.11:
   - add configurable database connection pool size
   - separate read-only and read-write transactions internally
   - share activity semaphore between blocks and finalizer modules
