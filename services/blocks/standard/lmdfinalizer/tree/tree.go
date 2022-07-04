@@ -4,14 +4,14 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
-// Tree for LMD finalizer
+// Tree for LMD finalizer.
 type Tree struct {
 	latestFinalizedBlock *Node // root of the tree
 	rootIndex            map[phase0.Root]*Node
 	orphans              map[phase0.Root]*Node
 }
 
-// New creates a tree
+// New creates a tree.
 func New(latestFinalizedBlock *Node) Tree {
 	t := Tree{
 		latestFinalizedBlock: latestFinalizedBlock,
@@ -23,10 +23,10 @@ func New(latestFinalizedBlock *Node) Tree {
 	return t
 }
 
-// Insert new node into the tree
+// Insert new node into the tree.
 func (t *Tree) Insert(node *Node) {
 	if t.IsOldBlock(node) {
-		// do not insert it, as it is not in the future of LFB
+		// Do not insert it, as it is not in the future of LFB.
 		// TODO logging?
 		return
 	}
@@ -34,7 +34,7 @@ func (t *Tree) Insert(node *Node) {
 	curBlock, already := t.rootIndex[node.root]
 	if already && curBlock != nil {
 		// TODO logging
-		return // already included, be idempotent
+		return // Already included, be idempotent.
 	}
 
 	t.rootIndex[node.root] = node
@@ -47,7 +47,7 @@ func (t *Tree) Insert(node *Node) {
 	}
 }
 
-// Adopt makes parent the parent of children, and remove the children from the orphan list
+// Adopt makes parent the parent of children, and remove the children from the orphan list.
 func (t *Tree) Adopt(parent *Node, children []*Node) {
 	for _, child := range children {
 		if child.parentRoot == parent.root {
@@ -57,33 +57,33 @@ func (t *Tree) Adopt(parent *Node, children []*Node) {
 	}
 }
 
-// GetByRoot returns a node by its block root
+// GetByRoot returns a node by its block root.
 func (t *Tree) GetByRoot(root phase0.Root) *Node {
 	return t.rootIndex[root]
 }
 
-// IsOldSlot returns true if a slot is less or equal than the LFB slot
+// IsOldSlot returns true if a slot is less or equal than the LFB slot.
 func (t *Tree) IsOldSlot(slot phase0.Slot) bool {
 	return slot <= t.latestFinalizedBlock.slot
 }
 
-// IsOldBlock returns true if the node slot is less or equal than the LFB slot
+// IsOldBlock returns true if the node slot is less or equal than the LFB slot.
 func (t *Tree) IsOldBlock(node *Node) bool {
 	return t.IsOldSlot(node.slot)
 }
 
-// Climb from a node towards the LFB by the tree, it passes each node to the `callback`
-// It does not include the LFB, stopping in the direct child of it
-// If the callback returns `false` the tree climbing is stopped at the current node
+// Climb from a node towards the LFB by the tree, it passes each node to the `callback`.
+// It does not include the LFB, stopping in the direct child of it.
+// If the callback returns `false` the tree climbing is stopped at the current node.
 func (t *Tree) Climb(node *Node, callback func(*Node) bool) {
 	for {
 		if node == nil || node.root == t.latestFinalizedBlock.root {
-			// stop when no parent (orphan) or arrived to the top of the tree
+			// Stop when no parent (orphan) or arrived to the top of the tree.
 			return
 		}
 
 		if !callback(node) {
-			// stop if iterator wants to stop
+			// Stop if iterator wants to stop.
 			return
 		}
 
@@ -92,7 +92,7 @@ func (t *Tree) Climb(node *Node, callback func(*Node) bool) {
 }
 
 // OnNewLatestFinalizedBlock reroots the tree on a new LFB.
-// Old nodes are removed as they are not relevant anymore
+// Old nodes are removed as they are not relevant anymore.
 func (t *Tree) OnNewLatestFinalizedBlock(newLFB *Node) {
 	t.latestFinalizedBlock = newLFB
 
@@ -100,7 +100,7 @@ func (t *Tree) OnNewLatestFinalizedBlock(newLFB *Node) {
 	t.removeOldOrphans()
 }
 
-// FindOrphans which father is a given node
+// FindOrphans which father is a given node.
 func (t *Tree) FindOrphans(node *Node) []*Node {
 	children := []*Node{}
 

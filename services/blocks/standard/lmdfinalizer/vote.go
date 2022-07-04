@@ -40,7 +40,7 @@ func (v *lmdVotes) tryUncounted(fn func(vote lmdVote) bool) {
 }
 
 func (v *lmdVotes) newLatestFinalizedBlockSlot(slot phase0.Slot) {
-	// TODO perhaps uncounted could be an map of slot to array of votes and this would be more efficient
+	// TODO perhaps uncounted could be a map of slot to array of votes and this would be more efficient.
 	newUncounted := []lmdVote{}
 
 	for _, vote := range v.uncounted {
