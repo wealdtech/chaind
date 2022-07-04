@@ -18,8 +18,6 @@ const PreBalanceThreshold = 10000
 type LMDFinalizer interface {
 	// Start finalizer with latestFinalized block as the latest finalized until now
 	Start(latestFinalized *chaindb.Block)
-	// Stop finalizer
-	Stop()
 	// AddBlock to finalizer to be candidate for finalization and use its included attestations as votes for
 	// other blocks
 	AddBlock(dbblock *chaindb.Block, attestations []*chaindb.Attestation)
@@ -71,11 +69,6 @@ func (f *finalizer) Start(latestFinalized *chaindb.Block) {
 	LFB := tree.NewNode(latestFinalized, nil)
 
 	f.onStart <- LFB
-}
-
-// Stop finalizer
-func (f *finalizer) Stop() {
-	close(f.shutdown)
 }
 
 // AddBlock to finalizer to be candidate for finalization and use its included attestations as votes for
