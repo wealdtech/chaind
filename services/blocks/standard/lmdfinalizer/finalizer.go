@@ -21,8 +21,6 @@ type LMDFinalizer interface {
 	// AddBlock to finalizer to be candidate for finalization and use its included attestations as votes for
 	// other blocks
 	AddBlock(dbblock *chaindb.Block, attestations []*chaindb.Attestation)
-	// HandleNewLatestFinalizedBlock receives the event handler that will be trigger everytime a block is finalized
-	HandleNewLatestFinalizedBlock(newLFBHandler)
 }
 
 // newLFBHandler event handler to be triggered when a new LFB is finalized
@@ -39,13 +37,12 @@ type finalizer struct {
 
 	onAddNode chan *tree.Node
 	onStart   chan *tree.Node
-	shutdown  chan struct{}
 
 	newLFBHandler newLFBHandler
 }
 
 // New LMDFinalizer with logger `log`
-func New(log zerolog.Logger) LMDFinalizer {
+func New(log zerolog.Logger, handler newLFBHandler) LMDFinalizer {
 	f := &finalizer{
 		tree:  tree.Tree{},
 		votes: newLMDVotes(),
@@ -56,7 +53,8 @@ func New(log zerolog.Logger) LMDFinalizer {
 
 		onAddNode: make(chan *tree.Node, 1000), // TODO: size of channel
 		onStart:   make(chan *tree.Node),
-		shutdown:  make(chan struct{}),
+
+		newLFBHandler: handler,
 	}
 
 	go f.mainLoop()
@@ -79,12 +77,6 @@ func (f *finalizer) AddBlock(dbblock *chaindb.Block, attestations []*chaindb.Att
 	f.onAddNode <- node
 }
 
-// HandleNewLatestFinalizedBlock receives the event handler that will be trigger everytime a block is finalized
-func (f *finalizer) HandleNewLatestFinalizedBlock(handler newLFBHandler) {
-	// TODO probably not thread safe 100% but perhaps ok as only called once actually
-	f.newLFBHandler = handler
-}
-
 // mainLoop receives via channels commands and executed them, it is run in its own goroutine so public functions
 func (f *finalizer) mainLoop() {
 	for {
@@ -96,9 +88,6 @@ func (f *finalizer) mainLoop() {
 			}
 		case LFB := <-f.onStart:
 			f.startInternal(LFB)
-		case <-f.shutdown:
-			f.log.Info().Msg("stopping LMD finalizer")
-			return
 		}
 	}
 }

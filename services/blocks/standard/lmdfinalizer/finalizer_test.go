@@ -15,14 +15,11 @@ var genesis, _ = mock.MockBlock(0, 0, 0, nil)
 
 func TestFinalizer_SimpleRun(t *testing.T) {
 	log := zerologger.With().Logger().Level(zerolog.ErrorLevel)
-	f := lmdfinalizer.New(log)
-
-	f.Start(genesis)
-
 	count := 0
 	var wg sync.WaitGroup
 	wg.Add(2)
-	f.HandleNewLatestFinalizedBlock(func(root phase0.Root, slot phase0.Slot) {
+
+	f := lmdfinalizer.New(log, func(root phase0.Root, slot phase0.Slot) {
 		wg.Done()
 		count++
 
@@ -37,6 +34,8 @@ func TestFinalizer_SimpleRun(t *testing.T) {
 			assert.Fail(t, "should there be only 2")
 		}
 	})
+
+	f.Start(genesis)
 
 	f.AddBlock(mock.MockBlock(2, 1, 0, nil))     // 1: child of genesis
 	f.AddBlock(mock.MockBlock(2, 2, 0, nil))     // 2: child of genesis
@@ -103,14 +102,11 @@ func TestFinalizer_SimpleRun(t *testing.T) {
 
 func TestFinalizer_SimpleRunOutOfOrder(t *testing.T) {
 	log := zerologger.With().Logger().Level(zerolog.ErrorLevel)
-	f := lmdfinalizer.New(log)
-
-	f.Start(genesis)
-
 	count := 0
 	var wg sync.WaitGroup
 	wg.Add(2)
-	f.HandleNewLatestFinalizedBlock(func(root phase0.Root, slot phase0.Slot) {
+
+	f := lmdfinalizer.New(log, func(root phase0.Root, slot phase0.Slot) {
 		wg.Done()
 		count++
 
@@ -125,6 +121,8 @@ func TestFinalizer_SimpleRunOutOfOrder(t *testing.T) {
 			assert.Fail(t, "should there be only 2")
 		}
 	})
+
+	f.Start(genesis)
 
 	f.AddBlock(mock.MockBlock(100, 3, 1, nil))   // 3: child of 1
 	f.AddBlock(mock.MockBlock(10, 4, 1000, nil)) // 4: child of none
@@ -192,12 +190,11 @@ func TestFinalizer_SimpleRunOutOfOrder(t *testing.T) {
 
 func TestFinalizer_SimpleRunStartAfter(t *testing.T) {
 	log := zerologger.With().Logger().Level(zerolog.ErrorLevel)
-	f := lmdfinalizer.New(log)
-
 	count := 0
 	var wg sync.WaitGroup
 	wg.Add(2)
-	f.HandleNewLatestFinalizedBlock(func(root phase0.Root, slot phase0.Slot) {
+
+	f := lmdfinalizer.New(log, func(root phase0.Root, slot phase0.Slot) {
 		wg.Done()
 		count++
 
