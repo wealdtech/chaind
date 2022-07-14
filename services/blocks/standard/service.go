@@ -15,7 +15,6 @@ package standard
 
 import (
 	"context"
-
 	eth2client "github.com/attestantio/go-eth2-client"
 	api "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
@@ -45,6 +44,7 @@ type Service struct {
 	lastHandledBlockRoot     phase0.Root
 	activitySem              *semaphore.Weighted
 	syncCommittees           map[uint64]*chaindb.SyncCommittee
+	//lmdFinalizer             lmdfinalizer.LMDFinalizer
 }
 
 // module-wide log.
@@ -125,6 +125,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		refetch:                  parameters.refetch,
 		activitySem:              parameters.activitySem,
 		syncCommittees:           make(map[uint64]*chaindb.SyncCommittee),
+		//lmdFinalizer:             nil,
 	}
 
 	// Note the current highest processed block for the monitor.
@@ -156,6 +157,9 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 		//nolint:gocritic
 		log.Fatal().Err(err).Msg("Failed to obtain metadata before catchup")
 	}
+
+	//go s.catchupLMDFinalizer(ctx, md) // I need to launch it before md is modified
+
 	if startSlot >= 0 {
 		// Explicit requirement to start at a given slot.
 		md.LatestSlot = phase0.Slot(startSlot)
@@ -180,6 +184,56 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 		log.Fatal().Err(err).Msg("Failed to add beacon chain head updated handler")
 	}
 }
+
+//func (s *Service) catchupLMDFinalizer(ctx context.Context, md *metadata) {
+//	LFBRoot := md.LMDLatestFinalizedBlockRoot
+//	LFBSlot := md.LMDLatestFinalizedSlot
+//
+//	var LFB *chaindb.Block
+//	if LFBSlot != 0 {
+//		block, err := s.chainDB.(chaindb.BlocksProvider).BlockByRoot(ctx, LFBRoot)
+//		if err != nil {
+//			log.Error().Err(err).Msg("could not fetch LMD latest finalized block")
+//			return
+//		}
+//		LFB = block
+//	} else {
+//		blocks, err := s.chainDB.(chaindb.BlocksProvider).BlocksBySlot(ctx, 0)
+//		if err != nil || len(blocks) == 0 {
+//			log.Error().Err(err).Msg("could not fetch genesis block")
+//			return
+//		}
+//		if len(blocks) > 1 {
+//			log.Error().Msg("more than one genesis block")
+//			return
+//		}
+//		LFB = blocks[0]
+//	}
+//
+//	log.Info().Msg("Starting LMD finalizer")
+//	s.lmdFinalizer = lmdfinalizer.New(LFB, log, s.onNewLMDFinalizedBlock)
+//	log.Info().Msg("Started LMD finalizer")
+//
+//	log.Info().Uint64("from_slot", uint64(LFB.Slot)).Uint64("to_slot", uint64(md.LatestSlot)).Msg("Catching up LMD finalizer")
+//
+//	for slot := LFB.Slot + 1; slot <= md.LatestSlot; slot++ {
+//		blocks, err := s.chainDB.(chaindb.BlocksProvider).BlocksBySlot(ctx, slot)
+//		if err != nil {
+//			log.Debug().Msg("block not in DB")
+//			continue
+//		}
+//
+//		for _, block := range blocks {
+//			attestations, err := s.chainDB.(chaindb.AttestationsProvider).AttestationsInBlock(ctx, block.Root)
+//			if err != nil {
+//				log.Error().Err(err).Msg("error getting attestations from db")
+//				attestations = nil
+//			}
+//			s.lmdFinalizer.AddBlock(block, attestations)
+//		}
+//	}
+//	log.Info().Msg("Caught up LMD finalizer")
+//}
 
 func (s *Service) catchup(ctx context.Context, md *metadata) {
 	firstSlot := md.LatestSlot

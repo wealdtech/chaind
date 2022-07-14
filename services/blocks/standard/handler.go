@@ -68,6 +68,38 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	monitorBlockProcessed(slot)
 }
 
+//func (s *Service) onNewLMDFinalizedBlock(root phase0.Root, slot phase0.Slot) {
+//	ctx, cancel, err := s.chainDB.BeginTx(context.Background())
+//
+//	md, err := s.getMetadata(ctx)
+//	if err != nil {
+//		log.Error().Err(err).Msg("Failed to obtain metadata")
+//		cancel()
+//		return
+//	}
+//
+//	if md.LMDLatestFinalizedSlot >= slot {
+//		log.Error().Err(err).Msg("trying to set a past LMD finalized block")
+//		cancel()
+//		return
+//	}
+//
+//	md.LMDLatestFinalizedBlockRoot = root
+//	md.LMDLatestFinalizedSlot = slot
+//
+//	if err := s.setMetadata(ctx, md); err != nil {
+//		log.Error().Err(err).Msg("Failed to set metadata")
+//		cancel()
+//		return
+//	}
+//	if err := s.chainDB.CommitTx(ctx); err != nil {
+//		log.Error().Err(err).Msg("Failed to commit transaction")
+//		cancel()
+//		return
+//	}
+//	log.Debug().Str("root", hex.EncodeToString(root[:])).Uint64("slot", uint64(slot)).Msg("stored new LMD finalized block")
+//}
+
 func (s *Service) updateBlockForSlot(ctx context.Context, slot phase0.Slot) error {
 	log := log.With().Uint64("slot", uint64(slot)).Logger()
 
@@ -103,6 +135,15 @@ func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.VersionedSigned
 	if err := s.blocksSetter.SetBlock(ctx, dbBlock); err != nil {
 		return errors.Wrap(err, "failed to set block")
 	}
+	//attestations, err := signedBlock.Attestations()
+	//if err != nil {
+	//	return errors.Wrap(err, "failed to obtain attestations")
+	//}
+	//dbAttestations, err := s.dbAttestations(ctx, dbBlock.Slot, dbBlock.Root, attestations)
+	//if err != nil {
+	//	return errors.Wrap(err, "failed to obtain database attestations")
+	//}
+	//s.lmdFinalizer.AddBlock(dbBlock, dbAttestations)
 	switch signedBlock.Version {
 	case spec.DataVersionPhase0:
 		return s.onBlockPhase0(ctx, signedBlock.Phase0, dbBlock)
@@ -234,12 +275,11 @@ func (s *Service) updateAttestationsForBlock(ctx context.Context,
 	blockRoot phase0.Root,
 	attestations []*phase0.Attestation,
 ) error {
-	beaconCommittees := make(map[phase0.Slot]map[phase0.CommitteeIndex]*chaindb.BeaconCommittee)
-	for i, attestation := range attestations {
-		dbAttestation, err := s.dbAttestation(ctx, slot, blockRoot, uint64(i), attestation, beaconCommittees)
-		if err != nil {
-			return errors.Wrap(err, "failed to obtain database attestation")
-		}
+	dbAttestations, err := s.dbAttestations(ctx, slot, blockRoot, attestations)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain database attestations")
+	}
+	for _, dbAttestation := range dbAttestations {
 		if err := s.attestationsSetter.SetAttestation(ctx, dbAttestation); err != nil {
 			return errors.Wrap(err, "failed to set attestation")
 		}
@@ -532,6 +572,25 @@ func (s *Service) dbAttestation(
 	}
 
 	return dbAttestation, nil
+}
+
+func (s *Service) dbAttestations(
+	ctx context.Context,
+	inclusionSlot phase0.Slot,
+	blockRoot phase0.Root,
+	attestations []*phase0.Attestation,
+) ([]*chaindb.Attestation, error) {
+	beaconCommittees := make(map[phase0.Slot]map[phase0.CommitteeIndex]*chaindb.BeaconCommittee)
+	result := []*chaindb.Attestation{}
+	for i, attestation := range attestations {
+		dbAttestation, err := s.dbAttestation(ctx, inclusionSlot, blockRoot, uint64(i), attestation, beaconCommittees)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to obtain database attestation")
+		}
+
+		result = append(result, dbAttestation)
+	}
+	return result, nil
 }
 
 func (s *Service) dbSyncAggregate(
