@@ -135,15 +135,15 @@ func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.VersionedSigned
 	if err := s.blocksSetter.SetBlock(ctx, dbBlock); err != nil {
 		return errors.Wrap(err, "failed to set block")
 	}
-	//attestations, err := signedBlock.Attestations()
-	//if err != nil {
-	//	return errors.Wrap(err, "failed to obtain attestations")
-	//}
-	//dbAttestations, err := s.dbAttestations(ctx, dbBlock.Slot, dbBlock.Root, attestations)
-	//if err != nil {
-	//	return errors.Wrap(err, "failed to obtain database attestations")
-	//}
-	//s.lmdFinalizer.AddBlock(dbBlock, dbAttestations)
+	attestations, err := signedBlock.Attestations()
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain attestations")
+	}
+	dbAttestations, err := s.dbAttestations(ctx, dbBlock.Slot, dbBlock.Root, attestations)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain database attestations")
+	}
+	s.lmdFinalizer.AddBlock(dbBlock, dbAttestations)
 	switch signedBlock.Version {
 	case spec.DataVersionPhase0:
 		return s.onBlockPhase0(ctx, signedBlock.Phase0, dbBlock)
