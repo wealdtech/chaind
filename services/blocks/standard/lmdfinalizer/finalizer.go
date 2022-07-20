@@ -7,6 +7,7 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	zerologger "github.com/rs/zerolog/log"
 	"github.com/wealdtech/chaind/services/blocks/standard/lmdfinalizer/tree"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
@@ -36,24 +37,29 @@ type finalizer struct {
 	newLFBHandler newLFBHandler
 }
 
-// New LMDFinalizer with logger `log`.
-func New(latestFinalized *chaindb.Block, log zerolog.Logger, handler newLFBHandler) LMDFinalizer {
-	LFB := tree.NewNode(latestFinalized, nil)
+// New LMDFinalizer.
+func New(params ...Parameter) (LMDFinalizer, error) {
+	parameters, err := parseAndCheckParameters(params...)
+	if err != nil {
+		return nil, errors.Wrap(err, "problem with parameters")
+	}
+
+	LFB := tree.NewNode(parameters.lfb, nil)
 
 	f := &finalizer{
 		tree:  tree.New(LFB),
 		votes: newLMDVotes(),
 
-		log: log.With().Str("subservice", "LMD finalizer").Logger(),
+		log: zerologger.With().Str("service", "LMD finalizer").Str("impl", "standard").Logger().Level(parameters.logLevel),
 
 		onAddNode: make(chan *tree.Node, 1000), // TODO: size of channel
 
-		newLFBHandler: handler,
+		newLFBHandler: parameters.newLFBHandler,
 	}
 
 	go f.mainLoop()
 
-	return f
+	return f, nil
 }
 
 // AddBlock to finalizer to be candidate for finalization and use its included attestations as votes for

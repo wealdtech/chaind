@@ -2,8 +2,6 @@ package lmdfinalizer_test
 
 import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
-	"github.com/rs/zerolog"
-	zerologger "github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/wealdtech/chaind/services/blocks/standard/lmdfinalizer"
 	"github.com/wealdtech/chaind/services/blocks/standard/lmdfinalizer/mock"
@@ -14,26 +12,28 @@ import (
 var genesis, _ = mock.MockBlock(0, 0, 0, nil)
 
 func TestFinalizer_SimpleRun(t *testing.T) {
-	log := zerologger.With().Logger().Level(zerolog.ErrorLevel)
 	count := 0
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	f := lmdfinalizer.New(genesis, log, func(root phase0.Root, slot phase0.Slot) {
-		wg.Done()
-		count++
+	f, err := lmdfinalizer.New(
+		lmdfinalizer.WithLFB(genesis),
+		lmdfinalizer.WithHandler(func(root phase0.Root, slot phase0.Slot) {
+			wg.Done()
+			count++
 
-		switch count {
-		case 1:
-			assert.Equal(t, phase0.Slot(2), slot)
-			assert.EqualValues(t, mock.MockRoot(1), root)
-		case 2:
-			assert.Equal(t, phase0.Slot(100), slot)
-			assert.EqualValues(t, mock.MockRoot(3), root)
-		default:
-			assert.Fail(t, "should there be only 2")
-		}
-	})
+			switch count {
+			case 1:
+				assert.Equal(t, phase0.Slot(2), slot)
+				assert.EqualValues(t, mock.MockRoot(1), root)
+			case 2:
+				assert.Equal(t, phase0.Slot(100), slot)
+				assert.EqualValues(t, mock.MockRoot(3), root)
+			default:
+				assert.Fail(t, "should there be only 2")
+			}
+		}))
+	assert.NoError(t, err)
 
 	f.AddBlock(mock.MockBlock(2, 1, 0, nil))     // 1: child of genesis
 	f.AddBlock(mock.MockBlock(2, 2, 0, nil))     // 2: child of genesis
@@ -99,26 +99,28 @@ func TestFinalizer_SimpleRun(t *testing.T) {
 }
 
 func TestFinalizer_SimpleRunOutOfOrder(t *testing.T) {
-	log := zerologger.With().Logger().Level(zerolog.ErrorLevel)
 	count := 0
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	f := lmdfinalizer.New(genesis, log, func(root phase0.Root, slot phase0.Slot) {
-		wg.Done()
-		count++
+	f, err := lmdfinalizer.New(
+		lmdfinalizer.WithLFB(genesis),
+		lmdfinalizer.WithHandler(func(root phase0.Root, slot phase0.Slot) {
+			wg.Done()
+			count++
 
-		switch count {
-		case 1:
-			assert.Equal(t, phase0.Slot(2), slot)
-			assert.EqualValues(t, mock.MockRoot(1), root)
-		case 2:
-			assert.Equal(t, phase0.Slot(100), slot)
-			assert.EqualValues(t, mock.MockRoot(3), root)
-		default:
-			assert.Fail(t, "should there be only 2")
-		}
-	})
+			switch count {
+			case 1:
+				assert.Equal(t, phase0.Slot(2), slot)
+				assert.EqualValues(t, mock.MockRoot(1), root)
+			case 2:
+				assert.Equal(t, phase0.Slot(100), slot)
+				assert.EqualValues(t, mock.MockRoot(3), root)
+			default:
+				assert.Fail(t, "should there be only 2")
+			}
+		}))
+	assert.NoError(t, err)
 
 	f.AddBlock(mock.MockBlock(100, 3, 1, nil))   // 3: child of 1
 	f.AddBlock(mock.MockBlock(10, 4, 1000, nil)) // 4: child of none
