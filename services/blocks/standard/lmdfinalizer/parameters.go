@@ -10,7 +10,7 @@ import (
 type parameters struct {
 	lfb           *chaindb.Block
 	logLevel      zerolog.Level
-	newLFBHandler newLFBHandler
+	newLFBHandler NewLFBHandler
 }
 
 // Parameter is the interface for service parameters.
@@ -37,7 +37,7 @@ func WithLogLevel(logLevel zerolog.Level) Parameter {
 	})
 }
 
-func WithHandler(handler newLFBHandler) Parameter {
+func WithHandler(handler NewLFBHandler) Parameter {
 	return parameterFunc(func(p *parameters) {
 		p.newLFBHandler = handler
 	})

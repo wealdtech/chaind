@@ -22,8 +22,8 @@ type LMDFinalizer interface {
 	AddBlock(dbblock *chaindb.Block, attestations []*chaindb.Attestation)
 }
 
-// newLFBHandler event handler to be triggered when a new LFB is finalized.
-type newLFBHandler func(phase0.Root, phase0.Slot)
+// NewLFBHandler event handler to be triggered when a new LFB is finalized.
+type NewLFBHandler func(phase0.Root, phase0.Slot)
 
 // finalizer is the implementation of LMDFinalizer.
 type finalizer struct {
@@ -34,7 +34,7 @@ type finalizer struct {
 
 	onAddNode chan *tree.Node
 
-	newLFBHandler newLFBHandler
+	newLFBHandler NewLFBHandler
 }
 
 // New LMDFinalizer.
