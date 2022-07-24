@@ -16,6 +16,7 @@ package standard
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -68,37 +69,37 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	monitorBlockProcessed(slot)
 }
 
-//func (s *Service) onNewLMDFinalizedBlock(root phase0.Root, slot phase0.Slot) {
-//	ctx, cancel, err := s.chainDB.BeginTx(context.Background())
-//
-//	md, err := s.getMetadata(ctx)
-//	if err != nil {
-//		log.Error().Err(err).Msg("Failed to obtain metadata")
-//		cancel()
-//		return
-//	}
-//
-//	if md.LMDLatestFinalizedSlot >= slot {
-//		log.Error().Err(err).Msg("trying to set a past LMD finalized block")
-//		cancel()
-//		return
-//	}
-//
-//	md.LMDLatestFinalizedBlockRoot = root
-//	md.LMDLatestFinalizedSlot = slot
-//
-//	if err := s.setMetadata(ctx, md); err != nil {
-//		log.Error().Err(err).Msg("Failed to set metadata")
-//		cancel()
-//		return
-//	}
-//	if err := s.chainDB.CommitTx(ctx); err != nil {
-//		log.Error().Err(err).Msg("Failed to commit transaction")
-//		cancel()
-//		return
-//	}
-//	log.Debug().Str("root", hex.EncodeToString(root[:])).Uint64("slot", uint64(slot)).Msg("stored new LMD finalized block")
-//}
+func (s *Service) onNewLMDFinalizedBlock(root phase0.Root, slot phase0.Slot) {
+	ctx, cancel, err := s.chainDB.BeginTx(context.Background())
+
+	md, err := s.getMetadata(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to obtain metadata")
+		cancel()
+		return
+	}
+
+	if md.LMDLatestFinalizedSlot >= slot {
+		log.Error().Err(err).Msg("trying to set a past LMD finalized block")
+		cancel()
+		return
+	}
+
+	md.LMDLatestFinalizedBlockRoot = root
+	md.LMDLatestFinalizedSlot = slot
+
+	if err := s.setMetadata(ctx, md); err != nil {
+		log.Error().Err(err).Msg("Failed to set metadata")
+		cancel()
+		return
+	}
+	if err := s.chainDB.CommitTx(ctx); err != nil {
+		log.Error().Err(err).Msg("Failed to commit transaction")
+		cancel()
+		return
+	}
+	log.Debug().Str("root", hex.EncodeToString(root[:])).Uint64("slot", uint64(slot)).Msg("stored new LMD finalized block")
+}
 
 func (s *Service) updateBlockForSlot(ctx context.Context, slot phase0.Slot) error {
 	log := log.With().Uint64("slot", uint64(slot)).Logger()

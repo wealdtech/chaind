@@ -187,34 +187,36 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 }
 
 func (s *Service) catchupLMDFinalizer(ctx context.Context, md *metadata) {
-	//LFBRoot := md.LMDLatestFinalizedBlockRoot
-	//LFBSlot := md.LMDLatestFinalizedSlot
+	LFBRoot := md.LMDLatestFinalizedBlockRoot
+	LFBSlot := md.LMDLatestFinalizedSlot
 
 	var LFB *chaindb.Block
-	//if LFBSlot != 0 {
-	//	block, err := s.chainDB.(chaindb.BlocksProvider).BlockByRoot(ctx, LFBRoot)
-	//	if err != nil {
-	//		log.Error().Err(err).Msg("could not fetch LMD latest finalized block")
-	//		return
-	//	}
-	//	LFB = block
-	//} else {
-	blocks, err := s.chainDB.(chaindb.BlocksProvider).BlocksBySlot(ctx, 0)
-	if err != nil || len(blocks) == 0 {
-		log.Error().Err(err).Msg("could not fetch genesis block")
-		return
+	if LFBSlot != 0 {
+		block, err := s.chainDB.(chaindb.BlocksProvider).BlockByRoot(ctx, LFBRoot)
+		if err != nil {
+			log.Error().Err(err).Msg("could not fetch LMD latest finalized block")
+			return
+		}
+		LFB = block
+	} else {
+		blocks, err := s.chainDB.(chaindb.BlocksProvider).BlocksBySlot(ctx, 0)
+		if err != nil || len(blocks) == 0 {
+			log.Error().Err(err).Msg("could not fetch genesis block")
+			return
+		}
+		if len(blocks) > 1 {
+			log.Error().Msg("more than one genesis block")
+			return
+		}
+		LFB = blocks[0]
 	}
-	if len(blocks) > 1 {
-		log.Error().Msg("more than one genesis block")
-		return
-	}
-	LFB = blocks[0]
-	//}
 
 	log.Info().Msg("Starting LMD finalizer")
+	var err error
 	s.lmdFinalizer, err = lmdfinalizer.New(
 		lmdfinalizer.WithLFB(LFB),
 		lmdfinalizer.WithLogLevel(zerolog.DebugLevel),
+		lmdfinalizer.WithHandler(s.onNewLMDFinalizedBlock),
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("could not initializer LMF finalizer")
@@ -225,11 +227,6 @@ func (s *Service) catchupLMDFinalizer(ctx context.Context, md *metadata) {
 	log.Info().Uint64("from_slot", uint64(LFB.Slot)).Uint64("to_slot", uint64(md.LatestSlot)).Msg("Catching up LMD finalizer")
 
 	for slot := LFB.Slot + 1; slot <= md.LatestSlot; slot++ {
-		//ctx, cancel, err := s.chainDB.BeginTx(ctx)
-		//if err != nil {
-		//	log.Error().Err(err).Msg("Failed to begin transaction")
-		//	return
-		//}
 		blocks, err := s.chainDB.(chaindb.BlocksProvider).BlocksBySlot(ctx, slot)
 		if err != nil {
 			log.Debug().Msg("block not in DB")

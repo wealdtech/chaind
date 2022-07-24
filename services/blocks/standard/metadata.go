@@ -23,9 +23,9 @@ import (
 
 // metadata stored about this service.
 type metadata struct {
-	LatestSlot phase0.Slot `json:"latest_slot"`
-	//LMDLatestFinalizedBlockRoot phase0.Root `json:"lmd_lfb_root,omitempty"`
-	//LMDLatestFinalizedSlot      phase0.Slot `json:"lmd_lfb_slot,omitempty"`
+	LatestSlot                  phase0.Slot `json:"latest_slot"`
+	LMDLatestFinalizedBlockRoot phase0.Root `json:"lmd_lfb_root,omitempty"`
+	LMDLatestFinalizedSlot      phase0.Slot `json:"lmd_lfb_slot,omitempty"`
 }
 
 // metadataKey is the key for the metadata.
