@@ -82,7 +82,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		return time.Now().AddDate(0, 0, 1), nil
 	}
 	jobFunc := func(ctx context.Context, data interface{}) {
-		log.Warn().Msg("Updating spec")
+		log.Trace().Msg("Updating spec")
 		s := data.(*Service)
 		s.updateSpec(ctx)
 	}
