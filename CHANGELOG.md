@@ -1,3 +1,6 @@
+0.6.12:
+  - periodically update the information obtained by the spec service
+
 0.6.11:
   - add configurable database connection pool size
   - separate read-only and read-write transactions internally

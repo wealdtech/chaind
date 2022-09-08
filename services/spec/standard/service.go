@@ -15,6 +15,7 @@ package standard
 
 import (
 	"context"
+	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/pkg/errors"
@@ -73,12 +74,31 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 
 	// Update spec in the _foreground_.  This ensures that spec information
 	// is available to other modules when they start.
-	s.updateAfterRestart(ctx)
+	s.updateSpec(ctx)
+
+	// Set up a periodic refresh of the spec information.
+	runtimeFunc := func(ctx context.Context, data interface{}) (time.Time, error) {
+		// Run daily.
+		return time.Now().AddDate(0, 0, 1), nil
+	}
+	jobFunc := func(ctx context.Context, data interface{}) {
+		log.Warn().Msg("Updating spec")
+		s := data.(*Service)
+		s.updateSpec(ctx)
+	}
+	if err := parameters.scheduler.SchedulePeriodicJob(ctx, "spec", "update spec",
+		runtimeFunc,
+		nil,
+		jobFunc,
+		s,
+	); err != nil {
+		return nil, errors.Wrap(err, "failed to set up periodic refresh of spec")
+	}
 
 	return s, nil
 }
 
-func (s *Service) updateAfterRestart(ctx context.Context) {
+func (s *Service) updateSpec(ctx context.Context) {
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to begin transaction")

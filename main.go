@@ -49,6 +49,7 @@ import (
 	nullmetrics "github.com/wealdtech/chaind/services/metrics/null"
 	prometheusmetrics "github.com/wealdtech/chaind/services/metrics/prometheus"
 	standardproposerduties "github.com/wealdtech/chaind/services/proposerduties/standard"
+	standardscheduler "github.com/wealdtech/chaind/services/scheduler/standard"
 	standardspec "github.com/wealdtech/chaind/services/spec/standard"
 	"github.com/wealdtech/chaind/services/summarizer"
 	standardsummarizer "github.com/wealdtech/chaind/services/summarizer/standard"
@@ -59,7 +60,7 @@ import (
 )
 
 // ReleaseVersion is the release version for the code.
-var ReleaseVersion = "0.6.11"
+var ReleaseVersion = "0.6.12"
 
 func main() {
 	os.Exit(main2())
@@ -292,7 +293,7 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 		// See if we can obtain spec before the chain starts.  Not all beacon nodes support this,
 		// so don't worry if it fails but do note it so that the service can be started later.
 		log.Trace().Msg("Starting spec service (speculative pre-chain)")
-		if err := startSpec(ctx, eth2Client, chainDB); err == nil {
+		if err := startSpec(ctx, eth2Client, chainDB, monitor); err == nil {
 			specServiceStarted = true
 		}
 
@@ -325,7 +326,7 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 	// chaindb so it is accessible to other services.
 	if !specServiceStarted {
 		log.Trace().Msg("Starting spec service")
-		if err := startSpec(ctx, eth2Client, chainDB); err != nil {
+		if err := startSpec(ctx, eth2Client, chainDB, monitor); err != nil {
 			return errors.Wrap(err, "failed to start spec service")
 		}
 	}
@@ -422,6 +423,7 @@ func startSpec(
 	ctx context.Context,
 	eth2Client eth2client.Service,
 	chainDB chaindb.Service,
+	monitor metrics.Service,
 ) error {
 	var err error
 	if viper.GetString("spec.address") != "" {
@@ -431,10 +433,18 @@ func startSpec(
 		}
 	}
 
+	scheduler, err := standardscheduler.New(ctx,
+		standardscheduler.WithLogLevel(util.LogLevel("scheduler")),
+		standardscheduler.WithMonitor(monitor))
+	if err != nil {
+		return errors.Wrap(err, "failed to initialise scheduler")
+	}
+
 	_, err = standardspec.New(ctx,
 		standardspec.WithLogLevel(util.LogLevel("spec")),
 		standardspec.WithETH2Client(eth2Client),
 		standardspec.WithChainDB(chainDB),
+		standardspec.WithScheduler(scheduler),
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create spec service")
