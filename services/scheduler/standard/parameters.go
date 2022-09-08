@@ -1,4 +1,4 @@
-// Copyright © 2021, 2022 Weald Technology Trading.
+// Copyright © 2022 Weald Technoogy Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -14,19 +14,14 @@
 package standard
 
 import (
-	"errors"
-
-	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/rs/zerolog"
-	"github.com/wealdtech/chaind/services/chaindb"
-	"github.com/wealdtech/chaind/services/scheduler"
+	"github.com/wealdtech/chaind/services/metrics"
+	nullmetrics "github.com/wealdtech/chaind/services/metrics/null"
 )
 
 type parameters struct {
-	logLevel   zerolog.Level
-	eth2Client eth2client.Service
-	chainDB    chaindb.Service
-	scheduler  scheduler.Service
+	logLevel zerolog.Level
+	monitor  metrics.Service
 }
 
 // Parameter is the interface for service parameters.
@@ -47,24 +42,10 @@ func WithLogLevel(logLevel zerolog.Level) Parameter {
 	})
 }
 
-// WithETH2Client sets the Ethereum 2 client for this module.
-func WithETH2Client(eth2Client eth2client.Service) Parameter {
+// WithMonitor sets the monitor for this module.
+func WithMonitor(monitor metrics.Service) Parameter {
 	return parameterFunc(func(p *parameters) {
-		p.eth2Client = eth2Client
-	})
-}
-
-// WithChainDB sets the chain database for this module.
-func WithChainDB(chainDB chaindb.Service) Parameter {
-	return parameterFunc(func(p *parameters) {
-		p.chainDB = chainDB
-	})
-}
-
-// WithScheduler sets the scheduler for this module.
-func WithScheduler(scheduler scheduler.Service) Parameter {
-	return parameterFunc(func(p *parameters) {
-		p.scheduler = scheduler
+		p.monitor = monitor
 	})
 }
 
@@ -79,14 +60,8 @@ func parseAndCheckParameters(params ...Parameter) (*parameters, error) {
 		}
 	}
 
-	if parameters.eth2Client == nil {
-		return nil, errors.New("no Ethereum 2 client specified")
-	}
-	if parameters.chainDB == nil {
-		return nil, errors.New("no chain database specified")
-	}
-	if parameters.scheduler == nil {
-		return nil, errors.New("no scheduler specified")
+	if parameters.monitor == nil {
+		parameters.monitor = &nullmetrics.Service{}
 	}
 
 	return &parameters, nil
