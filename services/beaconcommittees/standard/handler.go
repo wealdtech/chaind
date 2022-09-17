@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2022 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -52,6 +52,11 @@ func (s *Service) OnBeaconChainHeadUpdated(
 		s.activitySem.Release(1)
 		log.Error().Err(err).Msg("Failed to obtain metadata")
 		return
+	}
+
+	if md.LatestEpoch > 0 {
+		// We have a definite hit on this being the last processed epoch; increment it to avoid duplication of work.
+		md.LatestEpoch++
 	}
 
 	s.catchup(ctx, md)

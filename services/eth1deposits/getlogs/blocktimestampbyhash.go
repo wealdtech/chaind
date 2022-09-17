@@ -55,6 +55,9 @@ func (s *Service) blockTimestampByHash(ctx context.Context, blockHash []byte) (t
 	if err := json.NewDecoder(respBodyReader).Decode(&response); err != nil {
 		return time.Time{}, errors.Wrap(err, "invalid response")
 	}
+	if response.Result == nil {
+		return time.Time{}, errors.Wrap(err, "empty response")
+	}
 
 	timestamp, err := strconv.ParseInt(strings.TrimPrefix(response.Result.Timestamp, "0x"), 16, 64)
 	if err != nil {

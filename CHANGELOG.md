@@ -1,3 +1,7 @@
+0.6.13:
+  - avoid crash if no response is given to a 'eth_getBlockByHash' call
+  - do not refetch beacon committees if we already have them
+
 0.6.12:
   - periodically update the information obtained by the spec service
 
