@@ -70,11 +70,11 @@ jobs:
        tar zcf chaind-${RELEASE_VERSION}-linux-amd64.tar.gz chaind
        sha256sum chaind-${RELEASE_VERSION}-linux-amd64.tar.gz >chaind-${RELEASE_VERSION}-linux-amd64.tar.gz.sha256
 
-       # - name: Create linux ARM64 tgz file
-       #   run: |
-       #    mv chaind-linux-arm64 chaind
-       #    tar zcf chaind-${RELEASE_VERSION}-linux-arm64.tar.gz chaind
-       #    sha256sum chaind-${RELEASE_VERSION}-linux-arm64.tar.gz >chaind-${RELEASE_VERSION}-linux-arm64.tar.gz.sha256
+    - name: Create linux ARM64 tgz file
+      run: |
+       mv chaind-linux-arm64 chaind
+       tar zcf chaind-${RELEASE_VERSION}-linux-arm64.tar.gz chaind
+       sha256sum chaind-${RELEASE_VERSION}-linux-arm64.tar.gz >chaind-${RELEASE_VERSION}-linux-arm64.tar.gz.sha256
 
     - name: Create release
       id: create_release
@@ -131,24 +131,24 @@ jobs:
         asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-amd64.tar.gz
         asset_content_type: application/gzip
 
-          # - name: Upload linux ARM64 checksum file
-          #   id: upload-release-asset-linux-arm64-checksum
-          #   uses: actions/upload-release-asset@v1
-          #   env:
-          #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          #   with:
-          #     upload_url: ${{ steps.create_release.outputs.upload_url }}
-          #     asset_path: ./chaind-${{ env.RELEASE_VERSION }}-linux-arm64.tar.gz.sha256
-          #     asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-arm64.tar.gz.sha256
-          #     asset_content_type: application/gzip
+    - name: Upload linux ARM64 checksum file
+      id: upload-release-asset-linux-arm64-checksum
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-linux-arm64.tar.gz.sha256
+        asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-arm64.tar.gz.sha256
+        asset_content_type: text/plain
 
-          # - name: Upload linux ARM64 tgz file
-          #   id: upload-release-asset-linux-arm64
-          #   uses: actions/upload-release-asset@v1
-          #   env:
-          #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          #   with:
-          #     upload_url: ${{ steps.create_release.outputs.upload_url }}
-          #     asset_path: ./chaind-${{ env.RELEASE_VERSION }}-linux-arm64.tar.gz
-          #     asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-arm64.tar.gz
-          #     asset_content_type: application/gzip
+    - name: Upload linux ARM64 tgz file
+      id: upload-release-asset-linux-arm64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./chaind-${{ env.RELEASE_VERSION }}-linux-arm64.tar.gz
+        asset_name: chaind-${{ env.RELEASE_VERSION }}-linux-arm64.tar.gz
+        asset_content_type: application/gzip
