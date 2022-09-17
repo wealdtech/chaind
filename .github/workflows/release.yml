@@ -53,7 +53,7 @@ jobs:
        go install github.com/wealdtech/xgo@latest
 
     - name: Cross-compile linux
-      run: xgo -v -x -ldflags="-X github.com/wealdtech/chaind/cmd.ReleaseVersion=${RELEASE_VERSION}" --targets="linux/amd64" github.com/wealdtech/chaind
+      run: xgo -v -x -ldflags="-X github.com/wealdtech/chaind/cmd.ReleaseVersion=${RELEASE_VERSION}" --targets="linux/amd64,linux/arm64" github.com/wealdtech/chaind
 
     - name: Cross-compile Windows
       run: xgo -v -x -ldflags="-X github.com/wealdtech/chaind/cmd.ReleaseVersion=${RELEASE_VERSION} -s -w -extldflags -static" --targets="windows/amd64" github.com/wealdtech/chaind
