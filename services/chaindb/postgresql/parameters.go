@@ -117,7 +117,8 @@ func WithMaxConnections(maxConnections uint) Parameter {
 // parseAndCheckParameters parses and checks parameters to ensure that mandatory parameters are present and correct.
 func parseAndCheckParameters(params ...Parameter) (*parameters, error) {
 	parameters := parameters{
-		logLevel: zerolog.GlobalLevel(),
+		logLevel:       zerolog.GlobalLevel(),
+		maxConnections: 16,
 	}
 	for _, p := range params {
 		if params != nil {
