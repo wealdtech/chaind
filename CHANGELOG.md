@@ -1,5 +1,6 @@
 0.6.15:
   - catch edge case where summarizer may not include all attestations first time around
+  - warn if running against a newer version of the database schema
 
 0.6.14:
   - avoid crash if no response is given to a 'eth_getBlockByHash' call

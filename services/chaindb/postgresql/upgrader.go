@@ -113,6 +113,10 @@ func (s *Service) Upgrade(ctx context.Context) (bool, error) {
 		// Nothing to do.
 		return false, nil
 	}
+	if version > currentVersion {
+		log.Warn().Msg("This release is running an older version than that in the database, please upgrade to the latest release")
+		return false, nil
+	}
 
 	ctx, cancel, err := s.BeginTx(ctx)
 	if err != nil {
@@ -994,6 +998,7 @@ CREATE TABLE t_deposits (
  ,f_amount                 BIGINT NOT NULL
 );
 CREATE UNIQUE INDEX i_deposits_1 ON t_deposits(f_inclusion_slot,f_inclusion_block_root,f_inclusion_index);
+CREATE INDEX i_deposits_2 ON t_deposits(f_validator_pubkey,f_inclusion_slot);
 
 -- t_eth1_deposits stores information about each Ethereum 1 deposit that has occurred for the deposit contract.
 CREATE TABLE t_eth1_deposits (
