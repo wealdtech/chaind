@@ -26,13 +26,13 @@ func (s *Service) OnFinalityUpdated(
 	ctx context.Context,
 	finalizedEpoch phase0.Epoch,
 ) {
-	// We summarize 1 epoch behind finality, so decrement the value here.
-	if finalizedEpoch == 0 {
+	// Once an epoch has been finalized we can summarize the epoch that comes two before it.
+	if finalizedEpoch < 2 {
 		return
 	}
-	finalizedEpoch--
+	summaryEpoch := finalizedEpoch - 2
 
-	log := log.With().Uint64("finalized_epoch", uint64(finalizedEpoch)).Logger()
+	log := log.With().Uint64("summary_epoch", uint64(summaryEpoch)).Logger()
 	log.Trace().Msg("Handler called")
 
 	// Only allow 1 handler to be active.
@@ -43,21 +43,21 @@ func (s *Service) OnFinalityUpdated(
 	}
 	defer s.activitySem.Release(1)
 
-	if err := s.onFinalityUpdatedEpochs(ctx, finalizedEpoch); err != nil {
+	if err := s.summarizeEpochs(ctx, summaryEpoch); err != nil {
 		log.Warn().Err(err).Msg("Failed to update epochs")
 	}
-	if err := s.onFinalityUpdatedBlocks(ctx, finalizedEpoch); err != nil {
+	if err := s.summarizeBlocks(ctx, summaryEpoch); err != nil {
 		log.Warn().Err(err).Msg("Failed to update blocks")
 	}
-	if err := s.onFinalityUpdatedValidators(ctx, finalizedEpoch); err != nil {
+	if err := s.summarizeValidators(ctx, summaryEpoch); err != nil {
 		log.Warn().Err(err).Msg("Failed to update validators")
 	}
 
-	monitorEpochProcessed(finalizedEpoch - 1)
+	monitorEpochProcessed(summaryEpoch)
 	log.Trace().Msg("Finished handling finality checkpoint")
 }
 
-func (s *Service) onFinalityUpdatedEpochs(ctx context.Context, finalizedEpoch phase0.Epoch) error {
+func (s *Service) summarizeEpochs(ctx context.Context, summaryEpoch phase0.Epoch) error {
 	if !s.epochSummaries {
 		return nil
 	}
@@ -71,10 +71,10 @@ func (s *Service) onFinalityUpdatedEpochs(ctx context.Context, finalizedEpoch ph
 	if lastEpoch != 0 {
 		lastEpoch++
 	}
-	log.Trace().Uint64("last_epoch", uint64(lastEpoch)).Uint64("finalized_epoch", uint64(finalizedEpoch)).Msg("Catchup bounds")
+	log.Trace().Uint64("last_epoch", uint64(lastEpoch)).Uint64("summary_epoch", uint64(summaryEpoch)).Msg("Catchup bounds")
 
-	for epoch := lastEpoch; epoch <= finalizedEpoch; epoch++ {
-		updated, err := s.updateSummaryForEpoch(ctx, md, epoch)
+	for epoch := lastEpoch; epoch <= summaryEpoch; epoch++ {
+		updated, err := s.summarizeEpoch(ctx, md, epoch)
 		if err != nil {
 			return errors.Wrapf(err, "failed to update summary for epoch %d", epoch)
 		}
@@ -87,8 +87,8 @@ func (s *Service) onFinalityUpdatedEpochs(ctx context.Context, finalizedEpoch ph
 	return nil
 }
 
-func (s *Service) onFinalityUpdatedBlocks(ctx context.Context,
-	finalizedEpoch phase0.Epoch,
+func (s *Service) summarizeBlocks(ctx context.Context,
+	summaryEpoch phase0.Epoch,
 ) error {
 	if !s.blockSummaries {
 		return nil
@@ -109,12 +109,12 @@ func (s *Service) onFinalityUpdatedBlocks(ctx context.Context,
 	// is beyond our summarized epoch we truncate to the summarized value.
 	// However, if we don't have validator balances the summarizer won't run at all
 	// for epochs, so if the last epoch is 0 we continue.
-	if finalizedEpoch > md.LastEpoch && md.LastEpoch != 0 {
-		finalizedEpoch = md.LastEpoch
+	if summaryEpoch > md.LastEpoch && md.LastEpoch != 0 {
+		summaryEpoch = md.LastEpoch
 	}
 
-	for epoch := lastBlockEpoch; epoch <= finalizedEpoch; epoch++ {
-		if err := s.updateBlockSummariesForEpoch(ctx, md, epoch); err != nil {
+	for epoch := lastBlockEpoch; epoch <= summaryEpoch; epoch++ {
+		if err := s.summarizeBlocksInEpoch(ctx, md, epoch); err != nil {
 			return errors.Wrap(err, "failed to update block summaries for epoch")
 		}
 	}
@@ -122,7 +122,7 @@ func (s *Service) onFinalityUpdatedBlocks(ctx context.Context,
 	return nil
 }
 
-func (s *Service) onFinalityUpdatedValidators(ctx context.Context, finalizedEpoch phase0.Epoch) error {
+func (s *Service) summarizeValidators(ctx context.Context, summaryEpoch phase0.Epoch) error {
 	if !s.validatorSummaries {
 		return nil
 	}
@@ -137,16 +137,16 @@ func (s *Service) onFinalityUpdatedValidators(ctx context.Context, finalizedEpoc
 	// is beyond our summarized epoch we truncate to the summarized value.
 	// However, if we don't have validator balances the summarizer won't run at all
 	// for epochs, so if the last epoch is 0 we continue.
-	if finalizedEpoch > md.LastEpoch && md.LastEpoch != 0 {
-		finalizedEpoch = md.LastEpoch
+	if summaryEpoch > md.LastEpoch && md.LastEpoch != 0 {
+		summaryEpoch = md.LastEpoch
 	}
 
 	lastValidatorEpoch := md.LastValidatorEpoch
 	if lastValidatorEpoch != 0 {
 		lastValidatorEpoch++
 	}
-	for epoch := lastValidatorEpoch; epoch <= finalizedEpoch; epoch++ {
-		if err := s.updateValidatorSummariesForEpoch(ctx, md, epoch); err != nil {
+	for epoch := lastValidatorEpoch; epoch <= summaryEpoch; epoch++ {
+		if err := s.summarizeValidatorsInEpoch(ctx, md, epoch); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("failed to update validator summaries for epoch %d", epoch))
 		}
 	}

@@ -3,7 +3,7 @@ module github.com/wealdtech/chaind
 go 1.18
 
 require (
-	github.com/attestantio/go-eth2-client v0.13.5
+	github.com/attestantio/go-eth2-client v0.13.6
 	github.com/jackc/pgtype v1.12.0
 	github.com/jackc/pgx/v4 v4.17.2
 	github.com/mitchellh/go-homedir v1.1.0

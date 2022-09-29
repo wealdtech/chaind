@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Limited.
+// Copyright © 2021, 2022 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,9 +23,9 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
-// updateSummaryForEpoch updates the summary for a given epoch.
+// summarizeEpoch updates the summary for a given epoch.
 // Returns true if the epoch has been updated, otherwise false.
-func (s *Service) updateSummaryForEpoch(ctx context.Context,
+func (s *Service) summarizeEpoch(ctx context.Context,
 	md *metadata,
 	epoch phase0.Epoch,
 ) (
@@ -38,7 +38,7 @@ func (s *Service) updateSummaryForEpoch(ctx context.Context,
 		log.Trace().Msg("Epoch summaries not enabled")
 		return false, nil
 	}
-	log.Trace().Msg("Summarizing finalized epoch")
+	log.Trace().Msg("Summarizing epoch")
 
 	summary := &chaindb.EpochSummary{
 		Epoch: epoch,
@@ -156,9 +156,10 @@ func (s *Service) blockStatsForEpoch(ctx context.Context,
 	summary *chaindb.EpochSummary,
 ) error {
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
-	maxSlot := s.chainTime.FirstSlotOfEpoch(epoch + 1)
+	maxSlot := s.chainTime.FirstSlotOfEpoch(epoch+1) - 1
+	log.Trace().Uint64("epoch", uint64(epoch)).Uint64("min_slot", uint64(minSlot)).Uint64("max_slot", uint64(maxSlot)).Msg("Updating block statistics")
 
-	blocks, err := s.blocksProvider.BlocksForSlotRange(ctx, minSlot, maxSlot)
+	blocks, err := s.blocksProvider.BlocksForSlotRange(ctx, minSlot, maxSlot+1)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain blocks")
 	}
@@ -177,9 +178,10 @@ func (s *Service) depositStatsForEpoch(ctx context.Context,
 	summary *chaindb.EpochSummary,
 ) error {
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
-	maxSlot := s.chainTime.FirstSlotOfEpoch(epoch + 1)
+	maxSlot := s.chainTime.FirstSlotOfEpoch(epoch+1) - 1
+	log.Trace().Uint64("epoch", uint64(epoch)).Uint64("min_slot", uint64(minSlot)).Uint64("max_slot", uint64(maxSlot)).Msg("Updating deposit statistics")
 
-	deposits, err := s.depositsProvider.DepositsForSlotRange(ctx, minSlot, maxSlot)
+	deposits, err := s.depositsProvider.DepositsForSlotRange(ctx, minSlot, maxSlot+1)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain deposits")
 	}
@@ -195,13 +197,14 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 	summary *chaindb.EpochSummary,
 ) error {
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
-	maxSlot := s.chainTime.FirstSlotOfEpoch(epoch + 1)
+	maxSlot := s.chainTime.FirstSlotOfEpoch(epoch+1) - 1
+	log.Trace().Uint64("epoch", uint64(epoch)).Uint64("min_slot", uint64(minSlot)).Uint64("max_slot", uint64(maxSlot)).Msg("Updating attestation statistics")
 
-	attestationsForEpoch, err := s.attestationsProvider.AttestationsForSlotRange(ctx, minSlot, maxSlot)
+	attestationsForEpoch, err := s.attestationsProvider.AttestationsForSlotRange(ctx, minSlot, maxSlot+1)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain attestations")
 	}
-	log.Trace().Uint64("epoch", uint64(epoch)).Uint64("min_slot", uint64(minSlot)).Uint64("max_slot", uint64(maxSlot)).Int("attestations", len(attestationsForEpoch)).Msg("Obtained attestations for epoch")
+
 	epochAttestations := make([]*chaindb.Attestation, 0)
 	seenAttestations := make(map[phase0.Root]bool)
 	for _, attestation := range attestationsForEpoch {
@@ -228,24 +231,24 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 		}
 		if _, exists := seenAttestations[specAttestationRoot]; exists {
 			// This is a duplicate.
-			if attestation.Slot >= minSlot && attestation.Slot < maxSlot {
+			if attestation.Slot >= minSlot && attestation.Slot <= maxSlot {
 				summary.DuplicateAttestationsForEpoch++
 			}
 			continue
 		}
 		seenAttestations[specAttestationRoot] = true
 		if attestation.Canonical == nil || !*attestation.Canonical {
-			log.Trace().Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Uint64("inclusion_index", attestation.InclusionIndex).Msg("Attestation is not canonical; ignoring")
+			log.Warn().Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Uint64("inclusion_index", attestation.InclusionIndex).Msg("Attestation is not canonical; ignoring")
 			continue
 		}
-		if attestation.Slot >= minSlot && attestation.Slot < maxSlot {
+		if attestation.Slot >= minSlot && attestation.Slot <= maxSlot {
 			summary.AttestationsForEpoch++
 			epochAttestations = append(epochAttestations, attestation)
 		}
 	}
 
 	// Fetch all attestations in the epoch for a simple count.
-	attestationsInEpoch, err := s.attestationsProvider.AttestationsInSlotRange(ctx, minSlot, maxSlot)
+	attestationsInEpoch, err := s.attestationsProvider.AttestationsInSlotRange(ctx, minSlot, maxSlot+1)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain attestations in epoch")
 	}
@@ -287,9 +290,10 @@ func (s *Service) slashingsStatsForEpoch(ctx context.Context,
 	summary *chaindb.EpochSummary,
 ) error {
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
-	maxSlot := s.chainTime.FirstSlotOfEpoch(epoch + 1)
+	maxSlot := s.chainTime.FirstSlotOfEpoch(epoch+1) - 1
+	log.Trace().Uint64("epoch", uint64(epoch)).Uint64("min_slot", uint64(minSlot)).Uint64("max_slot", uint64(maxSlot)).Msg("Updating slashing statistics")
 
-	proposerSlashings, err := s.proposerSlashingsProvider.ProposerSlashingsForSlotRange(ctx, minSlot, maxSlot)
+	proposerSlashings, err := s.proposerSlashingsProvider.ProposerSlashingsForSlotRange(ctx, minSlot, maxSlot+1)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain proposer slashings")
 	}
@@ -322,7 +326,7 @@ func (s *Service) slashingsStatsForEpoch(ctx context.Context,
 		}
 	}
 
-	attesterSlashings, err := s.attesterSlashingsProvider.AttesterSlashingsForSlotRange(ctx, minSlot, maxSlot)
+	attesterSlashings, err := s.attesterSlashingsProvider.AttesterSlashingsForSlotRange(ctx, minSlot, maxSlot+1)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain attester slashings")
 	}

@@ -22,8 +22,8 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
-// updateBlockSummariesForEpoch updates the block summaries for a given epoch.
-func (s *Service) updateBlockSummariesForEpoch(ctx context.Context,
+// summarizeBlocksInEpoch summarizes all blocks in the given epoch.
+func (s *Service) summarizeBlocksInEpoch(ctx context.Context,
 	md *metadata,
 	epoch phase0.Epoch,
 ) error {
@@ -32,13 +32,13 @@ func (s *Service) updateBlockSummariesForEpoch(ctx context.Context,
 		log.Trace().Msg("Block epoch summaries not enabled")
 		return nil
 	}
-	log.Trace().Msg("Summarizing blocks for finalized epoch")
 
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
-	maxSlot := s.chainTime.FirstSlotOfEpoch(epoch + 1)
+	maxSlot := s.chainTime.FirstSlotOfEpoch(epoch+1) - 1
+	log.Trace().Uint64("min_slot", uint64(minSlot)).Uint64("max_slot", uint64(maxSlot)).Msg("Summarizing blocks for epoch")
 
-	for slot := minSlot; slot < maxSlot; slot++ {
-		if err := s.updateBlockSummaryForSlot(ctx, slot); err != nil {
+	for slot := minSlot; slot <= maxSlot; slot++ {
+		if err := s.summarizeBlock(ctx, slot); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("failed to create summary for block %d", slot))
 		}
 	}
@@ -59,7 +59,8 @@ func (s *Service) updateBlockSummariesForEpoch(ctx context.Context,
 	return nil
 }
 
-func (s *Service) updateBlockSummaryForSlot(ctx context.Context, slot phase0.Slot) error {
+// summarizeBlock summarizes the block at the given slot.
+func (s *Service) summarizeBlock(ctx context.Context, slot phase0.Slot) error {
 	summary := &chaindb.BlockSummary{
 		Slot: slot,
 	}
