@@ -22,8 +22,8 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
-// updateValidatorSummariesForEpoch updates the validator summaries for a given epoch.
-func (s *Service) updateValidatorSummariesForEpoch(ctx context.Context,
+// summarizeValidatorsInEpoch updates the validator summaries in a given epoch.
+func (s *Service) summarizeValidatorsInEpoch(ctx context.Context,
 	md *metadata,
 	epoch phase0.Epoch,
 ) error {

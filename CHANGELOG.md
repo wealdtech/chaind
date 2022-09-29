@@ -1,3 +1,6 @@
+0.6.15:
+  - catch edge case where summarizer may not include all attestations first time around
+
 0.6.14:
   - avoid crash if no response is given to a 'eth_getBlockByHash' call
   - do not refetch beacon committees if we already have them
