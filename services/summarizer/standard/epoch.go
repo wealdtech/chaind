@@ -101,7 +101,7 @@ func (s *Service) summarizeEpoch(ctx context.Context,
 	}
 	if err := s.chainDB.(chaindb.EpochSummariesSetter).SetEpochSummary(ctx, summary); err != nil {
 		cancel()
-		return false, err
+		return false, errors.Wrap(err, "failed to set epoch summary")
 	}
 	md.LastEpoch = epoch
 	if err := s.setMetadata(ctx, md); err != nil {
@@ -126,10 +126,11 @@ func (s *Service) validatorSummaryStatsForEpoch(ctx context.Context,
 ) {
 	// Number of validators that are active, became active, and exited in this epoch.
 	validators, err := s.validatorsProvider.Validators(ctx)
-	activeValidators := make([]bool, len(validators))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain validators")
 	}
+
+	activeValidators := make([]bool, len(validators))
 	for i, validator := range validators {
 		switch {
 		case validator.ActivationEpoch == epoch:

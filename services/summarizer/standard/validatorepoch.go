@@ -55,10 +55,6 @@ func (s *Service) summarizeValidatorsInEpoch(ctx context.Context,
 	log.Trace().Dur("elapsed", time.Since(started)).Msg("Fetched attestations")
 
 	// Store the data.
-	ctx, cancel, err := s.chainDB.BeginTx(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to begin transaction to set validator epoch summary")
-	}
 	summaries := make([]*chaindb.ValidatorEpochSummary, 0, len(attestationsIncluded))
 	for index := range attestationsIncluded {
 		summary := &chaindb.ValidatorEpochSummary{
@@ -90,9 +86,14 @@ func (s *Service) summarizeValidatorsInEpoch(ctx context.Context,
 		summaries = append(summaries, summary)
 	}
 
+	ctx, cancel, err := s.chainDB.BeginTx(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to begin transaction to set validator epoch summary")
+	}
+
 	if err := s.chainDB.(chaindb.ValidatorEpochSummariesSetter).SetValidatorEpochSummaries(ctx, summaries); err != nil {
 		cancel()
-		return err
+		return errors.Wrap(err, "failed to set validator epoch summary")
 	}
 
 	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set summary")
@@ -200,7 +201,7 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 		s.chainTime.FirstSlotOfEpoch(epoch+1),
 	)
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, errors.Wrap(err, "failed to obtain attestations for slot range")
 	}
 	log.Trace().Int("attestations", len(attestations)).Uint64("epoch", uint64(epoch)).Msg("Fetched attestations")
 
@@ -244,7 +245,7 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 	// Add in any validators that did not attest.
 	validators, err := s.chainDB.(chaindb.ValidatorsProvider).Validators(ctx)
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, errors.Wrap(err, "failed to obtain validators")
 	}
 	for _, validator := range validators {
 		// Confirm active.

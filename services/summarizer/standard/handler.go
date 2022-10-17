@@ -45,12 +45,15 @@ func (s *Service) OnFinalityUpdated(
 
 	if err := s.summarizeEpochs(ctx, summaryEpoch); err != nil {
 		log.Warn().Err(err).Msg("Failed to update epochs")
+		return
 	}
 	if err := s.summarizeBlocks(ctx, summaryEpoch); err != nil {
 		log.Warn().Err(err).Msg("Failed to update blocks")
+		return
 	}
 	if err := s.summarizeValidators(ctx, summaryEpoch); err != nil {
 		log.Warn().Err(err).Msg("Failed to update validators")
+		return
 	}
 
 	monitorEpochProcessed(summaryEpoch)

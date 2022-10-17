@@ -1,3 +1,6 @@
+dev:
+  - tidy up summarizer error messages on failures
+
 0.6.15:
   - catch edge case where summarizer may not include all attestations first time around
   - warn if running against a newer version of the database schema

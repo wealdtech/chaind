@@ -42,12 +42,12 @@ func (s *Service) summarizeBlocksInEpoch(ctx context.Context,
 			return errors.Wrap(err, fmt.Sprintf("failed to create summary for block %d", slot))
 		}
 	}
+	md.LastBlockEpoch = epoch
 
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to begin transaction to set summarizer metadata for block")
 	}
-	md.LastBlockEpoch = epoch
 	if err := s.setMetadata(ctx, md); err != nil {
 		cancel()
 		return errors.Wrap(err, "failed to set summarizer metadata for block")
@@ -56,6 +56,7 @@ func (s *Service) summarizeBlocksInEpoch(ctx context.Context,
 		cancel()
 		return errors.Wrap(err, "failed to set commit transaction to set summarizer metadata for block")
 	}
+
 	return nil
 }
 
@@ -89,10 +90,6 @@ func (s *Service) summarizeBlock(ctx context.Context, slot phase0.Slot) error {
 	if err := s.attestationStatsForBlock(ctx, slot, summary, block); err != nil {
 		return errors.Wrap(err, "failed to calculate block attestation summary statistics for epoch")
 	}
-	if summary.VotesForBlock == 0 {
-		// No votes implies no block.
-		return nil
-	}
 
 	if err := s.parentDistanceForBlock(ctx, slot, summary, block); err != nil {
 		return errors.Wrap(err, "failed to calculate parent distance summary statistics for epoch")
@@ -100,15 +97,15 @@ func (s *Service) summarizeBlock(ctx context.Context, slot phase0.Slot) error {
 
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to begin transaction to set epoch summary")
+		return errors.Wrap(err, "failed to begin transaction to set block summary")
 	}
 	if err := s.chainDB.(chaindb.BlockSummariesSetter).SetBlockSummary(ctx, summary); err != nil {
 		cancel()
-		return err
+		return errors.Wrap(err, "failed to set block summary")
 	}
 	if err := s.chainDB.CommitTx(ctx); err != nil {
 		cancel()
-		return errors.Wrap(err, "failed to set commit transaction to set epoch summary")
+		return errors.Wrap(err, "failed to set commit transaction to set block summary")
 	}
 
 	return nil
