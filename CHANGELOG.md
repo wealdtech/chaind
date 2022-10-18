@@ -1,5 +1,6 @@
 dev:
   - tidy up summarizer error messages on failures
+  - use read-only transactions where applicable
 
 0.6.15:
   - catch edge case where summarizer may not include all attestations first time around
