@@ -101,12 +101,12 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
 func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot phase0.Root) ([]*chaindb.Attestation, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -198,12 +198,12 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot phase0.Roo
 func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot phase0.Root) ([]*chaindb.Attestation, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -297,12 +297,12 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot phase0.Root
 func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*chaindb.Attestation, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -398,12 +398,12 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot phase0
 func (s *Service) AttestationsInSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*chaindb.Attestation, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -497,12 +497,12 @@ func (s *Service) AttestationsInSlotRange(ctx context.Context, startSlot phase0.
 func (s *Service) IndeterminateAttestationSlots(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]phase0.Slot, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `

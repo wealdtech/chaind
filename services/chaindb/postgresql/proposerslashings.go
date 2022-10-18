@@ -92,12 +92,12 @@ func (s *Service) SetProposerSlashing(ctx context.Context, proposerSlashing *cha
 func (s *Service) ProposerSlashingsForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]*chaindb.ProposerSlashing, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -191,12 +191,12 @@ func (s *Service) ProposerSlashingsForSlotRange(ctx context.Context, minSlot pha
 func (s *Service) ProposerSlashingsForValidator(ctx context.Context, index phase0.ValidatorIndex) ([]*chaindb.ProposerSlashing, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `

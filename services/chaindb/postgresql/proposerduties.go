@@ -53,12 +53,12 @@ func (s *Service) ProposerDutiesForSlotRange(ctx context.Context,
 ) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -97,12 +97,12 @@ func (s *Service) ProposerDutiesForSlotRange(ctx context.Context,
 func (s *Service) ProposerDutiesForValidator(ctx context.Context, proposer phase0.ValidatorIndex) ([]*chaindb.ProposerDuty, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `

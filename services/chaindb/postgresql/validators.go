@@ -147,12 +147,12 @@ func (s *Service) SetValidatorBalances(ctx context.Context, balances []*chaindb.
 func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -190,12 +190,12 @@ func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) 
 func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) (map[phase0.BLSPubKey]*chaindb.Validator, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	sqlPubKeys := make([][]byte, len(pubKeys))
@@ -239,12 +239,12 @@ func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []phase0.BL
 func (s *Service) ValidatorsByIndex(ctx context.Context, indices []phase0.ValidatorIndex) (map[phase0.ValidatorIndex]*chaindb.Validator, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -289,12 +289,12 @@ func (s *Service) ValidatorBalancesByEpoch(
 ) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -339,12 +339,12 @@ func (s *Service) ValidatorBalancesByIndexAndEpoch(
 ) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -391,12 +391,12 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 ) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	// Sort the validator indices.
@@ -464,12 +464,12 @@ func (s *Service) ValidatorBalancesByIndexAndEpochs(
 ) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	// Sort the validator indices.

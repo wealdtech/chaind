@@ -72,12 +72,12 @@ func (s *Service) SetForkSchedule(ctx context.Context, schedule []*phase0.Fork) 
 func (s *Service) ForkSchedule(ctx context.Context) ([]*phase0.Fork, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	schedule := make([]*phase0.Fork, 0)

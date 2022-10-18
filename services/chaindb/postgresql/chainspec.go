@@ -106,12 +106,12 @@ func (s *Service) ChainSpec(ctx context.Context) (map[string]interface{}, error)
 func (s *Service) ChainSpecValue(ctx context.Context, key string) (interface{}, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	var dbVal string

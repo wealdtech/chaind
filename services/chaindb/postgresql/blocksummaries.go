@@ -56,12 +56,12 @@ func (s *Service) SetBlockSummary(ctx context.Context, summary *chaindb.BlockSum
 func (s *Service) BlockSummaryForSlot(ctx context.Context, slot phase0.Slot) (*chaindb.BlockSummary, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, cancel, err := s.BeginTx(ctx)
+		ctx, err := s.beginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
+		defer s.commitROTx(ctx)
 		tx = s.tx(ctx)
-		defer cancel()
 	}
 
 	summary := &chaindb.BlockSummary{
