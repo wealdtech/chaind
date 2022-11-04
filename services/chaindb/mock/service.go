@@ -534,6 +534,14 @@ func (s *service) CommitTx(ctx context.Context) error {
 	return nil
 }
 
+// BeginROTx begins a read-only transaction.
+func (s *service) BeginROTx(ctx context.Context) (context.Context, error) {
+	return nil, nil
+}
+
+// CommitROTx commits a read-only transaction.
+func (s *service) CommitROTx(ctx context.Context) {}
+
 // SetMetadata sets a metadata key to a JSON value.
 func (s *service) SetMetadata(ctx context.Context, key string, value []byte) error {
 	return nil
