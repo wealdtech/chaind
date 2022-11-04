@@ -47,11 +47,11 @@ func (s *Service) SetSyncCommittee(ctx context.Context, syncCommittee *chaindb.S
 func (s *Service) SyncCommittee(ctx context.Context, period uint64) (*chaindb.SyncCommittee, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err := s.beginROTx(ctx)
+		ctx, err := s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 		tx = s.tx(ctx)
 	}
 

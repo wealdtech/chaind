@@ -404,6 +404,13 @@ type Service interface {
 	// CommitTx commits a transaction.
 	CommitTx(ctx context.Context) error
 
+	// BeginROTx begins a read-only transaction.
+	// The transaction should be committed.
+	BeginROTx(ctx context.Context) (context.Context, error)
+
+	// CommitROTx commits a read-only transaction.
+	CommitROTx(ctx context.Context)
+
 	// SetMetadata sets a metadata key to a JSON value.
 	SetMetadata(ctx context.Context, key string, value []byte) error
 

@@ -455,12 +455,12 @@ func (s *Service) columnExists(ctx context.Context, tableName string, columnName
 
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err = s.beginROTx(ctx)
+		ctx, err = s.BeginROTx(ctx)
 		if err != nil {
 			return false, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 	}
 
 	query := fmt.Sprintf(`SELECT true
@@ -493,12 +493,12 @@ func (s *Service) tableExists(ctx context.Context, tableName string) (bool, erro
 
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err = s.beginROTx(ctx)
+		ctx, err = s.BeginROTx(ctx)
 		if err != nil {
 			return false, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `SELECT true

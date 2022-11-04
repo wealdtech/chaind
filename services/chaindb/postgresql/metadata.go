@@ -48,12 +48,12 @@ func (s *Service) Metadata(ctx context.Context, key string) ([]byte, error) {
 
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err = s.beginROTx(ctx)
+		ctx, err = s.BeginROTx(ctx)
 		if err != nil {
 			return nil, err
 		}
 		tx = s.tx(ctx)
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 	}
 
 	res := &pgtype.JSONB{}

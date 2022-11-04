@@ -82,11 +82,11 @@ func (s *Service) SetETH1Deposit(ctx context.Context, deposit *chaindb.ETH1Depos
 func (s *Service) ETH1DepositsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) ([]*chaindb.ETH1Deposit, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err := s.beginROTx(ctx)
+		ctx, err := s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 		tx = s.tx(ctx)
 	}
 

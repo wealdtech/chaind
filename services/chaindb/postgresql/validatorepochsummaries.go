@@ -178,11 +178,11 @@ func (s *Service) SetValidatorEpochSummary(ctx context.Context, summary *chaindb
 func (s *Service) ValidatorSummaries(ctx context.Context, filter *chaindb.ValidatorSummaryFilter) ([]*chaindb.ValidatorEpochSummary, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err := s.beginROTx(ctx)
+		ctx, err := s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 		tx = s.tx(ctx)
 	}
 
@@ -316,11 +316,11 @@ LIMIT $%d`, len(queryVals)))
 func (s *Service) ValidatorSummariesForEpoch(ctx context.Context, epoch phase0.Epoch) ([]*chaindb.ValidatorEpochSummary, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err := s.beginROTx(ctx)
+		ctx, err := s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 		tx = s.tx(ctx)
 	}
 
@@ -413,11 +413,11 @@ func (s *Service) ValidatorSummaryForEpoch(ctx context.Context,
 ) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err := s.beginROTx(ctx)
+		ctx, err := s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 		tx = s.tx(ctx)
 	}
 

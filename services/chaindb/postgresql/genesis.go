@@ -50,11 +50,11 @@ func (s *Service) SetGenesis(ctx context.Context, genesis *api.Genesis) error {
 func (s *Service) Genesis(ctx context.Context) (*api.Genesis, error) {
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err := s.beginROTx(ctx)
+		ctx, err := s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 		tx = s.tx(ctx)
 	}
 

@@ -89,12 +89,12 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*chaind
 
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err = s.beginROTx(ctx)
+		ctx, err = s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -179,12 +179,12 @@ func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot,
 
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err = s.beginROTx(ctx)
+		ctx, err = s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -269,12 +269,12 @@ func (s *Service) BlockByRoot(ctx context.Context, root phase0.Root) (*chaindb.B
 
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err = s.beginROTx(ctx)
+		ctx, err = s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 	}
 
 	block := &chaindb.Block{}
@@ -348,12 +348,12 @@ func (s *Service) CanonicalBlockPresenceForSlotRange(ctx context.Context, startS
 
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err = s.beginROTx(ctx)
+		ctx, err = s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -392,12 +392,12 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot phase0.Root
 
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err = s.beginROTx(ctx)
+		ctx, err = s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -479,12 +479,12 @@ func (s *Service) EmptySlots(ctx context.Context, minSlot phase0.Slot, maxSlot p
 
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err = s.beginROTx(ctx)
+		ctx, err = s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -520,12 +520,12 @@ func (s *Service) IndeterminateBlocks(ctx context.Context, minSlot phase0.Slot, 
 
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err = s.beginROTx(ctx)
+		ctx, err = s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -564,12 +564,12 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
 
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err = s.beginROTx(ctx)
+		ctx, err = s.BeginROTx(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -653,12 +653,12 @@ func (s *Service) LatestCanonicalBlock(ctx context.Context) (phase0.Slot, error)
 
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err = s.beginROTx(ctx)
+		ctx, err = s.BeginROTx(ctx)
 		if err != nil {
 			return 0, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 	}
 
 	var slot phase0.Slot
@@ -684,12 +684,12 @@ func (s *Service) ProposalCount(ctx context.Context, validatorIndices []phase0.V
 
 	tx := s.tx(ctx)
 	if tx == nil {
-		ctx, err = s.beginROTx(ctx)
+		ctx, err = s.BeginROTx(ctx)
 		if err != nil {
 			return 0, errors.Wrap(err, "failed to begin transaction")
 		}
 		tx = s.tx(ctx)
-		defer s.commitROTx(ctx)
+		defer s.CommitROTx(ctx)
 	}
 
 	proposals := uint64(0)

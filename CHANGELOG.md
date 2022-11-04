@@ -1,3 +1,6 @@
+0.6.17:
+  - expose read-only transaction functions
+
 0.6.16:
   - tidy up summarizer error messages on failures
   - use read-only transactions where applicable

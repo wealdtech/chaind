@@ -71,9 +71,9 @@ func (s *Service) BeginTx(ctx context.Context) (context.Context, context.CancelF
 	}, nil
 }
 
-// beginROTx begins a read-only transaction on the database.
+// BeginROTx begins a read-only transaction on the database.
 // The transaction should be committed.
-func (s *Service) beginROTx(ctx context.Context) (context.Context, error) {
+func (s *Service) BeginROTx(ctx context.Context) (context.Context, error) {
 	// #nosec G404
 	id := fmt.Sprintf("%02x", rand.Int31())
 	log := log.With().Str("id", id).Logger()
@@ -140,8 +140,8 @@ func (s *Service) CommitTx(ctx context.Context) error {
 	return nil
 }
 
-// commitROTx commits a read-only transaction on the ops datastore.
-func (s *Service) commitROTx(ctx context.Context) {
+// CommitROTx commits a read-only transaction on the ops datastore.
+func (s *Service) CommitROTx(ctx context.Context) {
 	log := log.With().Str("id", s.txID(ctx)).Logger()
 
 	if ctx == nil {
