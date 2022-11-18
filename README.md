@@ -79,6 +79,10 @@ createdb -E UTF8 --owner=chain chain
 
 At current Prysm is not supported due to its lack of Altair-related information in its gRPC and HTTP APIs.  We expect to be able to support Prysm again soon.
 
+`chaind` supports all execution nodes.  The current state of obtaining data from execution nodes is as follows:
+
+  - geth: must run with `--txlookuplimit 0` to ensure that all deposit transactions can be obtained
+
 ### Example
 To start a Teku node suitable for `chaind` download Teku and run the following command:
 
