@@ -15,11 +15,16 @@ package postgresql
 
 import (
 	"context"
+	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // SetBeaconCommittee sets a beacon committee.
@@ -47,6 +52,124 @@ func (s *Service) SetBeaconCommittee(ctx context.Context, beaconCommittee *chain
 	)
 
 	return err
+}
+
+// BeaconCommittees fetches the beacon committees matching the filter.
+func (s *Service) BeaconCommittees(ctx context.Context,
+	filter *chaindb.BeaconCommitteeFilter,
+) (
+	[]*chaindb.BeaconCommittee,
+	error,
+) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "BeaconCommittees")
+	defer span.End()
+
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, err := s.BeginROTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		defer s.CommitROTx(ctx)
+		tx = s.tx(ctx)
+	}
+
+	// Build the query.
+	queryBuilder := strings.Builder{}
+	queryVals := make([]interface{}, 0)
+
+	queryBuilder.WriteString(`
+SELECT f_slot
+      ,f_index
+      ,f_committee
+FROM t_beacon_committees`)
+
+	wherestr := "WHERE"
+
+	if filter.From != nil {
+		queryVals = append(queryVals, *filter.From)
+		queryBuilder.WriteString(fmt.Sprintf(`
+%s f_slot >= $%d`, wherestr, len(queryVals)))
+		wherestr = "  AND"
+	}
+
+	if filter.To != nil {
+		queryVals = append(queryVals, *filter.To)
+		queryBuilder.WriteString(fmt.Sprintf(`
+%s f_slot <= $%d`, wherestr, len(queryVals)))
+		wherestr = "  AND"
+	}
+
+	if len(filter.CommitteeIndices) > 0 {
+		queryVals = append(queryVals, filter.CommitteeIndices)
+		queryBuilder.WriteString(fmt.Sprintf(`
+%s f_index = ANY($%d)`, wherestr, len(queryVals)))
+		wherestr = "  AND"
+	}
+
+	switch filter.Order {
+	case chaindb.OrderEarliest:
+		queryBuilder.WriteString(`
+ORDER BY f_slot, f_index`)
+	case chaindb.OrderLatest:
+		queryBuilder.WriteString(`
+ORDER BY f_slot DESC,f_committee DESC`)
+	default:
+		return nil, errors.New("no order specified")
+	}
+
+	if filter.Limit > 0 {
+		queryVals = append(queryVals, filter.Limit)
+		queryBuilder.WriteString(fmt.Sprintf(`
+LIMIT $%d`, len(queryVals)))
+	}
+
+	if e := log.Trace(); e.Enabled() {
+		params := make([]string, len(queryVals))
+		for i := range queryVals {
+			params[i] = fmt.Sprintf("%v", queryVals[i])
+		}
+		log.Error().Str("query", strings.ReplaceAll(queryBuilder.String(), "\n", " ")).Strs("params", params).Msg("SQL query")
+	}
+
+	rows, err := tx.Query(ctx,
+		queryBuilder.String(),
+		queryVals...,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "query failed")
+	}
+	defer rows.Close()
+	span.AddEvent("Ran query")
+
+	committees := make([]*chaindb.BeaconCommittee, 0)
+	var committeeMembers []uint64
+	for rows.Next() {
+		committee := &chaindb.BeaconCommittee{}
+		err := rows.Scan(
+			&committee.Slot,
+			&committee.Index,
+			&committeeMembers,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		committee.Committee = make([]phase0.ValidatorIndex, len(committeeMembers))
+		for i := range committeeMembers {
+			committee.Committee[i] = phase0.ValidatorIndex(committeeMembers[i])
+		}
+		committees = append(committees, committee)
+	}
+	span.AddEvent("Compiled results", trace.WithAttributes(attribute.Int("entries", len(committees))))
+
+	// Always return order of slot then committee index.
+	sort.Slice(committees, func(i int, j int) bool {
+		if committees[i].Slot != committees[j].Slot {
+			return committees[i].Slot < committees[j].Slot
+		}
+		return committees[i].Index < committees[j].Index
+	})
+	return committees, nil
 }
 
 // BeaconCommitteeBySlotAndIndex fetches the beacon committee with the given slot and index.

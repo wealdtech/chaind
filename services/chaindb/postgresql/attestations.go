@@ -18,6 +18,7 @@ import (
 	"database/sql"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"go.opentelemetry.io/otel"
@@ -25,7 +26,7 @@ import (
 
 // SetAttestation sets an attestation.
 func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attestation) error {
-	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetAttestations")
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetAttestation")
 	defer span.End()
 
 	tx := s.tx(ctx)
@@ -98,6 +99,72 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
 		headCorrect,
 	)
 
+	return err
+}
+
+// SetAttestations sets multiple attestations.
+func (s *Service) SetAttestations(ctx context.Context, attestations []*chaindb.Attestation) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetAttestations")
+	defer span.End()
+
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	_, err := tx.CopyFrom(ctx,
+		pgx.Identifier{"t_attestations"},
+		[]string{
+			"f_inclusion_slot",
+			"f_inclusion_block_root",
+			"f_inclusion_index",
+			"f_slot",
+			"f_committee_index",
+			"f_aggregation_bits",
+			"f_aggregation_indices",
+			"f_beacon_block_root",
+			"f_source_epoch",
+			"f_source_root",
+			"f_target_epoch",
+			"f_target_root",
+			"f_canonical",
+			"f_target_correct",
+			"f_head_correct",
+		},
+		pgx.CopyFromSlice(len(attestations), func(i int) ([]interface{}, error) {
+			var canonical sql.NullBool
+			if attestations[i].Canonical != nil {
+				canonical.Valid = true
+				canonical.Bool = *attestations[i].Canonical
+			}
+			var targetCorrect sql.NullBool
+			if attestations[i].TargetCorrect != nil {
+				targetCorrect.Valid = true
+				targetCorrect.Bool = *attestations[i].TargetCorrect
+			}
+			var headCorrect sql.NullBool
+			if attestations[i].HeadCorrect != nil {
+				headCorrect.Valid = true
+				headCorrect.Bool = *attestations[i].HeadCorrect
+			}
+			return []interface{}{
+				attestations[i].InclusionSlot,
+				attestations[i].InclusionBlockRoot[:],
+				attestations[i].InclusionIndex,
+				attestations[i].Slot,
+				attestations[i].CommitteeIndex,
+				attestations[i].AggregationBits,
+				attestations[i].AggregationIndices,
+				attestations[i].BeaconBlockRoot[:],
+				attestations[i].SourceEpoch,
+				attestations[i].SourceRoot[:],
+				attestations[i].TargetEpoch,
+				attestations[i].TargetRoot[:],
+				canonical,
+				targetCorrect,
+				headCorrect,
+			}, nil
+		}))
 	return err
 }
 

@@ -50,3 +50,29 @@ type ValidatorSummaryFilter struct {
 	// If nil then no filter is applied
 	ValidatorIndices *[]phase0.ValidatorIndex
 }
+
+// BeaconCommitteeFilter defines a filter for fetching beacon committees.
+// Filter elements are ANDed together.
+// Results are always returned in ascending (slot, committee index) order.
+type BeaconCommitteeFilter struct {
+	// Limit is the maximum number of items to return.
+	Limit uint32
+
+	// Order is either OrderEarliest, in which case the earliest results
+	// that match the filter are returned, or OrderLatest, in which case the
+	// latest results that match the filter are returned.
+	// The default is OrderEarliest.
+	Order Order
+
+	// From is the earliest slot from which to fetch items.
+	// If nil then there is no earliest slot.
+	From *phase0.Slot
+
+	// To is the latest slot to which to fetch items.
+	// If nil then there is no latest slot.
+	To *phase0.Slot
+
+	// CommitteeIndices is the list of committee indices for which to obtain items.
+	// If nil then no filter is applied
+	CommitteeIndices []phase0.CommitteeIndex
+}

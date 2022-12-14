@@ -15,14 +15,29 @@ package postgresql_test
 
 import (
 	"os"
+	"strconv"
 	"testing"
 
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
 )
 
 func TestMain(m *testing.M) {
 	zerolog.SetGlobalLevel(zerolog.Disabled)
-	if os.Getenv("CHAINDB_URL") != "" {
+	if os.Getenv("CHAINDB_URL") != "" ||
+		os.Getenv("CHAINDB_SERVER") != "" {
 		os.Exit(m.Run())
 	}
+}
+
+func slotPtr(input phase0.Slot) *phase0.Slot {
+	return &input
+}
+
+func atoi(input string) int32 {
+	val, err := strconv.ParseInt(input, 10, 32)
+	if err != nil {
+		panic(err)
+	}
+	return int32(val)
 }

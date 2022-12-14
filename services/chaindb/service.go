@@ -1,4 +1,4 @@
-// Copyright © 2020, 2021 Weald Technology Trading.
+// Copyright © 2020 - 2022 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -46,6 +46,9 @@ type AttestationsProvider interface {
 type AttestationsSetter interface {
 	// SetAttestation sets an attestation.
 	SetAttestation(ctx context.Context, attestation *Attestation) error
+
+	// SetAttestations sets multiple attestation.
+	SetAttestations(ctx context.Context, attestations []*Attestation) error
 }
 
 // AttesterSlashingsProvider defines functions to obtain attester slashings.
@@ -67,7 +70,11 @@ type AttesterSlashingsSetter interface {
 
 // BeaconCommitteesProvider defines functions to access beacon committee information.
 type BeaconCommitteesProvider interface {
+	// BeaconCommittees fetches the beacon committees matching the filter.
+	BeaconCommittees(ctx context.Context, filter *BeaconCommitteeFilter) ([]*BeaconCommittee, error)
+
 	// BeaconCommitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
+	// This is deprecated; please use BeaconCommittees.
 	BeaconCommitteeBySlotAndIndex(ctx context.Context, slot phase0.Slot, index phase0.CommitteeIndex) (*BeaconCommittee, error)
 
 	// AttesterDuties fetches the attester duties at the given slot range for the given validator indices.
