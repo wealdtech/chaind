@@ -28,12 +28,13 @@ import (
 
 // Service is a chain database service.
 type Service struct {
-	eth2Client       eth2client.Service
-	chainDB          chaindb.Service
-	validatorsSetter chaindb.ValidatorsSetter
-	chainTime        chaintime.Service
-	balances         bool
-	activitySem      *semaphore.Weighted
+	eth2Client         eth2client.Service
+	chainDB            chaindb.Service
+	validatorsProvider chaindb.ValidatorsProvider
+	validatorsSetter   chaindb.ValidatorsSetter
+	chainTime          chaintime.Service
+	balances           bool
+	activitySem        *semaphore.Weighted
 }
 
 // module-wide log.
@@ -53,18 +54,24 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		return nil, errors.New("failed to register metrics")
 	}
 
+	validatorsProvider, isValidatorsProvider := parameters.chainDB.(chaindb.ValidatorsProvider)
+	if !isValidatorsProvider {
+		return nil, errors.New("chain DB is not a validators provider")
+	}
+
 	validatorsSetter, isValidatorsSetter := parameters.chainDB.(chaindb.ValidatorsSetter)
 	if !isValidatorsSetter {
 		return nil, errors.New("chain DB does not support validator setting")
 	}
 
 	s := &Service{
-		eth2Client:       parameters.eth2Client,
-		chainDB:          parameters.chainDB,
-		validatorsSetter: validatorsSetter,
-		chainTime:        parameters.chainTime,
-		balances:         parameters.balances,
-		activitySem:      semaphore.NewWeighted(1),
+		eth2Client:         parameters.eth2Client,
+		chainDB:            parameters.chainDB,
+		validatorsProvider: validatorsProvider,
+		validatorsSetter:   validatorsSetter,
+		chainTime:          parameters.chainTime,
+		balances:           parameters.balances,
+		activitySem:        semaphore.NewWeighted(1),
 	}
 
 	// Update to current epoch (in the background).

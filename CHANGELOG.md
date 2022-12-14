@@ -1,3 +1,6 @@
+dev:
+  - speed up sync by only updating changed validators
+
 0.6.17:
   - expose read-only transaction functions
 

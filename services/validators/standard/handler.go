@@ -14,6 +14,7 @@
 package standard
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -78,11 +79,26 @@ func (s *Service) onEpochTransitionValidators(ctx context.Context,
 		return errors.Wrap(err, "failed to obtain validators")
 	}
 
+	// Fetch our current validators from the database.
+	dbVs, err := s.validatorsSetter.(chaindb.ValidatorsProvider).Validators(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain validators")
+	}
+	// Turn the database validators in to a map for each lookup.
+	dbValidators := make(map[phase0.ValidatorIndex]*chaindb.Validator, len(dbVs))
+	for _, dbV := range dbVs {
+		dbValidators[dbV.Index] = dbV
+	}
+
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to begin transaction for validators")
 	}
 	for index, validator := range validators {
+		if !needsUpdate(validator.Validator, index, dbValidators) {
+			continue
+		}
+
 		dbValidator := &chaindb.Validator{
 			PublicKey:                  validator.Validator.PublicKey,
 			Index:                      index,
@@ -180,4 +196,38 @@ func (s *Service) onEpochTransitionValidatorBalances(ctx context.Context,
 	}
 
 	return nil
+}
+
+// needsUpdate returns true if the validator needs an update according to our database information.
+func needsUpdate(validator *phase0.Validator,
+	index phase0.ValidatorIndex,
+	dbValidators map[phase0.ValidatorIndex]*chaindb.Validator,
+) bool {
+	dbValidator, exists := dbValidators[index]
+	if !exists {
+		return true
+	}
+	if !bytes.Equal(dbValidator.PublicKey[:], validator.PublicKey[:]) {
+		return true
+	}
+	if dbValidator.EffectiveBalance != validator.EffectiveBalance {
+		return true
+	}
+	if dbValidator.Slashed != validator.Slashed {
+		return true
+	}
+	if dbValidator.ActivationEligibilityEpoch != validator.ActivationEligibilityEpoch {
+		return true
+	}
+	if dbValidator.ActivationEpoch != validator.ActivationEpoch {
+		return true
+	}
+	if dbValidator.ExitEpoch != validator.ExitEpoch {
+		return true
+	}
+	if dbValidator.WithdrawableEpoch != validator.WithdrawableEpoch {
+		return true
+	}
+
+	return false
 }
