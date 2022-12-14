@@ -24,12 +24,16 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 var farFutureEpoch = phase0.Epoch(0xffffffffffffffff)
 
 // SetValidator sets a validator.
 func (s *Service) SetValidator(ctx context.Context, validator *chaindb.Validator) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetValidator")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -92,6 +96,9 @@ func (s *Service) SetValidator(ctx context.Context, validator *chaindb.Validator
 
 // SetValidatorBalance sets a validator's balance.
 func (s *Service) SetValidatorBalance(ctx context.Context, balance *chaindb.ValidatorBalance) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetValidatorBalance")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -119,6 +126,9 @@ func (s *Service) SetValidatorBalance(ctx context.Context, balance *chaindb.Vali
 
 // SetValidatorBalances sets multiple validator balances.
 func (s *Service) SetValidatorBalances(ctx context.Context, balances []*chaindb.ValidatorBalance) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetValidatorBalances")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -145,6 +155,9 @@ func (s *Service) SetValidatorBalances(ctx context.Context, balances []*chaindb.
 
 // Validators fetches all validators.
 func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "Validators")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -188,6 +201,9 @@ func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) 
 // This is a common starting point for external entities to query specific validators, as they should
 // always have the public key at a minimum, hence the return map keyed by public key.
 func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) (map[phase0.BLSPubKey]*chaindb.Validator, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorsByPublicKey")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -237,6 +253,9 @@ func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []phase0.BL
 
 // ValidatorsByIndex fetches all validators matching the given indices.
 func (s *Service) ValidatorsByIndex(ctx context.Context, indices []phase0.ValidatorIndex) (map[phase0.ValidatorIndex]*chaindb.Validator, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorsByIndex")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -287,6 +306,9 @@ func (s *Service) ValidatorBalancesByEpoch(
 	[]*chaindb.ValidatorBalance,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorBalancesByEpoch")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -337,6 +359,9 @@ func (s *Service) ValidatorBalancesByIndexAndEpoch(
 	map[phase0.ValidatorIndex]*chaindb.ValidatorBalance,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorBalancesByIndexAndEpoch")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -389,6 +414,9 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 	map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorBalancesByIndexAndEpochRange")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -462,6 +490,9 @@ func (s *Service) ValidatorBalancesByIndexAndEpochs(
 	map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorBalancesByIndexAndEpochs")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)

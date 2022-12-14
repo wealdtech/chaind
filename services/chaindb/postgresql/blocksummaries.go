@@ -19,10 +19,14 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // SetBlockSummary sets a block summary.
 func (s *Service) SetBlockSummary(ctx context.Context, summary *chaindb.BlockSummary) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetBlockSummary")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -54,6 +58,9 @@ func (s *Service) SetBlockSummary(ctx context.Context, summary *chaindb.BlockSum
 
 // BlockSummaryForSlot obtains the summary of a block for a given slot.
 func (s *Service) BlockSummaryForSlot(ctx context.Context, slot phase0.Slot) (*chaindb.BlockSummary, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "BlockSummaryForSlot")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)

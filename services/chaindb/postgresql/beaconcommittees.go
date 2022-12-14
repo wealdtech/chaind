@@ -19,10 +19,14 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // SetBeaconCommittee sets a beacon committee.
 func (s *Service) SetBeaconCommittee(ctx context.Context, beaconCommittee *chaindb.BeaconCommittee) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetBeaconCommittee")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -47,6 +51,9 @@ func (s *Service) SetBeaconCommittee(ctx context.Context, beaconCommittee *chain
 
 // BeaconCommitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
 func (s *Service) BeaconCommitteeBySlotAndIndex(ctx context.Context, slot phase0.Slot, index phase0.CommitteeIndex) (*chaindb.BeaconCommittee, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "BeaconCommitteeBySlotAndIndex")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -86,6 +93,9 @@ func (s *Service) BeaconCommitteeBySlotAndIndex(ctx context.Context, slot phase0
 
 // AttesterDuties fetches the attester duties at the given slot range for the given validator indices.
 func (s *Service) AttesterDuties(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot, validatorIndices []phase0.ValidatorIndex) ([]*chaindb.AttesterDuty, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "AttesterDuties")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)

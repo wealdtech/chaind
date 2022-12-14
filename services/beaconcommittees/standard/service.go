@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020, 2022 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,7 +18,6 @@ import (
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	api "github.com/attestantio/go-eth2-client/api/v1"
-	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
@@ -79,13 +78,10 @@ func (s *Service) updateAfterRestart(ctx context.Context, startEpoch int64) {
 	}
 	if startEpoch >= 0 {
 		// Explicit requirement to start at a given epoch.
-		md.LatestEpoch = phase0.Epoch(startEpoch)
-	} else if md.LatestEpoch > 0 {
-		// We have a definite hit on this being the last processed epoch; increment it to avoid duplication of work.
-		md.LatestEpoch++
+		md.LatestEpoch = startEpoch - 1
 	}
 
-	log.Info().Uint64("epoch", uint64(md.LatestEpoch)).Msg("Catching up from epoch")
+	log.Info().Int64("epoch", md.LatestEpoch+1).Msg("Catching up from epoch")
 	// Only allow 1 handler to be active.
 	acquired := s.activitySem.TryAcquire(1)
 	if !acquired {
@@ -101,36 +97,5 @@ func (s *Service) updateAfterRestart(ctx context.Context, startEpoch int64) {
 		s.OnBeaconChainHeadUpdated(ctx, eventData.Slot, eventData.Block, eventData.State, eventData.EpochTransition)
 	}); err != nil {
 		log.Fatal().Err(err).Msg("Failed to add beacon chain head updated handler")
-	}
-}
-
-func (s *Service) catchup(ctx context.Context, md *metadata) {
-	for epoch := md.LatestEpoch; epoch <= s.chainTime.CurrentEpoch(); epoch++ {
-		log := log.With().Uint64("epoch", uint64(epoch)).Logger()
-		// Each update goes in to its own transaction, to make the data available sooner.
-		ctx, cancel, err := s.chainDB.BeginTx(ctx)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to begin transaction on update after restart")
-			return
-		}
-
-		if err := s.updateBeaconCommitteesForEpoch(ctx, epoch); err != nil {
-			log.Warn().Err(err).Msg("Failed to update beacon committees")
-			cancel()
-			return
-		}
-
-		md.LatestEpoch = epoch
-		if err := s.setMetadata(ctx, md); err != nil {
-			log.Error().Err(err).Msg("Failed to set metadata")
-			cancel()
-			return
-		}
-
-		if err := s.chainDB.CommitTx(ctx); err != nil {
-			log.Error().Err(err).Msg("Failed to commit transaction")
-			cancel()
-			return
-		}
 	}
 }

@@ -17,13 +17,12 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 )
 
 // metadata stored about this service.
 type metadata struct {
-	LatestSlot phase0.Slot `json:"latest_slot"`
+	LatestSlot int64 `json:"latest_slot"`
 }
 
 // metadataKey is the key for the metadata.
@@ -31,7 +30,9 @@ var metadataKey = "blocks.standard"
 
 // getMetadata gets metadata for this service.
 func (s *Service) getMetadata(ctx context.Context) (*metadata, error) {
-	md := &metadata{}
+	md := &metadata{
+		LatestSlot: -1,
+	}
 	mdJSON, err := s.chainDB.Metadata(ctx, metadataKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch metadata")

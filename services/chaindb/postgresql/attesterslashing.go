@@ -19,10 +19,14 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // SetAttesterSlashing sets an attester slashing.
 func (s *Service) SetAttesterSlashing(ctx context.Context, attesterSlashing *chaindb.AttesterSlashing) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetAttesterSlashing")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -102,6 +106,9 @@ func (s *Service) SetAttesterSlashing(ctx context.Context, attesterSlashing *cha
 // AttesterSlashingsForSlotRange fetches all attester slashings made for the given slot range.
 // It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
 func (s *Service) AttesterSlashingsForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]*chaindb.AttesterSlashing, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "AttesterSlashingsForSlotRange")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -215,6 +222,9 @@ func (s *Service) AttesterSlashingsForSlotRange(ctx context.Context, minSlot pha
 // AttesterSlashingsForValidator fetches all attester slashings made for the given validator.
 // It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
 func (s *Service) AttesterSlashingsForValidator(ctx context.Context, index phase0.ValidatorIndex) ([]*chaindb.AttesterSlashing, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "AttesterSlashingsForValidator")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)

@@ -209,6 +209,16 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 	epochAttestations := make([]*chaindb.Attestation, 0)
 	seenAttestations := make(map[phase0.Root]bool)
 	for _, attestation := range attestationsForEpoch {
+		if attestation.Canonical == nil {
+			// This should not happen, so flag it as an error.
+			log.Error().Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Uint64("inclusion_index", attestation.InclusionIndex).Msg("Attestation is indeterminate; ignoring")
+			continue
+		}
+		if !*attestation.Canonical {
+			// This commonly happens when the block in which the attestation is included is non-canonical, so note it but no more.
+			log.Trace().Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Uint64("inclusion_index", attestation.InclusionIndex).Msg("Attestation is not canonical; ignoring")
+			continue
+		}
 		specAttestation := &phase0.Attestation{
 			AggregationBits: attestation.AggregationBits,
 			Data: &phase0.AttestationData{
@@ -238,10 +248,6 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 			continue
 		}
 		seenAttestations[specAttestationRoot] = true
-		if attestation.Canonical == nil || !*attestation.Canonical {
-			log.Warn().Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Uint64("inclusion_index", attestation.InclusionIndex).Msg("Attestation is not canonical; ignoring")
-			continue
-		}
 		if attestation.Slot >= minSlot && attestation.Slot <= maxSlot {
 			summary.AttestationsForEpoch++
 			epochAttestations = append(epochAttestations, attestation)

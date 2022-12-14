@@ -18,11 +18,15 @@ import (
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
 )
 
 // SetForkSchedule sets the fork schedule.
 // This carries out a complete rewrite of the table.
 func (s *Service) SetForkSchedule(ctx context.Context, schedule []*phase0.Fork) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetForkSchedule")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -70,6 +74,9 @@ func (s *Service) SetForkSchedule(ctx context.Context, schedule []*phase0.Fork) 
 
 // ForkSchedule provides details of past and future changes in the chain's fork version.
 func (s *Service) ForkSchedule(ctx context.Context) ([]*phase0.Fork, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ForkSchedule")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)

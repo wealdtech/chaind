@@ -7,7 +7,7 @@ The version of chaind can be found in the `chaind_release` metric, in the `versi
 ## Health
 Health metrics provide a mechanism to confirm if chaind is active.
 
-`chaind_start_time_secs` is the Unix timestamp at which chaind was started.  This value will remain the same throughout a run of chaind; if it increments it implies that vouch has restarted.
+`chaind_start_time_secs` is the Unix timestamp at which chaind was started.  This value will remain the same throughout a run of chaind; if it increments it implies that chaind has restarted.
 
 `chaind_ready` is `1` if chaind's services are all on-line and it is able to operate.  If not, this will be `0`.
 

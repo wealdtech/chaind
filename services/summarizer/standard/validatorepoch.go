@@ -15,6 +15,7 @@ package standard
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
@@ -35,6 +36,7 @@ func (s *Service) summarizeValidatorsInEpoch(ctx context.Context,
 		return nil
 	}
 	log.Trace().Msg("Summarizing validator epoch")
+	log.Info().Msg("Summarising validator epoch")
 
 	proposerDuties, validatorProposerDuties, err := s.validatorProposerDutiesForEpoch(ctx, epoch)
 	if err != nil {
@@ -204,6 +206,7 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 		return nil, nil, nil, nil, nil, nil, nil, errors.Wrap(err, "failed to obtain attestations for slot range")
 	}
 	log.Trace().Int("attestations", len(attestations)).Uint64("epoch", uint64(epoch)).Msg("Fetched attestations")
+	log.Info().Int("attestations", len(attestations)).Uint64("epoch", uint64(epoch)).Uint64("first_slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch))).Uint64("last_slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch+1)-1)).Msg("Fetched attestations")
 
 	// Mark up attestations for each validator.
 	attestationsIncluded := make(map[phase0.ValidatorIndex]bool)
@@ -213,11 +216,21 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 	attestationsSourceTimely := make(map[phase0.ValidatorIndex]bool)
 	attestationsTargetTimely := make(map[phase0.ValidatorIndex]bool)
 	attestationsHeadTimely := make(map[phase0.ValidatorIndex]bool)
+	attestationsForSlots := make(map[phase0.Slot]struct{})
+	attestationsInSlots := make(map[phase0.Slot]struct{})
 	for _, attestation := range attestations {
-		if attestation.Canonical == nil || !*attestation.Canonical {
+		if attestation.Canonical == nil {
+			// This should not happen, so flag it as an error.
+			log.Error().Uint64("slot", uint64(attestation.Slot)).Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Msg("Non-canonical attestation; ignoring")
+			continue
+		}
+		if !*attestation.Canonical {
+			// This commonly happens when the block in which the attestation is included is non-canonical, so note it but no more.
 			log.Trace().Uint64("slot", uint64(attestation.Slot)).Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Msg("Non-canonical attestation; ignoring")
 			continue
 		}
+		attestationsForSlots[attestation.Slot] = struct{}{}
+		attestationsInSlots[attestation.InclusionSlot] = struct{}{}
 		inclusionDelay := attestation.InclusionSlot - attestation.Slot
 		attestationSourceTimely := uint64(inclusionDelay) <= s.maxTimelyAttestationSourceDelay
 		attestationTargetTimely := false
@@ -240,6 +253,21 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 				attestationsHeadTimely[index] = attestationHeadTimely
 			}
 		}
+	}
+	// TODO remove.
+	{
+		slots := make([]int, 0)
+		for slot := range attestationsForSlots {
+			slots = append(slots, int(slot))
+		}
+		sort.Ints(slots)
+		log.Info().Ints("slots", slots).Msg("Used attestations for these slots")
+		slots = make([]int, 0)
+		for slot := range attestationsInSlots {
+			slots = append(slots, int(slot))
+		}
+		sort.Ints(slots)
+		log.Info().Ints("slots", slots).Msg("Used attestations in these slots")
 	}
 
 	// Add in any validators that did not attest.

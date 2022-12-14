@@ -19,10 +19,14 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // SetProposerSlashing sets a proposer slashing.
 func (s *Service) SetProposerSlashing(ctx context.Context, proposerSlashing *chaindb.ProposerSlashing) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetProposerSlashing")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -90,6 +94,9 @@ func (s *Service) SetProposerSlashing(ctx context.Context, proposerSlashing *cha
 // ProposerSlashingsForSlotRange fetches all proposer slashings made for the given slot range.
 // It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
 func (s *Service) ProposerSlashingsForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]*chaindb.ProposerSlashing, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ProposerSlashingsForSlotRange")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -189,6 +196,9 @@ func (s *Service) ProposerSlashingsForSlotRange(ctx context.Context, minSlot pha
 // ProposerSlashingsForValidator fetches all proposer slashings made for the given validator.
 // It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
 func (s *Service) ProposerSlashingsForValidator(ctx context.Context, index phase0.ValidatorIndex) ([]*chaindb.ProposerSlashing, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ProposerSlashingsForValidator")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)

@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sort"
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/attestantio/go-eth2-client/spec"
@@ -38,6 +39,7 @@ func (s *Service) OnFinalityCheckpointReceived(
 		Str("block_root", fmt.Sprintf("%#x", blockRoot)).
 		Str("state_root", fmt.Sprintf("%#x", stateRoot)).
 		Msg("Handler called")
+	log.Info().Msg("Finality checkpoint received")
 
 	// Only allow 1 handler to be active.
 	acquired := s.activitySem.TryAcquire(1)
@@ -244,6 +246,7 @@ func (s *Service) canonicalizeBlocks(ctx context.Context, root phase0.Root, limi
 				return errors.Wrap(err, "failed to set block to canonical")
 			}
 			log.Trace().Uint64("slot", uint64(block.Slot)).Str("root", fmt.Sprintf("%#x", block.Root)).Msg("Block is canonical")
+			log.Info().Uint64("slot", uint64(block.Slot)).Bool("canonical", canonical).Msg("Set block canonical state (1)")
 		}
 
 		if block.Slot == 0 {
@@ -287,6 +290,7 @@ func (s *Service) updateIndeterminateBlocks(ctx context.Context, slot phase0.Slo
 		if err := s.blocksSetter.SetBlock(ctx, nonCanonicalBlock); err != nil {
 			return err
 		}
+		log.Info().Uint64("slot", uint64(nonCanonicalBlock.Slot)).Bool("canonical", canonical).Msg("Set block canonical state (2)")
 		log.Trace().Str("root", fmt.Sprintf("%#x", nonCanonicalRoot)).Uint64("slot", uint64(nonCanonicalBlock.Slot)).Bool("canonical", *nonCanonicalBlock.Canonical).Msg("Marking block")
 	}
 
@@ -352,7 +356,8 @@ func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch phase0.E
 	log.Trace().Msg("Updating attestation finality for epoch")
 
 	// Because the epoch is canonical, all of the slots in the epoch are canonical.
-	attestations, err := s.chainDB.(chaindb.AttestationsProvider).AttestationsInSlotRange(ctx, s.chainTime.FirstSlotOfEpoch(epoch-1), s.chainTime.FirstSlotOfEpoch(epoch)+1)
+	log.Info().Uint64("from_slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch-1)+1)).Uint64("to_slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch))).Msg("Updating attestations in slot range")
+	attestations, err := s.chainDB.(chaindb.AttestationsProvider).AttestationsInSlotRange(ctx, s.chainTime.FirstSlotOfEpoch(epoch-1)+1, s.chainTime.FirstSlotOfEpoch(epoch)+1)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain attestations for epoch")
 	}
@@ -366,6 +371,7 @@ func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch phase0.E
 	// Keep track of roots for heads to reduce lookups.
 	headRoots := make(map[phase0.Slot]phase0.Root)
 
+	updatedSlots := make(map[int]struct{})
 	for _, attestation := range attestations {
 		if err := s.updateCanonical(ctx, attestation, blockCanonicals); err != nil {
 			return errors.Wrap(err, "failed to update canonical state")
@@ -379,6 +385,7 @@ func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch phase0.E
 		if err := s.chainDB.(chaindb.AttestationsSetter).SetAttestation(ctx, attestation); err != nil {
 			return errors.Wrap(err, "failed to update attestation")
 		}
+		updatedSlots[int(attestation.InclusionSlot)] = struct{}{}
 		log.Trace().
 			Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).
 			Uint64("inclusion_index", attestation.InclusionIndex).
@@ -386,6 +393,15 @@ func (s *Service) updateAttestationsForEpoch(ctx context.Context, epoch phase0.E
 			Bool("target_correct", *attestation.TargetCorrect).
 			Bool("head_correct", *attestation.HeadCorrect).
 			Msg("Updated attestation")
+	}
+	// TODO remove.
+	{
+		slots := make([]int, 0)
+		for slot := range updatedSlots {
+			slots = append(slots, slot)
+		}
+		sort.Ints(slots)
+		log.Info().Ints("updated_slots", slots).Msg("Updated attestations for slots")
 	}
 
 	return nil

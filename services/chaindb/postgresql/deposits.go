@@ -19,10 +19,14 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // SetDeposit sets a deposit.
 func (s *Service) SetDeposit(ctx context.Context, deposit *chaindb.Deposit) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetDeposit")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -55,6 +59,9 @@ func (s *Service) SetDeposit(ctx context.Context, deposit *chaindb.Deposit) erro
 
 // DepositsByPublicKey fetches deposits for a given set of validator public keys.
 func (s *Service) DepositsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) (map[phase0.BLSPubKey][]*chaindb.Deposit, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "DepositsByPublicKey")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -120,6 +127,9 @@ func (s *Service) DepositsByPublicKey(ctx context.Context, pubKeys []phase0.BLSP
 // DepositsForSlotRange fetches all deposits made in the given slot range.
 // It will return deposits from blocks that are canonical or undefined, but not from non-canonical blocks.
 func (s *Service) DepositsForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]*chaindb.Deposit, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "DepositsForSlotRange")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)

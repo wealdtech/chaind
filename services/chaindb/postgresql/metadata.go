@@ -19,10 +19,14 @@ import (
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
 )
 
 // SetMetadata sets a metadata key to a JSON value.
 func (s *Service) SetMetadata(ctx context.Context, key string, value []byte) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetMetadata")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -44,6 +48,9 @@ func (s *Service) SetMetadata(ctx context.Context, key string, value []byte) err
 
 // Metadata obtains the JSON value from a metadata key.
 func (s *Service) Metadata(ctx context.Context, key string) ([]byte, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "Metadata")
+	defer span.End()
+
 	var err error
 
 	tx := s.tx(ctx)

@@ -26,6 +26,9 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
@@ -37,6 +40,14 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	// skipcq: RVV-A0005
 	epochTransition bool,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "OnBeaconChainHeadUpdated",
+		trace.WithAttributes(
+			attribute.Int64("slot", int64(slot)),
+		))
+	defer span.End()
+
+	log := log.With().Uint64("slot", uint64(slot)).Str("block_root", fmt.Sprintf("%#x", blockRoot)).Logger()
+
 	// Only allow 1 handler to be active.
 	acquired := s.activitySem.TryAcquire(1)
 	if !acquired {
@@ -45,7 +56,6 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	}
 	defer s.activitySem.Release(1)
 
-	log := log.With().Uint64("slot", uint64(slot)).Str("block_root", fmt.Sprintf("%#x", blockRoot)).Logger()
 	log.Trace().
 		Str("state_root", fmt.Sprintf("%#x", stateRoot)).
 		Bool("epoch_transition", epochTransition).
@@ -65,10 +75,14 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	s.catchup(ctx, md)
 
 	s.lastHandledBlockRoot = blockRoot
-	monitorBlockProcessed(slot)
 }
 
 func (s *Service) updateBlockForSlot(ctx context.Context, slot phase0.Slot) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateBlockForSlot",
+		trace.WithAttributes(
+			attribute.Int64("slot", int64(slot)),
+		))
+	defer span.End()
 	log := log.With().Uint64("slot", uint64(slot)).Logger()
 
 	// Start off by seeing if we already have the block (unless we are re-fetching regardless).
@@ -95,6 +109,9 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot phase0.Slot) erro
 // OnBlock handles a block.
 // This requires the context to hold an active transaction.
 func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.VersionedSignedBeaconBlock) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "OnBlock")
+	defer span.End()
+
 	// Update the block in the database.
 	dbBlock, err := s.dbBlock(ctx, signedBlock)
 	if err != nil {
@@ -116,6 +133,9 @@ func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.VersionedSigned
 }
 
 func (s *Service) onBlockPhase0(ctx context.Context, signedBlock *phase0.SignedBeaconBlock, dbBlock *chaindb.Block) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "OnBlockPhase0")
+	defer span.End()
+
 	if err := s.updateAttestationsForBlock(ctx,
 		signedBlock.Message.Slot,
 		dbBlock.Root,
@@ -150,6 +170,9 @@ func (s *Service) onBlockPhase0(ctx context.Context, signedBlock *phase0.SignedB
 }
 
 func (s *Service) onBlockAltair(ctx context.Context, signedBlock *altair.SignedBeaconBlock, dbBlock *chaindb.Block) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "OnBlockAltair")
+	defer span.End()
+
 	if err := s.updateAttestationsForBlock(ctx,
 		signedBlock.Message.Slot,
 		dbBlock.Root,
@@ -190,6 +213,9 @@ func (s *Service) onBlockAltair(ctx context.Context, signedBlock *altair.SignedB
 }
 
 func (s *Service) onBlockBellatrix(ctx context.Context, signedBlock *bellatrix.SignedBeaconBlock, dbBlock *chaindb.Block) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "OnBlockBellatrix")
+	defer span.End()
+
 	if err := s.updateAttestationsForBlock(ctx,
 		signedBlock.Message.Slot,
 		dbBlock.Root,
@@ -234,6 +260,9 @@ func (s *Service) updateAttestationsForBlock(ctx context.Context,
 	blockRoot phase0.Root,
 	attestations []*phase0.Attestation,
 ) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateAttestationsForBlock")
+	defer span.End()
+
 	beaconCommittees := make(map[phase0.Slot]map[phase0.CommitteeIndex]*chaindb.BeaconCommittee)
 	for i, attestation := range attestations {
 		dbAttestation, err := s.dbAttestation(ctx, slot, blockRoot, uint64(i), attestation, beaconCommittees)
@@ -252,6 +281,9 @@ func (s *Service) updateProposerSlashingsForBlock(ctx context.Context,
 	blockRoot phase0.Root,
 	proposerSlashings []*phase0.ProposerSlashing,
 ) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateProposerSlashingsForBlock")
+	defer span.End()
+
 	for i, proposerSlashing := range proposerSlashings {
 		dbProposerSlashing, err := s.dbProposerSlashing(ctx, slot, blockRoot, uint64(i), proposerSlashing)
 		if err != nil {
@@ -269,6 +301,9 @@ func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context,
 	blockRoot phase0.Root,
 	attesterSlashings []*phase0.AttesterSlashing,
 ) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateAttesterSlashingsForBlock")
+	defer span.End()
+
 	for i, attesterSlashing := range attesterSlashings {
 		dbAttesterSlashing, err := s.dbAttesterSlashing(ctx, slot, blockRoot, uint64(i), attesterSlashing)
 		if err != nil {
@@ -286,6 +321,9 @@ func (s *Service) updateDepositsForBlock(ctx context.Context,
 	blockRoot phase0.Root,
 	deposits []*phase0.Deposit,
 ) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateDepositssForBlock")
+	defer span.End()
+
 	for i, deposit := range deposits {
 		dbDeposit, err := s.dbDeposit(ctx, slot, blockRoot, uint64(i), deposit)
 		if err != nil {
@@ -303,6 +341,9 @@ func (s *Service) updateVoluntaryExitsForBlock(ctx context.Context,
 	blockRoot phase0.Root,
 	voluntaryExits []*phase0.SignedVoluntaryExit,
 ) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateVoluntaryExitsForBlock")
+	defer span.End()
+
 	for i, voluntaryExit := range voluntaryExits {
 		dbVoluntaryExit, err := s.dbVoluntaryExit(ctx, slot, blockRoot, uint64(i), voluntaryExit)
 		if err != nil {
@@ -320,6 +361,9 @@ func (s *Service) updateSyncAggregateForBlock(ctx context.Context,
 	blockRoot phase0.Root,
 	syncAggregate *altair.SyncAggregate,
 ) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateSyncAggregateForBlock")
+	defer span.End()
+
 	dbSyncAggregate, err := s.dbSyncAggregate(ctx, slot, blockRoot, syncAggregate)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain database sync aggregate")

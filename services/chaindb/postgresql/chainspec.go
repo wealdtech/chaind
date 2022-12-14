@@ -23,10 +23,14 @@ import (
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
 )
 
 // SetChainSpecValue sets the value of the provided key.
 func (s *Service) SetChainSpecValue(ctx context.Context, key string, value interface{}) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetChainSpecValue")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -62,6 +66,9 @@ func (s *Service) SetChainSpecValue(ctx context.Context, key string, value inter
 
 // ChainSpec fetches all chain specification values.
 func (s *Service) ChainSpec(ctx context.Context) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ChainSpec")
+	defer span.End()
+
 	var err error
 
 	tx := s.tx(ctx)
@@ -104,6 +111,9 @@ func (s *Service) ChainSpec(ctx context.Context) (map[string]interface{}, error)
 
 // ChainSpecValue fetches a chain specification value given its key.
 func (s *Service) ChainSpecValue(ctx context.Context, key string) (interface{}, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ChainSpecValue")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)

@@ -22,10 +22,12 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
-// skipcq: RVV-A0005
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
 	slot phase0.Slot,
@@ -34,6 +36,12 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	// skipcq: RVV-A0005
 	epochTransition bool,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "OnBeaconChainHeadUpdated",
+		trace.WithAttributes(
+			attribute.Int64("slot", int64(slot)),
+		))
+	defer span.End()
+
 	epoch := s.chainTime.SlotToEpoch(slot)
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 
@@ -73,6 +81,9 @@ func (s *Service) onEpochTransitionValidators(ctx context.Context,
 	md *metadata,
 	transitionedEpoch phase0.Epoch,
 ) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "onEpochTransitionValidators")
+	defer span.End()
+
 	// We always fetch the latest validator information regardless of epoch.
 	validators, err := s.eth2Client.(eth2client.ValidatorsProvider).Validators(ctx, "head", nil)
 	if err != nil {
@@ -132,6 +143,9 @@ func (s *Service) onEpochTransitionValidatorBalances(ctx context.Context,
 	md *metadata,
 	transitionedEpoch phase0.Epoch,
 ) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "onEpochTransitionValidatorBalances")
+	defer span.End()
+
 	if !s.balances {
 		return nil
 	}

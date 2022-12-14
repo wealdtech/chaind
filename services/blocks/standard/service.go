@@ -24,6 +24,9 @@ import (
 	zerologger "github.com/rs/zerolog/log"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -132,7 +135,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain metadata")
 	}
-	monitorLatestBlock(md.LatestSlot)
+	monitorLatestSlot(phase0.Slot(md.LatestSlot))
 
 	// Update to current epoch before starting (in the background).
 	go s.updateAfterRestart(ctx, parameters.startSlot)
@@ -158,10 +161,7 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 	}
 	if startSlot >= 0 {
 		// Explicit requirement to start at a given slot.
-		md.LatestSlot = phase0.Slot(startSlot)
-	} else if md.LatestSlot > 0 {
-		// We have a definite hit on this being the last processed slot; increment it to avoid duplication of work.
-		md.LatestSlot++
+		md.LatestSlot = startSlot
 	}
 
 	log.Info().Uint64("slot", uint64(md.LatestSlot)).Msg("Catching up from slot")
@@ -181,41 +181,45 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 	}
 }
 
+// catchup is the general-purpose catchup system.
 func (s *Service) catchup(ctx context.Context, md *metadata) {
-	firstSlot := md.LatestSlot
-	// Increment if not 0 (as we do not differentiate between 0 and unset).
-	if firstSlot > 0 {
-		firstSlot++
+	for slot := phase0.Slot(md.LatestSlot + 1); slot <= s.chainTime.CurrentSlot(); slot++ {
+		if err := s.UpdateSlot(ctx, md, slot); err != nil {
+			log.Error().Uint64("slot", uint64(slot)).Err(err).Msg("Failed to catchup")
+			return
+		}
+	}
+}
+
+func (s *Service) UpdateSlot(ctx context.Context, md *metadata, slot phase0.Slot) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "UpdateSlot",
+		trace.WithAttributes(
+			attribute.Int64("slot", int64(slot)),
+		))
+	defer span.End()
+
+	// Each slot runs in its own transaction, to make the data available sooner.
+	ctx, cancel, err := s.chainDB.BeginTx(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to begin transaction")
 	}
 
-	for slot := firstSlot; slot <= s.chainTime.CurrentSlot(); slot++ {
-		log := log.With().Uint64("slot", uint64(slot)).Logger()
-		// Each update goes in to its own transaction, to make the data available sooner.
-		ctx, cancel, err := s.chainDB.BeginTx(ctx)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to begin transaction on update after restart")
-			return
-		}
-
-		if err := s.updateBlockForSlot(ctx, slot); err != nil {
-			log.Warn().Err(err).Msg("Failed to update block")
-			cancel()
-			return
-		}
-
-		md.LatestSlot = slot
-		if err := s.setMetadata(ctx, md); err != nil {
-			log.Error().Err(err).Msg("Failed to set metadata")
-			cancel()
-			return
-		}
-
-		if err := s.chainDB.CommitTx(ctx); err != nil {
-			log.Error().Err(err).Msg("Failed to commit transaction")
-			cancel()
-			return
-		}
-		log.Trace().Msg("Updated block")
-		monitorBlockProcessed(slot)
+	if err := s.updateBlockForSlot(ctx, slot); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to update block")
 	}
+
+	md.LatestSlot = int64(slot)
+	if err := s.setMetadata(ctx, md); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to set metadata")
+	}
+
+	if err := s.chainDB.CommitTx(ctx); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to commit transaction")
+	}
+
+	monitorSlotProcessed(slot)
+	return nil
 }

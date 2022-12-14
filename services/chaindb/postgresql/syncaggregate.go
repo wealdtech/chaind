@@ -17,10 +17,14 @@ import (
 	"context"
 
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // SetSyncAggregate sets the sync aggregate.
 func (s *Service) SetSyncAggregate(ctx context.Context, syncAggregate *chaindb.SyncAggregate) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetSyncAggregate")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction

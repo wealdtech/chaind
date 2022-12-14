@@ -22,6 +22,7 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // AggregateValidatorBalancesByIndexAndEpoch fetches the aggregate validator balances for the given validators and epoch.
@@ -33,6 +34,9 @@ func (s *Service) AggregateValidatorBalancesByIndexAndEpoch(
 	*chaindb.AggregateValidatorBalance,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "AggregateValidatorBalancesByIndexAndEpoch")
+	defer span.End()
+
 	if len(validatorIndices) == 0 {
 		return &chaindb.AggregateValidatorBalance{}, nil
 	}
@@ -89,6 +93,9 @@ func (s *Service) AggregateValidatorBalancesByIndexAndEpochRange(
 	[]*chaindb.AggregateValidatorBalance,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "AggregateValidatorBalancesByIndexAndEpochRange")
+	defer span.End()
+
 	if len(validatorIndices) == 0 {
 		return []*chaindb.AggregateValidatorBalance{}, nil
 	}
@@ -149,6 +156,9 @@ func (s *Service) AggregateValidatorBalancesByIndexAndEpochs(
 	[]*chaindb.AggregateValidatorBalance,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "AggregateValidatorBalancesByIndexAndEpochs")
+	defer span.End()
+
 	if len(validatorIndices) == 0 {
 		return []*chaindb.AggregateValidatorBalance{}, nil
 	}

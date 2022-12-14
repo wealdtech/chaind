@@ -1,5 +1,6 @@
 dev:
   - speed up sync by only updating changed validators
+  - add open telemetry tracing
 
 0.6.17:
   - expose read-only transaction functions

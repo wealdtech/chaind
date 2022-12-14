@@ -19,10 +19,14 @@ import (
 
 	api "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
 )
 
 // SetGenesis sets the genesis information.
 func (s *Service) SetGenesis(ctx context.Context, genesis *api.Genesis) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetGenesis")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -48,6 +52,9 @@ func (s *Service) SetGenesis(ctx context.Context, genesis *api.Genesis) error {
 
 // Genesis fetches genesis values.
 func (s *Service) Genesis(ctx context.Context) (*api.Genesis, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "Genesis")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -82,6 +89,9 @@ func (s *Service) Genesis(ctx context.Context) (*api.Genesis, error) {
 
 // GenesisTime provides the genesis time of the chain.
 func (s *Service) GenesisTime(ctx context.Context) (time.Time, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "GenesisTime")
+	defer span.End()
+
 	genesis, err := s.Genesis(ctx)
 	if err != nil {
 		return time.Time{}, errors.Wrap(err, "failed to obtain genesis")

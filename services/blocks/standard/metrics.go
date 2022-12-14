@@ -25,11 +25,11 @@ import (
 var metricsNamespace = "chaind_blocks"
 
 var highestSlot phase0.Slot
-var latestBlock prometheus.Gauge
-var blocksProcessed prometheus.Gauge
+var latestSlot prometheus.Gauge
+var slotsProcessed prometheus.Gauge
 
 func registerMetrics(ctx context.Context, monitor metrics.Service) error {
-	if latestBlock != nil {
+	if latestSlot != nil {
 		// Already registered.
 		return nil
 	}
@@ -45,42 +45,42 @@ func registerMetrics(ctx context.Context, monitor metrics.Service) error {
 
 // skipcq: RVV-B0012
 func registerPrometheusMetrics(ctx context.Context) error {
-	latestBlock = prometheus.NewGauge(prometheus.GaugeOpts{
+	latestSlot = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
-		Name:      "latest_block",
-		Help:      "Latest block processed",
+		Name:      "latest_slot",
+		Help:      "Latest slot processed",
 	})
-	if err := prometheus.Register(latestBlock); err != nil {
-		return errors.Wrap(err, "failed to register latest_block")
+	if err := prometheus.Register(latestSlot); err != nil {
+		return errors.Wrap(err, "failed to register latest_slot")
 	}
 
-	blocksProcessed = prometheus.NewGauge(prometheus.GaugeOpts{
+	slotsProcessed = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
-		Name:      "blocks_processed",
-		Help:      "Number of blocks processed",
+		Name:      "slots_processed",
+		Help:      "Number of slots processed",
 	})
-	if err := prometheus.Register(blocksProcessed); err != nil {
-		return errors.Wrap(err, "failed to register blocks_processed")
+	if err := prometheus.Register(slotsProcessed); err != nil {
+		return errors.Wrap(err, "failed to register slots_processed")
 	}
 
 	return nil
 }
 
-// monitorLatestBlock sets the latest block without registering an
-// increase in blocks processed.  This does not usually need to be
-// called directly, as it is called as part ofr monitorBlockProcessed.
-func monitorLatestBlock(slot phase0.Slot) {
+// monitorLatestSlot sets the latest slot without registering an
+// increase in slots processed.  This does not usually need to be
+// called directly, as it is called as part of monitorSlotProcessed.
+func monitorLatestSlot(slot phase0.Slot) {
 	highestSlot = slot
-	if latestBlock != nil {
-		latestBlock.Set(float64(slot))
+	if latestSlot != nil {
+		latestSlot.Set(float64(slot))
 	}
 }
 
-func monitorBlockProcessed(slot phase0.Slot) {
-	if blocksProcessed != nil {
-		blocksProcessed.Inc()
+func monitorSlotProcessed(slot phase0.Slot) {
+	if slotsProcessed != nil {
+		slotsProcessed.Inc()
 		if slot > highestSlot {
-			monitorLatestBlock(slot)
+			monitorLatestSlot(slot)
 		}
 	}
 }

@@ -86,6 +86,7 @@ func (s *Service) summarizeBlock(ctx context.Context, slot phase0.Slot) error {
 		// No canonical block for this slot.
 		return nil
 	}
+	log.Info().Uint64("slot", uint64(slot)).Msg("Summarising block")
 
 	if err := s.attestationStatsForBlock(ctx, slot, summary, block); err != nil {
 		return errors.Wrap(err, "failed to calculate block attestation summary statistics for epoch")
@@ -126,6 +127,13 @@ func (s *Service) attestationStatsForBlock(ctx context.Context,
 	seenAttestations := make(map[phase0.Root]bool)
 	votesForBlock := make(map[phase0.ValidatorIndex]bool)
 	for _, attestation := range attestations {
+		// It's possible for the attestation to be indeterminate here, because a new (non-finalised) attestation can vote (incorrectly) for
+		// an old block as the head of the chain.  We consider these as valid as far as the block statistics go, so do not reject them at this point.
+		if attestation.Canonical != nil && !*attestation.Canonical {
+			// This commonly happens when the block in which the attestation is included is non-canonical, so note it but no more.
+			log.Trace().Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Uint64("inclusion_index", attestation.InclusionIndex).Msg("Attestation is not canonical; ignoring")
+			continue
+		}
 		specAttestation := &phase0.Attestation{
 			AggregationBits: attestation.AggregationBits,
 			Data: &phase0.AttestationData{
@@ -152,10 +160,6 @@ func (s *Service) attestationStatsForBlock(ctx context.Context,
 			continue
 		}
 		seenAttestations[specAttestationRoot] = true
-		if attestation.Canonical == nil || !*attestation.Canonical {
-			log.Debug().Uint64("slot", uint64(attestation.Slot)).Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Uint64("inclusion_index", attestation.InclusionIndex).Msg("Attestation is not canonical")
-			continue
-		}
 		summary.AttestationsForBlock++
 		for _, index := range attestation.AggregationIndices {
 			votesForBlock[index] = true

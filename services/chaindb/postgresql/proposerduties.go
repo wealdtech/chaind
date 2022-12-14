@@ -19,10 +19,14 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // SetProposerDuty sets a proposer duty.
 func (s *Service) SetProposerDuty(ctx context.Context, proposerDuty *chaindb.ProposerDuty) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetProposerDuty")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -51,6 +55,9 @@ func (s *Service) ProposerDutiesForSlotRange(ctx context.Context,
 	[]*chaindb.ProposerDuty,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ProposerDutiesForSlotRange")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -95,6 +102,9 @@ func (s *Service) ProposerDutiesForSlotRange(ctx context.Context,
 
 // ProposerDutiesForValidator provides all proposer duties for the given validator index.
 func (s *Service) ProposerDutiesForValidator(ctx context.Context, proposer phase0.ValidatorIndex) ([]*chaindb.ProposerDuty, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ProposerDutiesForValidator")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)

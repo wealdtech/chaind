@@ -19,10 +19,14 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // SetETH1Deposit sets an Ethereum 1 deposit.
 func (s *Service) SetETH1Deposit(ctx context.Context, deposit *chaindb.ETH1Deposit) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetETH1Deposit")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -80,6 +84,9 @@ func (s *Service) SetETH1Deposit(ctx context.Context, deposit *chaindb.ETH1Depos
 
 // ETH1DepositsByPublicKey fetches Ethereum 1 deposits for a given set of validator public keys.
 func (s *Service) ETH1DepositsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) ([]*chaindb.ETH1Deposit, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ETH1DepositsByPublicKey")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)

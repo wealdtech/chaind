@@ -75,6 +75,11 @@ func main2() int {
 		return 1
 	}
 
+	majordomo, err := util.InitMajordomo(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to initialise majordomo: %v\n", err)
+		return 1
+	}
 	if err := initLogging(); err != nil {
 		log.Error().Err(err).Msg("Failed to initialise logging")
 		return 1
@@ -94,6 +99,11 @@ func main2() int {
 
 	logModules()
 	log.Info().Str("version", ReleaseVersion).Msg("Starting chaind")
+
+	if err := initTracing(ctx, majordomo); err != nil {
+		log.Error().Err(err).Msg("Failed to initialise tracing")
+		return 1
+	}
 
 	if err := initProfiling(); err != nil {
 		log.Error().Err(err).Msg("Failed to initialise profiling")

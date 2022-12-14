@@ -34,6 +34,7 @@ func (s *Service) OnFinalityUpdated(
 
 	log := log.With().Uint64("summary_epoch", uint64(summaryEpoch)).Logger()
 	log.Trace().Msg("Handler called")
+	log.Info().Uint64("finalized_epoch", uint64(finalizedEpoch)).Uint64("summary_epoch", uint64(summaryEpoch)).Msg("Summarising epoch")
 
 	// Only allow 1 handler to be active.
 	acquired := s.activitySem.TryAcquire(1)

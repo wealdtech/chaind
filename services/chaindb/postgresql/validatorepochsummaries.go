@@ -24,10 +24,14 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // SetValidatorEpochSummaries sets multiple validator epoch summaries.
 func (s *Service) SetValidatorEpochSummaries(ctx context.Context, summaries []*chaindb.ValidatorEpochSummary) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetValidatorEpochSummaries")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -96,6 +100,9 @@ func (s *Service) SetValidatorEpochSummaries(ctx context.Context, summaries []*c
 
 // SetValidatorEpochSummary sets a validator epoch summary.
 func (s *Service) SetValidatorEpochSummary(ctx context.Context, summary *chaindb.ValidatorEpochSummary) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetValidatorEpochSummary")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -176,6 +183,9 @@ func (s *Service) SetValidatorEpochSummary(ctx context.Context, summary *chaindb
 
 // ValidatorSummaries provides summaries according to the filter.
 func (s *Service) ValidatorSummaries(ctx context.Context, filter *chaindb.ValidatorSummaryFilter) ([]*chaindb.ValidatorEpochSummary, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorSummaries")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -314,6 +324,9 @@ LIMIT $%d`, len(queryVals)))
 
 // ValidatorSummariesForEpoch obtains all summaries for a given epoch.
 func (s *Service) ValidatorSummariesForEpoch(ctx context.Context, epoch phase0.Epoch) ([]*chaindb.ValidatorEpochSummary, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorSummariesForEpoch")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -411,6 +424,9 @@ func (s *Service) ValidatorSummaryForEpoch(ctx context.Context,
 	*chaindb.ValidatorEpochSummary,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorSummaryForEpoch")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)

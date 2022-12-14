@@ -17,10 +17,14 @@ import (
 	"context"
 
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // SetVoluntaryExit sets a voluntary exit.
 func (s *Service) SetVoluntaryExit(ctx context.Context, voluntaryExit *chaindb.VoluntaryExit) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetVoluntaryExit")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction

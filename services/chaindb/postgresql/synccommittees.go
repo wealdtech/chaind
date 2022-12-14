@@ -19,10 +19,14 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // SetSyncCommittee sets a sync committee.
 func (s *Service) SetSyncCommittee(ctx context.Context, syncCommittee *chaindb.SyncCommittee) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetSyncCommittee")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -45,6 +49,9 @@ func (s *Service) SetSyncCommittee(ctx context.Context, syncCommittee *chaindb.S
 
 // SyncCommittee provides a sync committee for the given sync committee period.
 func (s *Service) SyncCommittee(ctx context.Context, period uint64) (*chaindb.SyncCommittee, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SyncCommittee")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)

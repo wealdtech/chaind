@@ -21,10 +21,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // setExecutionPayload sets the execution payload of a block.
 func (s *Service) setExecutionPayload(ctx context.Context, block *chaindb.Block) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "setExecutionPayload")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
@@ -110,6 +114,9 @@ func (s *Service) executionPayload(ctx context.Context,
 	*chaindb.ExecutionPayload,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "executionPayload")
+	defer span.End()
+
 	payload := &chaindb.ExecutionPayload{}
 	var blockHash []byte
 	var parentHash []byte

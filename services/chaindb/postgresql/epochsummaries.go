@@ -17,10 +17,14 @@ import (
 	"context"
 
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
 )
 
 // SetEpochSummary sets an epoch summary.
 func (s *Service) SetEpochSummary(ctx context.Context, summary *chaindb.EpochSummary) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetEpochSummary")
+	defer span.End()
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction

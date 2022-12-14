@@ -43,11 +43,12 @@ func registerMetrics(ctx context.Context, monitor metrics.Service) error {
 	return nil
 }
 
+// skipcq: RVV-B0012
 func registerPrometheusMetrics(ctx context.Context) error {
 	latestEpoch = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "latest_epoch",
-		Help:      "Latest epoch processed for beacon committee",
+		Help:      "Latest epoch processed",
 	})
 	if err := prometheus.Register(latestEpoch); err != nil {
 		return errors.Wrap(err, "failed to register latest_epoch")
@@ -65,12 +66,21 @@ func registerPrometheusMetrics(ctx context.Context) error {
 	return nil
 }
 
+// monitorLatestEpoch sets the latest epoch without registering an
+// increase in blocks processed.  This does not usually need to be
+// called directly, as it is called as part of monitorEpochProcessed.
+func monitorLatestEpoch(epoch phase0.Epoch) {
+	highestEpoch = epoch
+	if latestEpoch != nil {
+		latestEpoch.Set(float64(epoch))
+	}
+}
+
 func monitorEpochProcessed(epoch phase0.Epoch) {
 	if epochsProcessed != nil {
 		epochsProcessed.Inc()
 		if epoch > highestEpoch {
-			latestEpoch.Set(float64(epoch))
-			highestEpoch = epoch
+			monitorLatestEpoch(epoch)
 		}
 	}
 }
