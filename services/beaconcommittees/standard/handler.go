@@ -80,6 +80,7 @@ func (s *Service) catchup(ctx context.Context, md *metadata) {
 	}
 }
 
+// UpdateEpoch updates the beacon committees for the given epoch.
 func (s *Service) UpdateEpoch(ctx context.Context, md *metadata, epoch phase0.Epoch) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.beaconcommittees.standard").Start(ctx, "UpdateEpoch",
 		trace.WithAttributes(

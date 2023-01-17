@@ -62,7 +62,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 		Msg("Handler called")
 
 	if bytes.Equal(s.lastHandledBlockRoot[:], blockRoot[:]) {
-		log.Trace().Msg("Already handled this block; ignoring")
+		log.Debug().Msg("Another handler (either blocks or finalizer) running")
 		return
 	}
 
@@ -77,6 +77,52 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	s.lastHandledBlockRoot = blockRoot
 }
 
+// catchup is the general-purpose catchup system.
+func (s *Service) catchup(ctx context.Context, md *metadata) {
+	for slot := phase0.Slot(md.LatestSlot + 1); slot <= s.chainTime.CurrentSlot(); slot++ {
+		if err := s.UpdateSlot(ctx, md, slot); err != nil {
+			log.Error().Uint64("slot", uint64(slot)).Err(err).Msg("Failed to catchup")
+			return
+		}
+	}
+}
+
+// UpdateSlot updates block for the given slot.
+func (s *Service) UpdateSlot(ctx context.Context, md *metadata, slot phase0.Slot) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "UpdateSlot",
+		trace.WithAttributes(
+			attribute.Int64("slot", int64(slot)),
+		))
+	defer span.End()
+
+	// Each slot runs in its own transaction, to make the data available sooner.
+	ctx, cancel, err := s.chainDB.BeginTx(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to begin transaction")
+	}
+
+	if err := s.updateBlockForSlot(ctx, slot); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to update block")
+	}
+	span.AddEvent("Updated block")
+
+	md.LatestSlot = int64(slot)
+	if err := s.setMetadata(ctx, md); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to set metadata")
+	}
+	span.AddEvent("Set metadata")
+
+	if err := s.chainDB.CommitTx(ctx); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to commit transaction")
+	}
+	span.AddEvent("Committed transaction")
+
+	monitorSlotProcessed(slot)
+	return nil
+}
 func (s *Service) updateBlockForSlot(ctx context.Context, slot phase0.Slot) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateBlockForSlot",
 		trace.WithAttributes(
@@ -93,6 +139,7 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot phase0.Slot) erro
 			return nil
 		}
 	}
+	span.AddEvent("Checked for block")
 
 	log.Trace().Msg("Updating block for slot")
 	signedBlock, err := s.eth2Client.(eth2client.SignedBeaconBlockProvider).SignedBeaconBlock(ctx, fmt.Sprintf("%d", slot))
@@ -103,6 +150,8 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot phase0.Slot) erro
 		log.Debug().Msg("No beacon block obtained for slot")
 		return nil
 	}
+	span.AddEvent("Obtained block")
+
 	return s.OnBlock(ctx, signedBlock)
 }
 
@@ -263,14 +312,41 @@ func (s *Service) updateAttestationsForBlock(ctx context.Context,
 	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateAttestationsForBlock")
 	defer span.End()
 
+	var err error
+	// Fetch all of the beacon committees we commonly need up front.
+	// Others are fetched as required.
+	earliestSlot := phase0.Slot(0)
+	if slot > 5 {
+		earliestSlot = slot - 5
+	}
 	beaconCommittees := make(map[phase0.Slot]map[phase0.CommitteeIndex]*chaindb.BeaconCommittee)
+	bcs, err := s.beaconCommitteesProvider.BeaconCommittees(ctx, &chaindb.BeaconCommitteeFilter{
+		From: &earliestSlot,
+		To:   &slot,
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain beacon committees")
+	}
+	for _, bc := range bcs {
+		if _, exists := beaconCommittees[bc.Slot]; !exists {
+			beaconCommittees[bc.Slot] = make(map[phase0.CommitteeIndex]*chaindb.BeaconCommittee)
+		}
+		beaconCommittees[bc.Slot][bc.Index] = bc
+	}
+
+	dbAttestations := make([]*chaindb.Attestation, len(attestations))
 	for i, attestation := range attestations {
-		dbAttestation, err := s.dbAttestation(ctx, slot, blockRoot, uint64(i), attestation, beaconCommittees)
+		dbAttestations[i], err = s.dbAttestation(ctx, slot, blockRoot, uint64(i), attestation, beaconCommittees)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain database attestation")
 		}
-		if err := s.attestationsSetter.SetAttestation(ctx, dbAttestation); err != nil {
-			return errors.Wrap(err, "failed to set attestation")
+	}
+	if err := s.attestationsSetter.SetAttestations(ctx, dbAttestations); err != nil {
+		log.Debug().Err(err).Msg("Failed to set attestations en masse, setting individually")
+		for _, dbAttestation := range dbAttestations {
+			if err := s.attestationsSetter.SetAttestation(ctx, dbAttestation); err != nil {
+				return errors.Wrap(err, "failed to set attestation")
+			}
 		}
 	}
 	return nil
