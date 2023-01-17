@@ -24,6 +24,9 @@ import (
 	zerologger "github.com/rs/zerolog/log"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -80,10 +83,7 @@ func (s *Service) updateAfterRestart(ctx context.Context, startEpoch int64) {
 	}
 	if startEpoch >= 0 {
 		// Explicit requirement to start at a given epoch.
-		md.LatestEpoch = phase0.Epoch(startEpoch)
-	} else if md.LatestEpoch > 0 {
-		// We have a definite hit on this being the last processed epoch; increment it to avoid duplication of work.
-		md.LatestEpoch++
+		md.LatestEpoch = startEpoch - 1
 	}
 
 	log.Info().Uint64("epoch", uint64(md.LatestEpoch)).Msg("Catching up from epoch")
@@ -112,34 +112,52 @@ func (s *Service) updateAfterRestart(ctx context.Context, startEpoch int64) {
 }
 
 func (s *Service) catchup(ctx context.Context, md *metadata) {
-	for epoch := md.LatestEpoch; epoch <= s.chainTime.CurrentEpoch(); epoch++ {
-		log := log.With().Uint64("epoch", uint64(epoch)).Logger()
-		// Each update goes in to its own transaction, to make the data available sooner.
-		dbCtx, cancel, err := s.chainDB.BeginTx(ctx)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to begin transaction on update after restart")
-			return
-		}
-
-		if err := s.updateProposerDutiesForEpoch(dbCtx, epoch); err != nil {
-			log.Error().Err(err).Msg("Failed to update proposer duties")
-			cancel()
-			return
-		}
-
-		md.LatestEpoch = epoch
-		if err := s.setMetadata(dbCtx, md); err != nil {
-			log.Error().Err(err).Msg("Failed to set metadata")
-			cancel()
-			return
-		}
-
-		if err := s.chainDB.CommitTx(dbCtx); err != nil {
-			log.Error().Err(err).Msg("Failed to commit transaction")
-			cancel()
+	for epoch := phase0.Epoch(md.LatestEpoch + 1); epoch <= s.chainTime.CurrentEpoch(); epoch++ {
+		if err := s.UpdateEpoch(ctx, md, epoch); err != nil {
+			log.Error().Uint64("epoch", uint64(epoch)).Err(err).Msg("Failed to catchup")
 			return
 		}
 	}
+}
+
+// UpdateEpoch updates proposer duties for the given epoch.
+func (s *Service) UpdateEpoch(ctx context.Context,
+	md *metadata,
+	epoch phase0.Epoch,
+) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.proposerduties.standard").Start(ctx, "UpdateEpoch",
+		trace.WithAttributes(
+			attribute.Int64("epoch", int64(epoch)),
+		))
+	defer span.End()
+
+	// Each epoch goes in to its own transaction, to make the data available sooner.
+	dbCtx, cancel, err := s.chainDB.BeginTx(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to begin transaction")
+	}
+
+	if err := s.updateProposerDutiesForEpoch(dbCtx, epoch); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to update proposer duties")
+	}
+	span.AddEvent("Updated epoch")
+
+	md.LatestEpoch = int64(epoch)
+	if err := s.setMetadata(dbCtx, md); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to set metadata")
+	}
+	span.AddEvent("Set metadata")
+
+	if err := s.chainDB.CommitTx(dbCtx); err != nil {
+		cancel()
+		return errors.Wrap(err, "failed to commit transaction")
+	}
+	span.AddEvent("Committed transaction")
+
+	monitorEpochProcessed(epoch)
+	return nil
 }
 
 func (s *Service) handleMissed(ctx context.Context, md *metadata) {

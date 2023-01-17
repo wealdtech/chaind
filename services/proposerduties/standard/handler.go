@@ -63,6 +63,7 @@ func (s *Service) updateProposerDutiesForEpoch(ctx context.Context, epoch phase0
 		return errors.Wrap(err, "failed to fetch proposer duties")
 	}
 
+	log.Trace().Uint64("epoch", uint64(epoch)).Msg("Setting proposer duties")
 	for _, duty := range duties {
 		dbProposerDuty := &chaindb.ProposerDuty{
 			Slot:           duty.Slot,

@@ -23,7 +23,7 @@ import (
 
 // metadata stored about this service.
 type metadata struct {
-	LatestEpoch  phase0.Epoch   `json:"latest_epoch"`
+	LatestEpoch  int64          `json:"latest_epoch"`
 	MissedEpochs []phase0.Epoch `json:"missed_epochs,omitempty"`
 }
 
@@ -32,7 +32,9 @@ var metadataKey = "proposerduties.standard"
 
 // getMetadata gets metadata for this service.
 func (s *Service) getMetadata(ctx context.Context) (*metadata, error) {
-	md := &metadata{}
+	md := &metadata{
+		LatestEpoch: -1,
+	}
 	mdJSON, err := s.chainDB.Metadata(ctx, metadataKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch metadata")
