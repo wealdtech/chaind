@@ -96,6 +96,25 @@ Once Teku has finished syncing, run:
 chaind --eth2client-address=http://localhost:5051/
 ```
 
+### Managing the database size
+Two tables take up the majority of the database size.  These are:
+
+- `t_validator_balances` the balance and effective balance of each validator at each epoch
+- `t_validator_epoch_summaries` the expected and actual actions undertaken by each validator each epoch
+
+These tables, along with their indices, take over 90% of the space required for the database on mainnet and goerli.  The `t_validator_day_summaries` table contains the same information but aggregated per day (a day being 00:00 to 00:00 UTC).  If the information in this table is sufficient for your needs you can prune old data from the larger tables, keeping their size down and hence managing the overall space requirement for `chaind`.
+
+Pruning data removes data older than a certain age from the two database tables mentioned above.  Pruning is set for each table individually and so it is possible to prune either or both of the tables, and to have different retentions for each.  For example, the following configuration:
+
+```yaml
+summarizer:
+  validators:
+    balance-retention: "P6M"
+    epoch-retention: "P1Y"
+```
+
+This will store 6 month's worth of balances, and 1 year's worth of epoch summaries.  Retention periods are [ISO 8601 durations](https://en.wikipedia.org/wiki/ISO_8601#Durations).  Note that if it is not desired to retain any balance or epoch summary data then the retention can be set to "PT0s".
+
 ## Upgrading `chaind`
 `chaind` should upgrade automatically from earlier versions.  Note that the upgrade process can take a long time to complete, especially where data needs to be refetched or recalculated.  `chaind` should be left to complete the upgrade, to avoid the situation where additional fields are not fully populated.  If this does occur then `chaind` can be run with the options `--blocks.start-slot=0 --blocks.refetch=true` to force `chaind` to refetch all blocks.
 

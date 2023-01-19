@@ -638,3 +638,46 @@ func validatorBalanceFromRow(rows pgx.Rows) (*chaindb.ValidatorBalance, error) {
 	}
 	return validatorBalance, nil
 }
+
+// PruneValidatorBalances prunes validator balances up to (but not including) the given epoch.
+func (s *Service) PruneValidatorBalances(ctx context.Context, to phase0.Epoch, retain []phase0.ValidatorIndex) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "PruneValidatorBalances")
+	defer span.End()
+
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	// Build the query.
+	queryBuilder := strings.Builder{}
+	queryVals := make([]interface{}, 0)
+
+	queryBuilder.WriteString(`
+DELETE FROM t_validator_balances
+WHERE f_epoch <= $1
+`)
+	queryVals = append(queryVals, to)
+
+	if len(retain) > 0 {
+		queryBuilder.WriteString(`
+AND  f_validator_index NOT IN($2)
+`)
+		queryVals = append(queryVals, retain)
+	}
+
+	if e := log.Trace(); e.Enabled() {
+		params := make([]string, len(queryVals))
+		for i := range queryVals {
+			params[i] = fmt.Sprintf("%v", queryVals[i])
+		}
+		e.Str("statement", strings.ReplaceAll(queryBuilder.String(), "\n", " ")).Strs("params", params).Msg("SQL statement")
+	}
+
+	_, err := tx.Exec(ctx,
+		queryBuilder.String(),
+		queryVals...,
+	)
+
+	return err
+}

@@ -1,4 +1,4 @@
-// Copyright © 2021, 2022 Weald Technology Trading.
+// Copyright © 2021 - 2023 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -27,7 +27,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(8)
+var currentVersion = uint64(9)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -87,6 +87,11 @@ var upgrades = map[uint64]*upgrade{
 	8: {
 		funcs: []func(context.Context, *Service) error{
 			addTimestamp,
+		},
+	},
+	9: {
+		funcs: []func(context.Context, *Service) error{
+			createValidatorDaySummaries,
 		},
 	},
 }
@@ -1090,6 +1095,30 @@ CREATE TABLE t_sync_committees (
  ,f_committee BIGINT[] NOT NULL -- REFERENCES t_validators(f_index)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS i_sync_committees_1 ON t_sync_committees(f_period);
+
+CREATE TABLE t_validator_day_summaries (
+  f_validator_index                  BIGINT NOT NULL
+ ,f_start_timestamp                  TIMESTAMPTZ NOT NULL
+ ,f_start_balance                    BIGINT NOT NULL
+ ,f_start_effective_balance          BIGINT NOT NULL
+ ,f_capital_change                   BIGINT NOT NULL
+ ,f_reward_change                    BIGINT NOT NULL
+ ,f_effective_balance_change         BIGINT NOT NULL
+ ,f_proposals                        INTEGER NOT NULL
+ ,f_proposals_included               INTEGER NOT NULL
+ ,f_attestations                     INTEGER NOT NULL
+ ,f_attestations_included            INTEGER NOT NULL
+ ,f_attestations_source_timely       INTEGER NOT NULL
+ ,f_attestations_target_correct      INTEGER NOT NULL
+ ,f_attestations_target_timely       INTEGER NOT NULL
+ ,f_attestations_head_correct        INTEGER NOT NULL
+ ,f_attestations_head_timely         INTEGER NOT NULL
+ ,f_attestations_inclusion_delay     FLOAT(4) NOT NULL
+ ,f_sync_committee_messages          INTEGER NOT NULL
+ ,f_sync_committee_messages_included INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS i_validator_day_summaries_1 ON t_validator_day_summaries(f_validator_index, f_start_timestamp);
+CREATE INDEX IF NOT EXISTS i_validator_day_summaries_2 ON t_validator_day_summaries(f_start_timestamp);
 `); err != nil {
 		cancel()
 		return false, errors.Wrap(err, "failed to create initial tables")
@@ -1299,5 +1328,52 @@ ALTER COLUMN f_timestamp DROP DEFAULT
 		return errors.Wrap(err, "failed to remove default for f_timestamp in t_block_execution_payloads")
 	}
 
+	return nil
+}
+
+// createValidatorDaySummaries adds t_validator_day_summaries
+func createValidatorDaySummaries(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE t_validator_day_summaries (
+  f_validator_index                  BIGINT NOT NULL
+ ,f_start_timestamp                  TIMESTAMPTZ NOT NULL
+ ,f_start_balance                    BIGINT NOT NULL
+ ,f_start_effective_balance          BIGINT NOT NULL
+ ,f_capital_change                   BIGINT NOT NULL
+ ,f_reward_change                    BIGINT NOT NULL
+ ,f_effective_balance_change         BIGINT NOT NULL
+ ,f_proposals                        INTEGER NOT NULL
+ ,f_proposals_included               INTEGER NOT NULL
+ ,f_attestations                     INTEGER NOT NULL
+ ,f_attestations_included            INTEGER NOT NULL
+ ,f_attestations_source_timely       INTEGER NOT NULL
+ ,f_attestations_target_correct      INTEGER NOT NULL
+ ,f_attestations_target_timely       INTEGER NOT NULL
+ ,f_attestations_head_correct        INTEGER NOT NULL
+ ,f_attestations_head_timely         INTEGER NOT NULL
+ ,f_attestations_inclusion_delay     FLOAT(4) NOT NULL
+ ,f_sync_committee_messages          INTEGER NOT NULL
+ ,f_sync_committee_messages_included INTEGER NOT NULL
+)
+`); err != nil {
+		return errors.Wrap(err, "failed to create validator day summaries table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE UNIQUE INDEX IF NOT EXISTS i_validator_day_summaries_1 ON t_validator_day_summaries(f_validator_index, f_start_timestamp)
+`); err != nil {
+		return errors.Wrap(err, "failed to create validator day summaries index 1")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX IF NOT EXISTS i_validator_day_summaries_2 ON t_validator_day_summaries(f_start_timestamp)
+`); err != nil {
+		return errors.Wrap(err, "failed to create validator day summaries index 1")
+	}
 	return nil
 }

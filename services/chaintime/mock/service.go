@@ -30,6 +30,16 @@ func New() chaintime.Service {
 // GenesisTime provides the time of the chain's genesis.
 func (s *service) GenesisTime() time.Time { return time.Time{} }
 
+// SlotDuration provides the duration of a single slot.
+func (s *service) SlotDuration() time.Duration {
+	return 12 * time.Second
+}
+
+// SlotsPerEpoch provides the number of slots in an epoch.
+func (s *service) SlotsPerEpoch() uint64 {
+	return 12
+}
+
 // StartOfSlot provides the time at which a given slot starts.
 func (s *service) StartOfSlot(slot phase0.Slot) time.Time { return time.Time{} }
 

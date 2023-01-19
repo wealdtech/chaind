@@ -23,6 +23,10 @@ import (
 type Service interface {
 	// GenesisTime provides the time of the chain's genesis.
 	GenesisTime() time.Time
+	// SlotDuration provides the duration of a single slot.
+	SlotDuration() time.Duration
+	// SlotsPerEpoch provides the number of slots in an epoch.
+	SlotsPerEpoch() uint64
 	// StartOfSlot provides the time at which a given slot starts.
 	StartOfSlot(slot phase0.Slot) time.Time
 	// StartOfEpoch provides the time at which a given epoch starts.

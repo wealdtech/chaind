@@ -86,7 +86,7 @@ func (s *Service) summarizeBlock(ctx context.Context, slot phase0.Slot) error {
 		// No canonical block for this slot.
 		return nil
 	}
-	log.Info().Uint64("slot", uint64(slot)).Msg("Summarising block")
+	log.Trace().Uint64("slot", uint64(slot)).Msg("Summarising block")
 
 	if err := s.attestationStatsForBlock(ctx, slot, summary, block); err != nil {
 		return errors.Wrap(err, "failed to calculate block attestation summary statistics for epoch")

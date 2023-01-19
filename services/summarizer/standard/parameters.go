@@ -24,14 +24,17 @@ import (
 )
 
 type parameters struct {
-	logLevel           zerolog.Level
-	monitor            metrics.Service
-	eth2Client         eth2client.Service
-	chainDB            chaindb.Service
-	chainTime          chaintime.Service
-	epochSummaries     bool
-	blockSummaries     bool
-	validatorSummaries bool
+	logLevel                  zerolog.Level
+	monitor                   metrics.Service
+	eth2Client                eth2client.Service
+	chainDB                   chaindb.Service
+	chainTime                 chaintime.Service
+	epochSummaries            bool
+	blockSummaries            bool
+	validatorSummaries        bool
+	validatorEpochRetention   string
+	maxDaysPerRun             uint64
+	validatorBalanceRetention string
 }
 
 // Parameter is the interface for service parameters.
@@ -101,6 +104,27 @@ func WithValidatorSummaries(enabled bool) Parameter {
 	})
 }
 
+// WithMaxDaysPerRun provides the maximum number of days to process in a single run of the summarizer.
+func WithMaxDaysPerRun(maxDaysPerRun uint64) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.maxDaysPerRun = maxDaysPerRun
+	})
+}
+
+// WithValidatorEpochRetention provides the amount of validator epoch data to retain.
+func WithValidatorEpochRetention(retention string) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.validatorEpochRetention = retention
+	})
+}
+
+// WithValidatorBalanceRetention provides the amount of validator balance data to retain.
+func WithValidatorBalanceRetention(retention string) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.validatorBalanceRetention = retention
+	})
+}
+
 // parseAndCheckParameters parses and checks parameters to ensure that mandatory parameters are present and correct.
 func parseAndCheckParameters(params ...Parameter) (*parameters, error) {
 	parameters := parameters{
@@ -113,13 +137,16 @@ func parseAndCheckParameters(params ...Parameter) (*parameters, error) {
 	}
 
 	if parameters.eth2Client == nil {
-		return nil, errors.New("no Ethereum 2 client specified")
+		return nil, errors.New("no consensus client specified")
 	}
 	if parameters.chainDB == nil {
 		return nil, errors.New("no chain database specified")
 	}
 	if parameters.chainTime == nil {
 		return nil, errors.New("no chain time specified")
+	}
+	if parameters.maxDaysPerRun == 0 {
+		return nil, errors.New("no max days per run specified")
 	}
 
 	return &parameters, nil

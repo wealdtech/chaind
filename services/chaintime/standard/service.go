@@ -116,6 +116,16 @@ func (s *Service) GenesisTime() time.Time {
 	return s.genesisTime
 }
 
+// SlotDuration provides the duration of a single slot.
+func (s *Service) SlotDuration() time.Duration {
+	return s.slotDuration
+}
+
+// SlotsPerEpoch provides the number of slots in an epoch.
+func (s *Service) SlotsPerEpoch() uint64 {
+	return s.slotsPerEpoch
+}
+
 // StartOfSlot provides the time at which a given slot starts.
 func (s *Service) StartOfSlot(slot phase0.Slot) time.Time {
 	return s.genesisTime.Add(time.Duration(slot) * s.slotDuration)

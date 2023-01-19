@@ -13,7 +13,11 @@
 
 package chaindb
 
-import "github.com/attestantio/go-eth2-client/spec/phase0"
+import (
+	"time"
+
+	"github.com/attestantio/go-eth2-client/spec/phase0"
+)
 
 // Order is the order in which results should be fetched (N.B. fetched, not returned).
 type Order uint8
@@ -51,6 +55,32 @@ type ValidatorSummaryFilter struct {
 	ValidatorIndices *[]phase0.ValidatorIndex
 }
 
+// ValidatorDaySummaryFilter defines a filter for fetching validator day summaries.
+// Filter elements are ANDed together.
+// Results are always returned in ascending (start timestamp, validator index) order.
+type ValidatorDaySummaryFilter struct {
+	// Limit is the maximum number of summaries to return.
+	Limit uint32
+
+	// Order is either OrderEarliest, in which case the earliest results
+	// that match the filter are returned, or OrderLatest, in which case the
+	// latest results that match the filter are returned.
+	// The default is OrderEarliest.
+	Order Order
+
+	// From is the earliest timestamp from which to fetch summaries.
+	// If nil then there is no earliest epoch.
+	From *time.Time
+
+	// To is the latest timestamp from which to fetch summaries.
+	// If nil then there is no latest epoch.
+	To *time.Time
+
+	// ValidatorIndices is the list of validator indices for which to obtain summaries.
+	// If nil then no filter is applied
+	ValidatorIndices *[]phase0.ValidatorIndex
+}
+
 // BeaconCommitteeFilter defines a filter for fetching beacon committees.
 // Filter elements are ANDed together.
 // Results are always returned in ascending (slot, committee index) order.
@@ -75,4 +105,28 @@ type BeaconCommitteeFilter struct {
 	// CommitteeIndices is the list of committee indices for which to obtain items.
 	// If nil then no filter is applied
 	CommitteeIndices []phase0.CommitteeIndex
+}
+
+// SyncAggregateFilter defines a filter for fetching sync aggregates.
+// Filter elements are ANDed together.
+// Results are always returned in ascending slot order.
+type SyncAggregateFilter struct {
+	// Limit is the maximum number of items to return.
+	Limit uint32
+
+	// Order is either OrderEarliest, in which case the earliest results
+	// that match the filter are returned, or OrderLatest, in which case the
+	// latest results that match the filter are returned.
+	// The default is OrderEarliest.
+	Order Order
+
+	// From is the earliest slot from which to fetch items.
+	// This relates to the inclusion slot.
+	// If nil then there is no earliest slot.
+	From *phase0.Slot
+
+	// To is the latest slot to which to fetch items.
+	// This relates to the inclusion slot.
+	// If nil then there is no latest slot.
+	To *phase0.Slot
 }

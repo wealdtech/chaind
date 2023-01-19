@@ -1,4 +1,4 @@
-// Copyright © 2021, 2022 Weald Technology Limited.
+// Copyright © 2021 - 2023 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -86,7 +86,7 @@ func (s *Service) SetValidatorEpochSummaries(ctx context.Context, summaries []*c
 		log.Debug().Err(err).Msg("Failed to copy insert blocks; applying one at a time")
 		for _, summary := range summaries {
 			if err := s.SetValidatorEpochSummary(ctx, summary); err != nil {
-				log.Info().Msg("Failure to insert individual summary")
+				log.Error().Err(err).Msg("Failure to insert individual summary")
 				return err
 			}
 		}
@@ -246,9 +246,19 @@ ORDER BY f_epoch DESC,f_validator_index DESC`)
 		return nil, errors.New("no order specified")
 	}
 
-	queryVals = append(queryVals, filter.Limit)
-	queryBuilder.WriteString(fmt.Sprintf(`
+	if filter.Limit > 0 {
+		queryVals = append(queryVals, filter.Limit)
+		queryBuilder.WriteString(fmt.Sprintf(`
 LIMIT $%d`, len(queryVals)))
+	}
+
+	if e := log.Trace(); e.Enabled() {
+		params := make([]string, len(queryVals))
+		for i := range queryVals {
+			params[i] = fmt.Sprintf("%v", queryVals[i])
+		}
+		e.Str("query", strings.ReplaceAll(queryBuilder.String(), "\n", " ")).Strs("params", params).Msg("SQL query")
+	}
 
 	rows, err := tx.Query(ctx,
 		queryBuilder.String(),
@@ -506,4 +516,47 @@ WHERE f_validator_index = $1
 	}
 
 	return summary, nil
+}
+
+// PruneValidatorEpochSummaries prunes validator epoch summaries up to (but not including) the given point.
+func (s *Service) PruneValidatorEpochSummaries(ctx context.Context, to phase0.Epoch, retain []phase0.ValidatorIndex) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "PruneValidatorEpochSummaries")
+	defer span.End()
+
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	// Build the query.
+	queryBuilder := strings.Builder{}
+	queryVals := make([]interface{}, 0)
+
+	queryBuilder.WriteString(`
+DELETE FROM t_validator_epoch_summaries
+WHERE f_epoch <= $1
+`)
+	queryVals = append(queryVals, to)
+
+	if len(retain) > 0 {
+		queryBuilder.WriteString(`
+AND  f_validator_index NOT IN($2)
+`)
+		queryVals = append(queryVals, retain)
+	}
+
+	if e := log.Trace(); e.Enabled() {
+		params := make([]string, len(queryVals))
+		for i := range queryVals {
+			params[i] = fmt.Sprintf("%v", queryVals[i])
+		}
+		e.Str("statement", strings.ReplaceAll(queryBuilder.String(), "\n", " ")).Strs("params", params).Msg("SQL statement")
+	}
+
+	_, err := tx.Exec(ctx,
+		queryBuilder.String(),
+		queryVals...,
+	)
+
+	return err
 }

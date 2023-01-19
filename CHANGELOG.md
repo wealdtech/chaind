@@ -2,6 +2,7 @@ dev:
   - speed up sync by only updating changed validators
   - add open telemetry tracing
   - avoid fetching duplicate proposer duties
+  - introduce daily validator summaries, and pruning of validator balances and validator epoch summaries
 
 0.6.17:
   - expose read-only transaction functions
