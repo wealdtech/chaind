@@ -64,7 +64,7 @@ In addition, the summarizer module takes the finalized information and generates
 ### Database
 At current the only supported backend is PostgreSQL.  Once you have a  PostgreSQL instance you will need to create a user and database that `chaind` can use, for example run the following commands as the PostgreSQL superuser (`postgres` on most linux installations):
 
-```
+```sh
 # This command creates a user named 'chain' and will prompt for a password.
 createuser chain -P
 # This command creates a database named 'chain' owned by the 'chain' user.
@@ -105,7 +105,7 @@ chaind --eth2client-address=http://localhost:5051/
 ## Configuring `chaind`
 The minimal requirements for `chaind` are references to the database and beacon node, for example:
 
-```
+```sh
 chaind --chaindb.url=postgres://chain:secret@localhost:5432 --eth2client.address=localhost:5051
 ```
 
@@ -113,7 +113,7 @@ Here, `chaindb.url` is the URL of a local PostgreSQL database with password 'sec
 
 `chaind` allows additional configuration for itself and its modules.  It takes configuration from the command line, environment variables or a configuration file, but for the purposes of explaining the configuration options the configuration file is used.  This should be in the home directory and called `.chaind.yml`.  Alternatively, the configuration file can be placed in a different directory and referenced by `--base-dir`, for example `--base-dir=/home/user/config/chaind`; in this case the file should be called `chaind.yml` (without the leading period).
 
-```
+```yaml
 # log-level is the base log level of the process.
 # 'info' should be a suitable log level, unless detailed information is
 # required in which case 'debug' or 'trace' can be used.
