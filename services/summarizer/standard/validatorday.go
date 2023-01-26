@@ -72,8 +72,13 @@ func (s *Service) summarizeValidatorsInDay(ctx context.Context,
 		return err
 	}
 	span.AddEvent("Set sync committee information")
-	if err := s.addValidatorBalanceSummaries(ctx, daySummaries, startTime, endTime); err != nil {
+	found, err := s.addValidatorBalanceSummaries(ctx, daySummaries, startTime, endTime)
+	if err != nil {
 		return err
+	}
+	if !found {
+		log.Debug().Time("startTime", startTime).Msg("Validator balances not yet ready to be rolled up to a daily entry")
+		return nil
 	}
 	span.AddEvent("Set balance information")
 
@@ -122,7 +127,7 @@ func (s *Service) addValidatorEpochSummaries(ctx context.Context,
 	startEpoch := s.chainTime.TimestampToEpoch(startTime)
 	// The end epoch should be the last epoch that has finished at the given time, not the epoch in progress
 	// at the given time, so this is always reduced by 1.
-	endEpoch := s.chainTime.TimestampToEpoch(endTime)
+	endEpoch := s.chainTime.TimestampToEpoch(endTime) - 1
 
 	// Take the epoch summaries and turn them in to day summaries.
 	epochSummaries, err := s.chainDB.(chaindb.ValidatorEpochSummariesProvider).ValidatorSummaries(ctx, &chaindb.ValidatorSummaryFilter{
@@ -204,7 +209,10 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 	daySummaries map[phase0.ValidatorIndex]*chaindb.ValidatorDaySummary,
 	startTime time.Time,
 	endTime time.Time,
-) error {
+) (
+	bool,
+	error,
+) {
 	startEpoch := s.chainTime.TimestampToEpoch(startTime)
 	// The end epoch should be the last epoch that has finished at the given time, not the epoch in progress
 	// at the given time, so this is always reduced by 1.
@@ -213,7 +221,11 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 	// Obtain start balances.
 	startBalances, err := s.chainDB.(chaindb.ValidatorsProvider).ValidatorBalancesByEpoch(ctx, startEpoch)
 	if err != nil {
-		return err
+		return false, errors.Wrap(err, "failed to obtain validator start epoch balances")
+	}
+	if len(startBalances) == 0 {
+		// Balances are not yet present.
+		return false, nil
 	}
 	for _, startBalance := range startBalances {
 		if _, exists := daySummaries[startBalance.Index]; !exists {
@@ -225,16 +237,19 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 		daySummaries[startBalance.Index].StartEffectiveBalance = uint64(startBalance.EffectiveBalance)
 	}
 
+	firstSlot := s.chainTime.FirstSlotOfEpoch(startEpoch)
+	lastSlot := s.chainTime.LastSlotOfEpoch(endEpoch)
 	// Obtain deposits, and turn them in to a map for easy lookup.
-	dbDeposits, err := s.chainDB.(chaindb.DepositsProvider).DepositsForSlotRange(ctx, s.chainTime.FirstSlotOfEpoch(startEpoch), s.chainTime.FirstSlotOfEpoch(endEpoch))
+	// TODO see if this is inclusive or exclusive.
+	dbDeposits, err := s.chainDB.(chaindb.DepositsProvider).DepositsForSlotRange(ctx, firstSlot, lastSlot+1)
 	if err != nil {
-		return err
+		return false, errors.Wrap(err, "failed to obtain deposits")
 	}
 	totalDeposits := make(map[phase0.ValidatorIndex]phase0.Gwei)
 	for _, deposit := range dbDeposits {
 		validators, err := s.chainDB.(chaindb.ValidatorsProvider).ValidatorsByPublicKey(ctx, []phase0.BLSPubKey{deposit.ValidatorPubKey})
 		if err != nil {
-			return err
+			return false, err
 		}
 		if len(validators) == 0 {
 			// This can happen with an invalid deposit, so ignore it.
@@ -243,10 +258,27 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 		totalDeposits[validators[deposit.ValidatorPubKey].Index] += deposit.Amount
 	}
 
+	// Obtain withdrawals, and turn them in to a map for easy lookup.
+	dbWithdrawals, err := s.chainDB.(chaindb.WithdrawalsProvider).Withdrawals(ctx, &chaindb.WithdrawalFilter{
+		From: &firstSlot,
+		To:   &lastSlot,
+	})
+	if err != nil {
+		return false, errors.Wrap(err, "failed to obtain withdrawals")
+	}
+	totalWithdrawals := make(map[phase0.ValidatorIndex]phase0.Gwei)
+	for _, withdrawal := range dbWithdrawals {
+		totalWithdrawals[withdrawal.ValidatorIndex] += withdrawal.Amount
+	}
+
 	// We want the start balance for the epoch after our end epoch so that we obtain the correct rewards.
 	endBalances, err := s.chainDB.(chaindb.ValidatorsProvider).ValidatorBalancesByEpoch(ctx, endEpoch+1)
 	if err != nil {
-		return err
+		return false, errors.Wrap(err, "failed to obtain validator end epoch balances")
+	}
+	if len(endBalances) == 0 {
+		// Balances are not yet present.
+		return false, nil
 	}
 	for _, endBalance := range endBalances {
 		if _, exists := daySummaries[endBalance.Index]; !exists {
@@ -256,6 +288,7 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 		}
 		// Start off assuming that all balance changes are down to rewards.
 		rewards := int64(endBalance.Balance) - int64(daySummaries[endBalance.Index].StartBalance)
+		// Reduce by any deposits present.
 		deposits, exists := totalDeposits[endBalance.Index]
 		if exists {
 			// Have to reduce rewards due to presence of deposits.
@@ -263,15 +296,23 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 		} else {
 			deposits = 0
 		}
-		// For Capella: find any withdrawals in this time.
-		capitalChange := deposits
+		// Increase by any withdrawals present.
+		withdrawals, exists := totalWithdrawals[endBalance.Index]
+		if exists {
+			// Have to increase rewards due to presence of withdrawals.
+			rewards += int64(withdrawals)
+		} else {
+			withdrawals = 0
+		}
 
-		daySummaries[endBalance.Index].CapitalChange = int64(capitalChange)
+		capitalChange := int64(deposits) - int64(withdrawals)
+
+		daySummaries[endBalance.Index].CapitalChange = capitalChange
 		daySummaries[endBalance.Index].RewardChange = rewards
 		daySummaries[endBalance.Index].EffectiveBalanceChange = int64(endBalance.EffectiveBalance) - int64(daySummaries[endBalance.Index].StartEffectiveBalance)
 	}
 
-	return nil
+	return true, nil
 }
 
 type scSummary struct {
