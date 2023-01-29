@@ -167,6 +167,7 @@ func (s *Service) runFinalityTransaction(
 
 	log.Trace().Uint64("epoch", uint64(epoch)).Msg("Updating canonical blocks on finality")
 	if err := s.updateCanonicalBlocks(ctx, root); err != nil {
+		cancel()
 		return errors.Wrap(err, "Failed to update canonical blocks on finality")
 	}
 
