@@ -103,6 +103,7 @@ func (s *Service) summarizeEpoch(ctx context.Context,
 		cancel()
 		return false, errors.Wrap(err, "failed to set epoch summary")
 	}
+	log.Warn().Uint64("md.lastEpoch", uint64(epoch)).Msg("Updated last epoch")
 	md.LastEpoch = epoch
 	if err := s.setMetadata(ctx, md); err != nil {
 		cancel()

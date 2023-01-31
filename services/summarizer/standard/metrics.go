@@ -1,4 +1,4 @@
-// Copyright © 2021, 2022 Weald Technology Limited.
+// Copyright © 2021 - 2023 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -27,6 +27,13 @@ var metricsNamespace = "chaind_summarizer"
 var highestEpoch phase0.Epoch
 var latestEpoch prometheus.Gauge
 var epochsProcessed prometheus.Gauge
+
+var highestDay int64
+var latestDay prometheus.Gauge
+var daysProcessed prometheus.Gauge
+
+var lastEpochPrune prometheus.Gauge
+var lastBalancePrune prometheus.Gauge
 
 func registerMetrics(ctx context.Context, monitor metrics.Service) error {
 	if latestEpoch != nil {
@@ -62,6 +69,42 @@ func registerPrometheusMetrics(ctx context.Context) error {
 		return errors.Wrap(err, "failed to register epochs_processed")
 	}
 
+	latestDay = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Name:      "latest_day",
+		Help:      "Latest day processed for summarizer",
+	})
+	if err := prometheus.Register(latestDay); err != nil {
+		return errors.Wrap(err, "failed to register latest_day")
+	}
+
+	daysProcessed = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Name:      "days_processed",
+		Help:      "Number of days processed",
+	})
+	if err := prometheus.Register(daysProcessed); err != nil {
+		return errors.Wrap(err, "failed to register days_processed")
+	}
+
+	lastBalancePrune = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Name:      "balance_prune_ts",
+		Help:      "Timestamp of last balance prune",
+	})
+	if err := prometheus.Register(lastBalancePrune); err != nil {
+		return errors.Wrap(err, "failed to register balance_prune_ts")
+	}
+
+	lastEpochPrune = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Name:      "epoch_prune_ts",
+		Help:      "Timestamp of last epoch prune",
+	})
+	if err := prometheus.Register(lastEpochPrune); err != nil {
+		return errors.Wrap(err, "failed to register epoch_prune_ts")
+	}
+
 	return nil
 }
 
@@ -81,5 +124,36 @@ func monitorEpochProcessed(epoch phase0.Epoch) {
 		if epoch > highestEpoch {
 			monitorLatestEpoch(epoch)
 		}
+	}
+}
+
+// monitorLatestDay sets the latest day without registering an
+// increase in days processed.  This does not usually need to be
+// called directly, as it is called as part ofr monitorDayProcessed.
+func monitorLatestDay(day int64) {
+	highestDay = day
+	if latestDay != nil {
+		latestDay.Set(float64(day))
+	}
+}
+
+func monitorDayProcessed(day int64) {
+	if daysProcessed != nil {
+		daysProcessed.Inc()
+		if day > highestDay {
+			monitorLatestDay(day)
+		}
+	}
+}
+
+func monitorBalancePruned() {
+	if lastBalancePrune != nil {
+		lastBalancePrune.SetToCurrentTime()
+	}
+}
+
+func monitorEpochPruned() {
+	if lastEpochPrune != nil {
+		lastEpochPrune.SetToCurrentTime()
 	}
 }

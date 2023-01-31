@@ -15,6 +15,7 @@ package standard
 
 import (
 	"context"
+	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	api "github.com/attestantio/go-eth2-client/api/v1"
@@ -78,7 +79,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		activitySem:      parameters.activitySem,
 	}
 
-	// Set up the handler for new chain head updates.
+	// Set up the handler for new finality checkpoint updates.
 	if err := s.eth2Client.(eth2client.EventsProvider).Events(ctx, []string{"finalized_checkpoint"}, func(event *api.Event) {
 		if event.Data == nil {
 			// Happens when the channel shuts down, nothing to worry about.
@@ -86,7 +87,16 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		}
 		eventData := event.Data.(*api.FinalizedCheckpointEvent)
 		log.Trace().Str("event", eventData.String()).Msg("Received event")
-		s.OnFinalityCheckpointReceived(ctx, eventData.Epoch, eventData.Block, eventData.State)
+
+		// The finalizer event commonly occurs at the same time as the blocks event.  Because they cannot both run at the same
+		// time, we sleep for a bit here to allow that to process first.
+		time.Sleep(4 * time.Second)
+		finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, "head")
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to obtain finality data")
+		}
+
+		s.OnFinalityCheckpointReceived(ctx, finality.Finalized.Epoch, finality.Finalized.Root, finality.Justified.Epoch, finality.Justified.Root)
 	}); err != nil {
 		return nil, errors.Wrap(err, "failed to add finality checkpoint received handler")
 	}

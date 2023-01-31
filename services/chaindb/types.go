@@ -17,6 +17,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/attestantio/go-eth2-client/spec/capella"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
@@ -36,6 +37,8 @@ type Block struct {
 	ETH1DepositRoot  phase0.Root
 	// Information only available from Bellatrix onwards.
 	ExecutionPayload *ExecutionPayload
+	// Information only available from Capella onwards.
+	BLSToExecutionChanges []*BLSToExecutionChange
 }
 
 // Validator holds information about a validator.
@@ -212,6 +215,29 @@ type ValidatorEpochSummary struct {
 	AttestationHeadTimely     *bool
 }
 
+// ValidatorDaySummary provides a summary of a validator's operations for a day.
+type ValidatorDaySummary struct {
+	Index                         phase0.ValidatorIndex
+	StartTimestamp                time.Time
+	StartBalance                  uint64
+	StartEffectiveBalance         uint64
+	CapitalChange                 int64
+	RewardChange                  int64
+	EffectiveBalanceChange        int64
+	Proposals                     int
+	ProposalsIncluded             int
+	Attestations                  int
+	AttestationsIncluded          int
+	AttestationsTargetCorrect     int
+	AttestationsHeadCorrect       int
+	AttestationsSourceTimely      int
+	AttestationsTargetTimely      int
+	AttestationsHeadTimely        int
+	AttestationsInclusionDelay    float64
+	SyncCommitteeMessages         int
+	SyncCommitteeMessagesIncluded int
+}
+
 // BlockSummary provides a summary of an epoch.
 type BlockSummary struct {
 	Slot                          phase0.Slot
@@ -266,5 +292,21 @@ type ExecutionPayload struct {
 	ExtraData     []byte
 	BaseFeePerGas *big.Int
 	BlockHash     [32]byte
-	// No transactions.
+	// No transactions, they are stored in execd.
+	Withdrawals []*Withdrawal
+}
+
+// BLSToExecutionChange holds information about credentials change operations.
+type BLSToExecutionChange struct {
+	ValidatorIndex     phase0.ValidatorIndex
+	FromBLSPubKey      [32]byte
+	ToExecutionAddress [20]byte
+}
+
+// Withdrawal holds information about a withdrawal from consensus to execution layer.
+type Withdrawal struct {
+	Index          capella.WithdrawalIndex
+	ValidatorIndex phase0.ValidatorIndex
+	Address        [20]byte
+	Amount         phase0.Gwei
 }

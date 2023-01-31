@@ -15,7 +15,6 @@ package standard
 
 import (
 	"context"
-	"sort"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
@@ -36,7 +35,6 @@ func (s *Service) summarizeValidatorsInEpoch(ctx context.Context,
 		return nil
 	}
 	log.Trace().Msg("Summarizing validator epoch")
-	log.Info().Msg("Summarising validator epoch")
 
 	proposerDuties, validatorProposerDuties, err := s.validatorProposerDutiesForEpoch(ctx, epoch)
 	if err != nil {
@@ -205,8 +203,7 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, errors.Wrap(err, "failed to obtain attestations for slot range")
 	}
-	log.Trace().Int("attestations", len(attestations)).Uint64("epoch", uint64(epoch)).Msg("Fetched attestations")
-	log.Info().Int("attestations", len(attestations)).Uint64("epoch", uint64(epoch)).Uint64("first_slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch))).Uint64("last_slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch+1)-1)).Msg("Fetched attestations")
+	log.Trace().Int("attestations", len(attestations)).Uint64("epoch", uint64(epoch)).Uint64("first_slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch))).Uint64("last_slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch+1)-1)).Msg("Fetched attestations")
 
 	// Mark up attestations for each validator.
 	attestationsIncluded := make(map[phase0.ValidatorIndex]bool)
@@ -253,21 +250,6 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 				attestationsHeadTimely[index] = attestationHeadTimely
 			}
 		}
-	}
-	// TODO remove.
-	{
-		slots := make([]int, 0)
-		for slot := range attestationsForSlots {
-			slots = append(slots, int(slot))
-		}
-		sort.Ints(slots)
-		log.Info().Ints("slots", slots).Msg("Used attestations for these slots")
-		slots = make([]int, 0)
-		for slot := range attestationsInSlots {
-			slots = append(slots, int(slot))
-		}
-		sort.Ints(slots)
-		log.Info().Ints("slots", slots).Msg("Used attestations in these slots")
 	}
 
 	// Add in any validators that did not attest.

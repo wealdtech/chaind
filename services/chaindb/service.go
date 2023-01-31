@@ -215,8 +215,8 @@ type ProposerSlashingsSetter interface {
 
 // SyncAggregateProvider defines functions to access sync aggregate information.
 type SyncAggregateProvider interface {
-	// SyncAggregateForBlock provides the sync aggregate for the supplied block root.
-	SyncAggregateForBlock(ctx context.Context, blockRoot phase0.Root) (*SyncAggregate, error)
+	// SyncAggregates provides sync aggregates according to the filter.
+	SyncAggregates(ctx context.Context, filter *SyncAggregateFilter) ([]*SyncAggregate, error)
 }
 
 // SyncAggregateSetter defines functions to create and update fork schedule information.
@@ -318,6 +318,12 @@ type AggregateValidatorBalancesProvider interface {
 	)
 }
 
+// ValidatorBalancesPruner defines functions to prune validator balances.
+type ValidatorBalancesPruner interface {
+	// PruneValidatorBalances prunes validator balances up to (but not including) the given epoch.
+	PruneValidatorBalances(ctx context.Context, to phase0.Epoch, retain []phase0.ValidatorIndex) error
+}
+
 // ValidatorsSetter defines functions to create and update validator information.
 type ValidatorsSetter interface {
 	// SetValidator sets a validator.
@@ -352,6 +358,39 @@ type VoluntaryExitsSetter interface {
 	SetVoluntaryExit(ctx context.Context, voluntaryExit *VoluntaryExit) error
 }
 
+// ValidatorDaySummariesProvider defines functions to fetch validator day summaries.
+type ValidatorDaySummariesProvider interface {
+	// ValidatorDaySummaries provides summaries according to the filter.
+	ValidatorDaySummaries(ctx context.Context, filter *ValidatorDaySummaryFilter) ([]*ValidatorDaySummary, error)
+}
+
+// ValidatorDaySummariesSetter defines functions to create and update validator day summaries.
+type ValidatorDaySummariesSetter interface {
+	// SetValidatorDaySummary sets a validator day summary.
+	SetValidatorDaySummary(ctx context.Context, summary *ValidatorDaySummary) error
+
+	// SetValidatorDaySummaries sets multiple validator day summaries.
+	SetValidatorDaySummaries(ctx context.Context, summaries []*ValidatorDaySummary) error
+}
+
+// ValidatorEpochSummariesProvider defines functions to fetch validator epoch summaries.
+type ValidatorEpochSummariesProvider interface {
+	// ValidatorSummaries provides summaries according to the filter.
+	ValidatorSummaries(ctx context.Context, filter *ValidatorSummaryFilter) ([]*ValidatorEpochSummary, error)
+
+	// ValidatorSummariesForEpoch obtains all summaries for a given epoch.
+	ValidatorSummariesForEpoch(ctx context.Context, epoch phase0.Epoch) ([]*ValidatorEpochSummary, error)
+
+	// ValidatorSummaryForEpoch obtains the summary of a validator for a given epoch.
+	ValidatorSummaryForEpoch(ctx context.Context, index phase0.ValidatorIndex, epoch phase0.Epoch) (*ValidatorEpochSummary, error)
+}
+
+// ValidatorEpochSummariesPruner defines functions to prune validator epoch summaries.
+type ValidatorEpochSummariesPruner interface {
+	// PruneValidatorEpochSummaries prunes validator epoch summaries up to (but not including) the given point.
+	PruneValidatorEpochSummaries(ctx context.Context, to phase0.Epoch, retain []phase0.ValidatorIndex) error
+}
+
 // ValidatorEpochSummariesSetter defines functions to create and update validator epoch summaries.
 type ValidatorEpochSummariesSetter interface {
 	// SetValidatorEpochSummary sets a validator epoch summary.
@@ -365,18 +404,6 @@ type ValidatorEpochSummariesSetter interface {
 type BlockSummariesProvider interface {
 	// BlockSummaryForSlot obtains the summary of a block for a given slot.
 	BlockSummaryForSlot(ctx context.Context, slot phase0.Slot) (*BlockSummary, error)
-}
-
-// ValidatorEpochSummariesProvider defines functions to fetch validator epoch summaries.
-type ValidatorEpochSummariesProvider interface {
-	// ValidatorSummaries provides summaries according to the filter.
-	ValidatorSummaries(ctx context.Context, filter *ValidatorSummaryFilter) ([]*ValidatorEpochSummary, error)
-
-	// ValidatorSummariesForEpoch obtains all summaries for a given epoch.
-	ValidatorSummariesForEpoch(ctx context.Context, epoch phase0.Epoch) ([]*ValidatorEpochSummary, error)
-
-	// ValidatorSummaryForEpoch obtains the summary of a validator for a given epoch.
-	ValidatorSummaryForEpoch(ctx context.Context, index phase0.ValidatorIndex, epoch phase0.Epoch) (*ValidatorEpochSummary, error)
 }
 
 // BlockSummariesSetter defines functions to create and update block summaries.

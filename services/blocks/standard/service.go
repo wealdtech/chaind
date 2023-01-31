@@ -24,9 +24,6 @@ import (
 	zerologger "github.com/rs/zerolog/log"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -161,7 +158,7 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 	}
 	if startSlot >= 0 {
 		// Explicit requirement to start at a given slot.
-		md.LatestSlot = startSlot
+		md.LatestSlot = startSlot - 1
 	}
 
 	log.Info().Uint64("slot", uint64(md.LatestSlot)).Msg("Catching up from slot")
@@ -179,47 +176,4 @@ func (s *Service) updateAfterRestart(ctx context.Context, startSlot int64) {
 	}); err != nil {
 		log.Fatal().Err(err).Msg("Failed to add beacon chain head updated handler")
 	}
-}
-
-// catchup is the general-purpose catchup system.
-func (s *Service) catchup(ctx context.Context, md *metadata) {
-	for slot := phase0.Slot(md.LatestSlot + 1); slot <= s.chainTime.CurrentSlot(); slot++ {
-		if err := s.UpdateSlot(ctx, md, slot); err != nil {
-			log.Error().Uint64("slot", uint64(slot)).Err(err).Msg("Failed to catchup")
-			return
-		}
-	}
-}
-
-func (s *Service) UpdateSlot(ctx context.Context, md *metadata, slot phase0.Slot) error {
-	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "UpdateSlot",
-		trace.WithAttributes(
-			attribute.Int64("slot", int64(slot)),
-		))
-	defer span.End()
-
-	// Each slot runs in its own transaction, to make the data available sooner.
-	ctx, cancel, err := s.chainDB.BeginTx(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to begin transaction")
-	}
-
-	if err := s.updateBlockForSlot(ctx, slot); err != nil {
-		cancel()
-		return errors.Wrap(err, "failed to update block")
-	}
-
-	md.LatestSlot = int64(slot)
-	if err := s.setMetadata(ctx, md); err != nil {
-		cancel()
-		return errors.Wrap(err, "failed to set metadata")
-	}
-
-	if err := s.chainDB.CommitTx(ctx); err != nil {
-		cancel()
-		return errors.Wrap(err, "failed to commit transaction")
-	}
-
-	monitorSlotProcessed(slot)
-	return nil
 }

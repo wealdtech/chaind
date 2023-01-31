@@ -1,4 +1,4 @@
-// Copyright © 2020 - 2022 Weald Technology Trading.
+// Copyright © 2020 - 2023 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -60,7 +60,7 @@ import (
 )
 
 // ReleaseVersion is the release version for the code.
-var ReleaseVersion = "0.6.17"
+var ReleaseVersion = "0.6.19-jgm"
 
 func main() {
 	os.Exit(main2())
@@ -165,6 +165,7 @@ func fetchConfig() error {
 	pflag.Bool("summarizer.epochs.enable", true, "Enable summary information for epochs")
 	pflag.Bool("summarizer.blocks.enable", true, "Enable summary information for blocks")
 	pflag.Bool("summarizer.validators.enable", false, "Enable summary information for validators (warning: creates a lot of data)")
+	pflag.Uint64("summarizer.max-days-per-run", 28, "Maximum number of days' of data to summarize in a single run (when pruning)")
 	pflag.Bool("validators.enable", true, "Enable fetching of validator-related information")
 	pflag.Bool("validators.balances.enable", false, "Enable fetching of validator balances (warning: creates a lot of data)")
 	pflag.Bool("beacon-committees.enable", true, "Enable fetching of beacon committee-related information")
@@ -569,6 +570,9 @@ func startSummarizer(
 		standardsummarizer.WithEpochSummaries(viper.GetBool("summarizer.epochs.enable")),
 		standardsummarizer.WithBlockSummaries(viper.GetBool("summarizer.blocks.enable")),
 		standardsummarizer.WithValidatorSummaries(viper.GetBool("summarizer.validators.enable")),
+		standardsummarizer.WithMaxDaysPerRun(viper.GetUint64("summarizer.max-days-per-run")),
+		standardsummarizer.WithValidatorEpochRetention(viper.GetString("summarizer.validators.epoch-retention")),
+		standardsummarizer.WithValidatorBalanceRetention(viper.GetString("summarizer.validators.balance-retention")),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create summarizer service")

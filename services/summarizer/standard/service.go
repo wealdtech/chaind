@@ -1,4 +1,4 @@
-// Copyright © 2021, 2022 Weald Technology Limited.
+// Copyright © 2021, 2023 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -24,6 +24,7 @@ import (
 	zerologger "github.com/rs/zerolog/log"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
+	"github.com/wealdtech/chaind/util"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -46,6 +47,9 @@ type Service struct {
 	epochSummaries                  bool
 	blockSummaries                  bool
 	validatorSummaries              bool
+	maxDaysPerRun                   uint64
+	validatorEpochRetention         *util.CalendarDuration
+	validatorBalanceRetention       *util.CalendarDuration
 	activitySem                     *semaphore.Weighted
 }
 
@@ -124,6 +128,22 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		return nil, errors.New("SLOTS_PER_EPOCH of unexpected type")
 	}
 
+	var validatorEpochRetention *util.CalendarDuration
+	if parameters.validatorEpochRetention != "" {
+		validatorEpochRetention, err = util.ParseCalendarDuration(parameters.validatorEpochRetention)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse validator epoch retention")
+		}
+	}
+
+	var validatorBalanceRetention *util.CalendarDuration
+	if parameters.validatorBalanceRetention != "" {
+		validatorBalanceRetention, err = util.ParseCalendarDuration(parameters.validatorBalanceRetention)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse validator balance retention")
+		}
+	}
+
 	s := &Service{
 		eth2Client:                      parameters.eth2Client,
 		chainDB:                         parameters.chainDB,
@@ -142,6 +162,9 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		epochSummaries:                  parameters.epochSummaries,
 		blockSummaries:                  parameters.blockSummaries,
 		validatorSummaries:              parameters.validatorSummaries,
+		maxDaysPerRun:                   parameters.maxDaysPerRun,
+		validatorEpochRetention:         validatorEpochRetention,
+		validatorBalanceRetention:       validatorBalanceRetention,
 		activitySem:                     semaphore.NewWeighted(1),
 	}
 
@@ -151,6 +174,40 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		return nil, errors.Wrap(err, "failed to obtain metadata")
 	}
 	monitorLatestEpoch(md.LastEpoch)
+	monitorLatestDay(md.LastValidatorDay)
+
+	if !md.PeriodicValidatorRollups {
+		finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, "head")
+		// If we receive an error it could be because the chain hasn't yet started.
+		// Even if not, the handler will kick the process off again.
+		if err == nil && finality.Finalized.Epoch > 2 {
+			go func(ctx context.Context,
+				targetEpoch phase0.Epoch,
+			) {
+				if err := s.summarizeValidatorDays(ctx, targetEpoch); err != nil {
+				}
+				md, err := s.getMetadata(ctx)
+				if err != nil {
+					log.Error().Err(err).Msg("Failed to obtain metadata after initial rollup")
+					return
+				}
+				md.PeriodicValidatorRollups = true
+				ctx, cancel, err := s.chainDB.BeginTx(ctx)
+				if err != nil {
+					log.Error().Err(err).Msg("Failed to begin transaction to set metadata after initial rollup")
+				}
+				if err := s.setMetadata(ctx, md); err != nil {
+					cancel()
+					log.Error().Err(err).Msg("Failed to update metadata after initial rollup")
+					return
+				}
+				if err := s.chainDB.CommitTx(ctx); err != nil {
+					cancel()
+					log.Error().Err(err).Msg("failed to set commit transaction to set metadata after initial rollup")
+				}
+			}(ctx, finality.Finalized.Epoch-2)
+		}
+	}
 
 	return s, nil
 }
