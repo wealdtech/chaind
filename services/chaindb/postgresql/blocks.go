@@ -83,8 +83,17 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 		return err
 	}
 
-	// Also set execution payload (will return without error if payload is not set).
-	return s.setExecutionPayload(ctx, block)
+	// Set execution payload (will return without error if payload is not present).
+	if err := s.setExecutionPayload(ctx, block); err != nil {
+		return errors.Wrap(err, "failed to set execution payload")
+	}
+
+	// Set BLS to execution changes (will return without error if changes are not present).
+	if err := s.setBLSToExecutionChanges(ctx, block); err != nil {
+		return errors.Wrap(err, "failed to set BLS to execution changes")
+	}
+
+	return nil
 }
 
 // BlocksBySlot fetches all blocks with the given slot.

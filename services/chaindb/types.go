@@ -298,6 +298,9 @@ type ExecutionPayload struct {
 
 // BLSToExecutionChange holds information about credentials change operations.
 type BLSToExecutionChange struct {
+	InclusionBlockRoot phase0.Root
+	InclusionSlot      phase0.Slot
+	InclusionIndex     uint
 	ValidatorIndex     phase0.ValidatorIndex
 	FromBLSPubKey      [32]byte
 	ToExecutionAddress [20]byte
@@ -305,8 +308,11 @@ type BLSToExecutionChange struct {
 
 // Withdrawal holds information about a withdrawal from consensus to execution layer.
 type Withdrawal struct {
-	Index          capella.WithdrawalIndex
-	ValidatorIndex phase0.ValidatorIndex
-	Address        [20]byte
-	Amount         phase0.Gwei
+	InclusionBlockRoot phase0.Root
+	InclusionSlot      phase0.Slot
+	InclusionIndex     uint
+	Index              capella.WithdrawalIndex
+	ValidatorIndex     phase0.ValidatorIndex
+	Address            [20]byte
+	Amount             phase0.Gwei
 }

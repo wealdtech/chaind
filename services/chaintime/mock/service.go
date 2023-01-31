@@ -81,6 +81,11 @@ func (s *service) FirstSlotOfEpoch(epoch phase0.Epoch) phase0.Slot {
 	return 0
 }
 
+// LastSlotOfEpoch provides the last slot of the given epoch.
+func (s *service) LastSlotOfEpoch(epoch phase0.Epoch) phase0.Slot {
+	return 0
+}
+
 // TimestampToSlot provides the slot of the given timestamp.
 func (s *service) TimestampToSlot(timestamp time.Time) phase0.Slot {
 	return 0

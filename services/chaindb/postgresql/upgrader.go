@@ -27,7 +27,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(9)
+var currentVersion = uint64(10)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -92,6 +92,12 @@ var upgrades = map[uint64]*upgrade{
 	9: {
 		funcs: []func(context.Context, *Service) error{
 			createValidatorDaySummaries,
+		},
+	},
+	10: {
+		funcs: []func(context.Context, *Service) error{
+			createBlockBLSToExecutionChanges,
+			createBlockWithdrawals,
 		},
 	},
 }
@@ -1119,6 +1125,33 @@ CREATE TABLE t_validator_day_summaries (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS i_validator_day_summaries_1 ON t_validator_day_summaries(f_validator_index, f_start_timestamp);
 CREATE INDEX IF NOT EXISTS i_validator_day_summaries_2 ON t_validator_day_summaries(f_start_timestamp);
+
+CREATE TABLE t_block_bls_to_execution_changes (
+  f_block_root            BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_block_number          BIGINT  NOT NULL
+ ,f_index                 INTEGER NOT NULL
+ ,f_from_bls_pubkey       BYTEA   NOT NULL
+ ,f_to_execution_address  BYTEA   NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_1 ON t_block_bls_to_execution_changes(f_block_root,f_block_number,f_index);
+CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_2 ON t_block_bls_to_execution_changes(f_block_number);
+CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_3 ON t_block_bls_to_execution_changes(f_to_execution_address);
+
+-- t_block_withdrawals is a subtable for t_blocks.
+-- This data is actually part of the execution payload, but flattened for our purposes.
+CREATE TABLE t_block_withdrawals (
+  f_block_root       BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_block_number     BIGINT  NOT NULL
+ ,f_index            INTEGER NOT NULL
+ ,f_withdrawal_index INTEGER NOT NULL
+ ,f_validator_index  BIGINT  NOT NULL
+ ,f_address          BYTEA   NOT NULL
+ ,f_amount           BIGINT  NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS i_block_withdrawals_1 ON t_block_withdrawals(f_block_root,f_block_number,f_index);
+CREATE INDEX IF NOT EXISTS i_block_withdrawals_2 ON t_block_withdrawals(f_block_number);
+CREATE INDEX IF NOT EXISTS i_block_withdrawals_3 ON t_block_withdrawals(f_validator_index);
+CREATE INDEX IF NOT EXISTS i_block_withdrawals_4 ON t_block_withdrawals(f_address);
 `); err != nil {
 		cancel()
 		return false, errors.Wrap(err, "failed to create initial tables")
@@ -1375,5 +1408,93 @@ CREATE INDEX IF NOT EXISTS i_validator_day_summaries_2 ON t_validator_day_summar
 `); err != nil {
 		return errors.Wrap(err, "failed to create validator day summaries index 1")
 	}
+	return nil
+}
+
+// createBlockBLSToExecutionChanges adds t_block_bls_to_execution_changes
+func createBlockBLSToExecutionChanges(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE t_block_bls_to_execution_changes (
+  f_block_root            BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_block_number          BIGINT  NOT NULL
+ ,f_index                 INTEGER NOT NULL
+ ,f_from_bls_pubkey       BYTEA   NOT NULL
+ ,f_to_execution_address  BYTEA   NOT NULL
+)
+`); err != nil {
+		return errors.Wrap(err, "failed to create block bls to execution changes table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE UNIQUE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_1 ON t_block_bls_to_execution_changes(f_block_root,f_block_number,f_index);
+`); err != nil {
+		return errors.Wrap(err, "failed to create block bls to execution changes index 1")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_2 ON t_block_bls_to_execution_changes(f_block_number);
+`); err != nil {
+		return errors.Wrap(err, "failed to create block bls to execution changes index 2")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_3 ON t_block_bls_to_execution_changes(f_to_execution_address);
+`); err != nil {
+		return errors.Wrap(err, "failed to create block bls to execution changes index 3")
+	}
+
+	return nil
+}
+
+// createBlockWithdrawals adds t_block_withdrawals
+func createBlockWithdrawals(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE t_block_withdrawals (
+  f_block_root       BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_block_number     BIGINT  NOT NULL
+ ,f_index            INTEGER NOT NULL
+ ,f_withdrawal_index INTEGER NOT NULL
+ ,f_validator_index  BIGINT  NOT NULL
+ ,f_address          BYTEA   NOT NULL
+ ,f_amount           BIGINT  NOT NULL
+)
+`); err != nil {
+		return errors.Wrap(err, "failed to create block withdrawals table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE UNIQUE INDEX IF NOT EXISTS i_block_withdrawals_1 ON t_block_withdrawals(f_block_root,f_block_number,f_index);
+`); err != nil {
+		return errors.Wrap(err, "failed to create block withdrawals index 1")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX IF NOT EXISTS i_block_withdrawals_2 ON t_block_withdrawals(f_block_number);
+`); err != nil {
+		return errors.Wrap(err, "failed to create block withdrawals index 2")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX IF NOT EXISTS i_block_withdrawals_3 ON t_block_withdrawals(f_validator_index);
+`); err != nil {
+		return errors.Wrap(err, "failed to create block withdrawals index 3")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX IF NOT EXISTS i_block_withdrawals_4 ON t_block_withdrawals(f_address);
+`); err != nil {
+		return errors.Wrap(err, "failed to create block withdrawals index 4")
+	}
+
 	return nil
 }

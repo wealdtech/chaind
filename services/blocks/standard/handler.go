@@ -688,7 +688,10 @@ func (*Service) dbBlockCapella(
 	blsToExecutionChanges := make([]*chaindb.BLSToExecutionChange, len(block.Body.BLSToExecutionChanges))
 	for i := range block.Body.BLSToExecutionChanges {
 		blsToExecutionChanges[i] = &chaindb.BLSToExecutionChange{
-			ValidatorIndex: block.Body.BLSToExecutionChanges[i].Message.ValidatorIndex,
+			InclusionBlockRoot: root,
+			InclusionSlot:      block.Slot,
+			InclusionIndex:     uint(i),
+			ValidatorIndex:     block.Body.BLSToExecutionChanges[i].Message.ValidatorIndex,
 		}
 		copy(blsToExecutionChanges[i].FromBLSPubKey[:], block.Body.BLSToExecutionChanges[i].Message.FromBLSPubkey[:])
 		copy(blsToExecutionChanges[i].ToExecutionAddress[:], block.Body.BLSToExecutionChanges[i].Message.ToExecutionAddress[:])
@@ -697,9 +700,12 @@ func (*Service) dbBlockCapella(
 	withdrawals := make([]*chaindb.Withdrawal, len(block.Body.ExecutionPayload.Withdrawals))
 	for i := range block.Body.ExecutionPayload.Withdrawals {
 		withdrawals[i] = &chaindb.Withdrawal{
-			Index:          block.Body.ExecutionPayload.Withdrawals[i].Index,
-			ValidatorIndex: block.Body.ExecutionPayload.Withdrawals[i].ValidatorIndex,
-			Amount:         block.Body.ExecutionPayload.Withdrawals[i].Amount,
+			InclusionBlockRoot: root,
+			InclusionSlot:      block.Slot,
+			InclusionIndex:     uint(i),
+			Index:              block.Body.ExecutionPayload.Withdrawals[i].Index,
+			ValidatorIndex:     block.Body.ExecutionPayload.Withdrawals[i].ValidatorIndex,
+			Amount:             block.Body.ExecutionPayload.Withdrawals[i].Amount,
 		}
 		copy(withdrawals[i].Address[:], block.Body.ExecutionPayload.Withdrawals[i].Address[:])
 	}

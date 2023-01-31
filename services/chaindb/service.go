@@ -430,6 +430,18 @@ type SyncCommitteesSetter interface {
 	SetSyncCommittee(ctx context.Context, syncCommittee *SyncCommittee) error
 }
 
+// WithdrawalsProvider defines functions to fetch withdrawals.
+type WithdrawalsProvider interface {
+	// Withdrawals provides withdrawals according to the filter.
+	Withdrawals(ctx context.Context, filter *WithdrawalFilter) ([]*Withdrawal, error)
+}
+
+// BLSToExecutionChangesProvider defines functions to fetch credential changes.
+type BLSToExecutionChangesProvider interface {
+	// BLSToExecutionChanges provides credential changes according to the filter.
+	BLSToExecutionChanges(ctx context.Context, filter *BLSToExecutionChangeFilter) ([]*BLSToExecutionChange, error)
+}
+
 // Service defines a minimal chain database service.
 type Service interface {
 	// BeginTx begins a transaction.
