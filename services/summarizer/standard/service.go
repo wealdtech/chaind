@@ -185,6 +185,8 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 				targetEpoch phase0.Epoch,
 			) {
 				if err := s.summarizeValidatorDays(ctx, targetEpoch); err != nil {
+					log.Error().Err(err).Msg("Failed to summarize validator days")
+					return
 				}
 				md, err := s.getMetadata(ctx)
 				if err != nil {
