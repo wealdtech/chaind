@@ -22,7 +22,7 @@ import (
 
 // metadata stored about this service.
 type metadata struct {
-	LatestPeriod uint64 `json:"latest_period"`
+	LatestPeriod int64 `json:"latest_period"`
 }
 
 // metadataKey is the key for the metadata.
@@ -30,7 +30,9 @@ var metadataKey = "synccommittees.standard"
 
 // getMetadata gets metadata for this service.
 func (s *Service) getMetadata(ctx context.Context) (*metadata, error) {
-	md := &metadata{}
+	md := &metadata{
+		LatestPeriod: -1,
+	}
 	mdJSON, err := s.chainDB.Metadata(ctx, metadataKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch metadata")

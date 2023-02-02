@@ -193,7 +193,7 @@ func (s *Service) summarizeValidatorDays(ctx context.Context, summaryEpoch phase
 
 	epochSummariesTime := s.chainTime.StartOfEpoch(md.LastValidatorEpoch).In(time.UTC)
 	daySummariesTime := time.Unix(md.LastValidatorDay, 0).In(time.UTC)
-	log.Warn().Time("epoch_summaries_time", epochSummariesTime).Time("day_summaries_time", daySummariesTime).Msg("Times")
+	log.Trace().Time("epoch_summaries_time", epochSummariesTime).Time("day_summaries_time", daySummariesTime).Msg("Times")
 	if epochSummariesTime.After(daySummariesTime.AddDate(0, 0, 1)) {
 		// We have updates.
 		var startTime time.Time

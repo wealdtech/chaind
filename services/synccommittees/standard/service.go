@@ -100,19 +100,19 @@ func (s *Service) updateAfterRestart(ctx context.Context, startPeriod int64) {
 		log.Fatal().Err(err).Msg("Failed to obtain metadata before catchup")
 	}
 	if startPeriod >= 0 {
-		// Explicit requirement to start at a given epoch.
-		// N.B. start period is latest period + 1.
-		md.LatestPeriod = uint64(startPeriod) - 1
+		// Explicit requirement to start at a given slot.
+		md.LatestPeriod = startPeriod - 1
 	}
-	if s.chainTime.AltairInitialSyncCommitteePeriod() > md.LatestPeriod {
-		md.LatestPeriod = s.chainTime.AltairInitialSyncCommitteePeriod()
+
+	if md.LatestPeriod == -1 || s.chainTime.AltairInitialSyncCommitteePeriod() > uint64(md.LatestPeriod) {
+		md.LatestPeriod = int64(s.chainTime.AltairInitialSyncCommitteePeriod())
 		// Decrement if possible.
 		if md.LatestPeriod > 0 {
 			md.LatestPeriod--
 		}
 	}
 
-	log.Info().Uint64("period", md.LatestPeriod).Msg("Catching up from period")
+	log.Info().Int64("period", md.LatestPeriod).Msg("Catching up from period")
 	s.catchup(ctx, md)
 	log.Info().Msg("Caught up")
 
@@ -126,14 +126,7 @@ func (s *Service) updateAfterRestart(ctx context.Context, startPeriod int64) {
 }
 
 func (s *Service) catchup(ctx context.Context, md *metadata) {
-	// If latest period is 0 we assume it means 'no latest period' rather than
-	// 'latest period is 0', so keep period at 0.
-	period := md.LatestPeriod
-	if period > 0 {
-		// Start at the next period.
-		period++
-	}
-	for ; period <= s.chainTime.CurrentSyncCommitteePeriod(); period++ {
+	for period := uint64(md.LatestPeriod + 1); period <= s.chainTime.CurrentSyncCommitteePeriod(); period++ {
 		log := log.With().Uint64("period", period).Logger()
 		// Each update goes in to its own transaction, to make the data available sooner.
 		ctx, cancel, err := s.chainDB.BeginTx(ctx)
@@ -148,7 +141,7 @@ func (s *Service) catchup(ctx context.Context, md *metadata) {
 			return
 		}
 
-		md.LatestPeriod = period
+		md.LatestPeriod = int64(period)
 		if err := s.setMetadata(ctx, md); err != nil {
 			log.Error().Err(err).Msg("Failed to set metadata")
 			cancel()

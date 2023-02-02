@@ -124,6 +124,7 @@ func (s *Service) UpdateSlot(ctx context.Context, md *metadata, slot phase0.Slot
 	monitorSlotProcessed(slot)
 	return nil
 }
+
 func (s *Service) updateBlockForSlot(ctx context.Context, slot phase0.Slot) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateBlockForSlot",
 		trace.WithAttributes(

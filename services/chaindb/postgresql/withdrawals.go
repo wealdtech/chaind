@@ -188,8 +188,8 @@ LIMIT $%d`, len(queryVals)))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
-		copy(withdrawal.InclusionBlockRoot[:], inclusionBlockRoot[:])
-		copy(withdrawal.Address[:], address[:])
+		copy(withdrawal.InclusionBlockRoot[:], inclusionBlockRoot)
+		copy(withdrawal.Address[:], address)
 		withdrawals = append(withdrawals, withdrawal)
 	}
 
@@ -201,5 +201,4 @@ LIMIT $%d`, len(queryVals)))
 		return withdrawals[i].InclusionIndex < withdrawals[j].InclusionIndex
 	})
 	return withdrawals, nil
-
 }

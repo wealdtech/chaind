@@ -169,9 +169,9 @@ LIMIT $%d`, len(queryVals)))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
-		copy(change.InclusionBlockRoot[:], inclusionBlockRoot[:])
-		copy(change.FromBLSPubKey[:], fromBLSPubKey[:])
-		copy(change.ToExecutionAddress[:], toExecutionAddress[:])
+		copy(change.InclusionBlockRoot[:], inclusionBlockRoot)
+		copy(change.FromBLSPubKey[:], fromBLSPubKey)
+		copy(change.ToExecutionAddress[:], toExecutionAddress)
 		changes = append(changes, change)
 	}
 
@@ -183,5 +183,4 @@ LIMIT $%d`, len(queryVals)))
 		return changes[i].InclusionIndex < changes[j].InclusionIndex
 	})
 	return changes, nil
-
 }
