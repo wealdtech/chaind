@@ -104,7 +104,6 @@ FROM t_beacon_committees`)
 		queryVals = append(queryVals, filter.CommitteeIndices)
 		queryBuilder.WriteString(fmt.Sprintf(`
 %s f_index = ANY($%d)`, wherestr, len(queryVals)))
-		wherestr = "  AND"
 	}
 
 	switch filter.Order {
