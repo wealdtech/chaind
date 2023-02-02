@@ -104,7 +104,6 @@ FROM t_beacon_committees`)
 		queryVals = append(queryVals, filter.CommitteeIndices)
 		queryBuilder.WriteString(fmt.Sprintf(`
 %s f_index = ANY($%d)`, wherestr, len(queryVals)))
-		wherestr = "  AND"
 	}
 
 	switch filter.Order {
@@ -129,7 +128,7 @@ LIMIT $%d`, len(queryVals)))
 		for i := range queryVals {
 			params[i] = fmt.Sprintf("%v", queryVals[i])
 		}
-		log.Error().Str("query", strings.ReplaceAll(queryBuilder.String(), "\n", " ")).Strs("params", params).Msg("SQL query")
+		e.Str("query", strings.ReplaceAll(queryBuilder.String(), "\n", " ")).Strs("params", params).Msg("SQL query")
 	}
 
 	rows, err := tx.Query(ctx,

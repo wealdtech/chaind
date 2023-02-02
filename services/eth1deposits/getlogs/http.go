@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -39,7 +38,7 @@ func (s *Service) post(ctx context.Context, endpoint string, body io.Reader) (io
 	// #nosec G404
 	log := log.With().Str("id", fmt.Sprintf("%02x", rand.Int31())).Logger()
 	if e := log.Trace(); e.Enabled() {
-		bodyBytes, err := ioutil.ReadAll(body)
+		bodyBytes, err := io.ReadAll(body)
 		if err != nil {
 			return nil, errors.New("failed to read request body")
 		}
@@ -68,7 +67,7 @@ func (s *Service) post(ctx context.Context, endpoint string, body io.Reader) (io
 		return nil, errors.Wrap(err, "failed to call POST endpoint")
 	}
 
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		cancel()
 		return nil, errors.Wrap(err, "failed to read POST response")

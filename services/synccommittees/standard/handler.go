@@ -50,11 +50,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 		return
 	}
 
-	// Due to LatestPeriod being a uint64 we can't tell if we have already
-	// obtained sync committees for period 0.  This is inefficient, but given
-	// that no chains meet this condition we take the hit on efficiency rather
-	// than complicate the logic.
-	if period <= md.LatestPeriod && period != 0 {
+	if int64(period) <= md.LatestPeriod {
 		log.Trace().Msg("Already have sync committees for this period")
 		return
 	}

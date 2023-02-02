@@ -81,6 +81,11 @@ func (s *service) FirstSlotOfEpoch(epoch phase0.Epoch) phase0.Slot {
 	return 0
 }
 
+// LastSlotOfEpoch provides the last slot of the given epoch.
+func (s *service) LastSlotOfEpoch(epoch phase0.Epoch) phase0.Slot {
+	return 0
+}
+
 // TimestampToSlot provides the slot of the given timestamp.
 func (s *service) TimestampToSlot(timestamp time.Time) phase0.Slot {
 	return 0
@@ -103,5 +108,15 @@ func (s *service) AltairInitialEpoch() phase0.Epoch {
 
 // AltairInitialSyncCommitteePeriod provides the sync committee period in which the Altair hard fork takes place.
 func (s *service) AltairInitialSyncCommitteePeriod() uint64 {
+	return 0
+}
+
+// BellatrixInitialEpoch provides the epoch at which the Bellatrix hard fork takes place.
+func (s *service) BellatrixInitialEpoch() phase0.Epoch {
+	return 0
+}
+
+// CapellaInitialEpoch provides the epoch at which the Capella hard fork takes place.
+func (s *service) CapellaInitialEpoch() phase0.Epoch {
 	return 0
 }

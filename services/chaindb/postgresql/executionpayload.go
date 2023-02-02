@@ -102,8 +102,15 @@ SET f_block_number = excluded.f_block_number
 		block.ExecutionPayload.Timestamp,
 		extraData,
 	)
+	if err != nil {
+		return err
+	}
 
-	return err
+	if err := s.setWithdrawals(ctx, block); err != nil {
+		return errors.Wrap(err, "failed to set withdrawals")
+	}
+
+	return nil
 }
 
 // executionPayload fetches the execution payload of a block.

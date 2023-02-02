@@ -14,7 +14,6 @@
 package standard
 
 import (
-	"bytes"
 	"context"
 	"time"
 
@@ -33,6 +32,7 @@ type Service struct {
 	epochsPerSyncCommitteePeriod uint64
 	altairForkEpoch              phase0.Epoch
 	bellatrixForkEpoch           phase0.Epoch
+	capellaForkEpoch             phase0.Epoch
 }
 
 // module-wide log.
@@ -86,18 +86,24 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		epochsPerSyncCommitteePeriod = tmp2
 	}
 
-	altairForkEpoch, err := fetchAltairForkEpoch(ctx, parameters.forkScheduleProvider)
+	altairForkEpoch, err := fetchAltairForkEpoch(ctx, parameters.specProvider)
 	if err != nil {
 		// Set to far future epoch.
 		altairForkEpoch = 0xffffffffffffffff
 	}
 	log.Trace().Uint64("epoch", uint64(altairForkEpoch)).Msg("Obtained Altair fork epoch")
-	bellatrixForkEpoch, err := fetchBellatrixForkEpoch(ctx, parameters.forkScheduleProvider)
+	bellatrixForkEpoch, err := fetchBellatrixForkEpoch(ctx, parameters.specProvider)
 	if err != nil {
 		// Set to far future epoch.
 		bellatrixForkEpoch = 0xffffffffffffffff
 	}
 	log.Trace().Uint64("epoch", uint64(bellatrixForkEpoch)).Msg("Obtained Bellatrix fork epoch")
+	capellaForkEpoch, err := fetchCapellaForkEpoch(ctx, parameters.specProvider)
+	if err != nil {
+		// Set to far future epoch.
+		capellaForkEpoch = 0xffffffffffffffff
+	}
+	log.Trace().Uint64("epoch", uint64(capellaForkEpoch)).Msg("Obtained Capella fork epoch")
 
 	s := &Service{
 		genesisTime:                  genesisTime,
@@ -106,6 +112,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		epochsPerSyncCommitteePeriod: epochsPerSyncCommitteePeriod,
 		altairForkEpoch:              altairForkEpoch,
 		bellatrixForkEpoch:           bellatrixForkEpoch,
+		capellaForkEpoch:             capellaForkEpoch,
 	}
 
 	return s, nil
@@ -174,6 +181,11 @@ func (s *Service) FirstSlotOfEpoch(epoch phase0.Epoch) phase0.Slot {
 	return phase0.Slot(uint64(epoch) * s.slotsPerEpoch)
 }
 
+// LastSlotOfEpoch provides the last slot of the given epoch.
+func (s *Service) LastSlotOfEpoch(epoch phase0.Epoch) phase0.Slot {
+	return phase0.Slot(uint64(epoch+1)*s.slotsPerEpoch) - 1
+}
+
 // TimestampToSlot provides the slot of the given timestamp.
 func (s *Service) TimestampToSlot(timestamp time.Time) phase0.Slot {
 	if timestamp.Before(s.genesisTime) {
@@ -212,40 +224,84 @@ func (s *Service) AltairInitialSyncCommitteePeriod() uint64 {
 	return uint64(s.altairForkEpoch) / s.epochsPerSyncCommitteePeriod
 }
 
-func fetchAltairForkEpoch(ctx context.Context, provider eth2client.ForkScheduleProvider) (phase0.Epoch, error) {
-	forkSchedule, err := provider.ForkSchedule(ctx)
+func fetchAltairForkEpoch(ctx context.Context,
+	specProvider eth2client.SpecProvider,
+) (
+	phase0.Epoch,
+	error,
+) {
+	// Fetch the fork version.
+	spec, err := specProvider.Spec(ctx)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "failed to obtain spec")
 	}
-	forkVersion := 0
-	for i := range forkSchedule {
-		if bytes.Equal(forkSchedule[i].CurrentVersion[:], forkSchedule[i].PreviousVersion[:]) {
-			// This is the genesis fork; ignore it.
-			continue
-		}
-		forkVersion++
-		if forkVersion == 1 {
-			return forkSchedule[i].Epoch, nil
-		}
+	tmp, exists := spec["ALTAIR_FORK_EPOCH"]
+	if !exists {
+		return 0, errors.New("altair fork version not known by chain")
 	}
-	return 0, errors.New("no altair fork obtained")
+	epoch, isEpoch := tmp.(uint64)
+	if !isEpoch {
+		//nolint:revive
+		return 0, errors.New("ALTAIR_FORK_EPOCH is not a uint64!")
+	}
+
+	return phase0.Epoch(epoch), nil
 }
 
-func fetchBellatrixForkEpoch(ctx context.Context, provider eth2client.ForkScheduleProvider) (phase0.Epoch, error) {
-	forkSchedule, err := provider.ForkSchedule(ctx)
+// BellatrixInitialEpoch provides the epoch at which the Bellatrix hard fork takes place.
+func (s *Service) BellatrixInitialEpoch() phase0.Epoch {
+	return s.bellatrixForkEpoch
+}
+
+func fetchBellatrixForkEpoch(ctx context.Context,
+	specProvider eth2client.SpecProvider,
+) (
+	phase0.Epoch,
+	error,
+) {
+	// Fetch the fork version.
+	spec, err := specProvider.Spec(ctx)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "failed to obtain spec")
 	}
-	forkVersion := 0
-	for i := range forkSchedule {
-		if bytes.Equal(forkSchedule[i].CurrentVersion[:], forkSchedule[i].PreviousVersion[:]) {
-			// This is the genesis fork; ignore it.
-			continue
-		}
-		forkVersion++
-		if forkVersion == 2 {
-			return forkSchedule[i].Epoch, nil
-		}
+	tmp, exists := spec["BELLATRIX_FORK_EPOCH"]
+	if !exists {
+		return 0, errors.New("bellatrix fork version not known by chain")
 	}
-	return 0, errors.New("no bellatrix fork obtained")
+	epoch, isEpoch := tmp.(uint64)
+	if !isEpoch {
+		//nolint:revive
+		return 0, errors.New("BELLATRIX_FORK_EPOCH is not a uint64!")
+	}
+
+	return phase0.Epoch(epoch), nil
+}
+
+// CapellaInitialEpoch provides the epoch at which the Capella hard fork takes place.
+func (s *Service) CapellaInitialEpoch() phase0.Epoch {
+	return s.capellaForkEpoch
+}
+
+func fetchCapellaForkEpoch(ctx context.Context,
+	specProvider eth2client.SpecProvider,
+) (
+	phase0.Epoch,
+	error,
+) {
+	// Fetch the fork version.
+	spec, err := specProvider.Spec(ctx)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to obtain spec")
+	}
+	tmp, exists := spec["CAPELLAELLATRIX_FORK_EPOCH"]
+	if !exists {
+		return 0, errors.New("capella fork version not known by chain")
+	}
+	epoch, isEpoch := tmp.(uint64)
+	if !isEpoch {
+		//nolint:revive
+		return 0, errors.New("CAPELLAELLATRIX_FORK_EPOCH is not a uint64!")
+	}
+
+	return phase0.Epoch(epoch), nil
 }

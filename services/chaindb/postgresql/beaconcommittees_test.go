@@ -33,6 +33,7 @@ func TestBeaconCommittees(t *testing.T) {
 		postgresql.WithUser(os.Getenv("CHAINDB_USER")),
 		postgresql.WithPassword(os.Getenv("CHAINDB_PASSWORD")),
 	)
+	require.NoError(t, err)
 
 	ctx, cancel, err := s.BeginTx(ctx)
 	require.NoError(t, err)

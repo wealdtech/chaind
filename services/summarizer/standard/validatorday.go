@@ -361,10 +361,14 @@ func (s *Service) syncCommitteeSummary(ctx context.Context,
 	}
 
 	for _, aggregate := range syncAggregates {
+		if aggregate.InclusionSlot == 0 {
+			log.Trace().Msg("Aggregate for slot 0 ignored")
+			continue
+		}
 		period := s.chainTime.SlotToSyncCommitteePeriod(aggregate.InclusionSlot - 1)
 		syncCommittee, exists := syncCommitteeMap[period]
 		if !exists {
-			log.Warn().Uint64("period", period).Uint64("slot", uint64(aggregate.InclusionSlot-1)).Msg("No sync committee found for block, cannot progress")
+			log.Warn().Uint64("start_epoch", uint64(startEpoch)).Uint64("end_epoch", uint64(endEpoch)).Uint64("inclusion_slot", uint64(aggregate.InclusionSlot)).Uint64("period", period).Uint64("slot", uint64(aggregate.InclusionSlot-1)).Msg("No sync committee found for block, cannot progress")
 			return nil, errors.New("no sync committee for block")
 		}
 

@@ -45,6 +45,8 @@ type Service interface {
 	EpochToSyncCommitteePeriod(epoch phase0.Epoch) uint64
 	// FirstSlotOfEpoch provides the first slot of the given epoch.
 	FirstSlotOfEpoch(epoch phase0.Epoch) phase0.Slot
+	// LastSlotOfEpoch provides the last slot of the given epoch.
+	LastSlotOfEpoch(epoch phase0.Epoch) phase0.Slot
 	// TimestampToSlot provides the slot of the given timestamp.
 	TimestampToSlot(timestamp time.Time) phase0.Slot
 	// TimestampToEpoch provides the epoch of the given timestamp.
@@ -55,4 +57,8 @@ type Service interface {
 	AltairInitialEpoch() phase0.Epoch
 	// AltairInitialSyncCommitteePeriod provides the sync committee period in which the Altair hard fork takes place.
 	AltairInitialSyncCommitteePeriod() uint64
+	// BellatrixInitialEpoch provides the epoch at which the Bellatrix hard fork takes place.
+	BellatrixInitialEpoch() phase0.Epoch
+	// CapellaInitialEpoch provides the epoch at which the Capella hard fork takes place.
+	CapellaInitialEpoch() phase0.Epoch
 }
