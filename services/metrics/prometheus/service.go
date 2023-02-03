@@ -16,6 +16,7 @@ package prometheus
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -46,7 +47,11 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
-		if err := http.ListenAndServe(parameters.address, nil); err != nil {
+		server := &http.Server{
+			Addr:              parameters.address,
+			ReadHeaderTimeout: 5 * time.Second,
+		}
+		if err := server.ListenAndServe(); err != nil {
 			log.Warn().Str("metrics_address", parameters.address).Err(err).Msg("Failed to run metrics server")
 		}
 	}()

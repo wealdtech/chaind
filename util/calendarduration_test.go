@@ -36,7 +36,6 @@ func timeInLocation(input string, location string) time.Time {
 }
 
 func TestCalendarDuration(t *testing.T) {
-
 	tests := []struct {
 		name     string
 		duration string

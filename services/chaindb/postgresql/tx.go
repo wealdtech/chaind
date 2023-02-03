@@ -23,11 +23,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	// ErrNoTransaction is returned when an attempt to carry out a mutation to the database
-	// is not inside a transaction.
-	ErrNoTransaction = errors.New("no transaction for action")
-)
+// ErrNoTransaction is returned when an attempt to carry out a mutation to the database
+// is not inside a transaction.
+var ErrNoTransaction = errors.New("no transaction for action")
 
 // Tx is a context tag for the database transaction.
 type Tx struct{}
@@ -91,7 +89,7 @@ func (s *Service) BeginROTx(ctx context.Context) (context.Context, error) {
 	return ctx, nil
 }
 
-// tx returns the transaction; nil if no transaction
+// tx returns the transaction; nil if no transaction.
 func (s *Service) tx(ctx context.Context) pgx.Tx {
 	if ctx == nil {
 		return nil
@@ -103,7 +101,7 @@ func (s *Service) tx(ctx context.Context) pgx.Tx {
 	return nil
 }
 
-// txID returns the transaction ID; "<unknown>" string if no transaction
+// txID returns the transaction ID; "<unknown>" string if no transaction.
 func (s *Service) txID(ctx context.Context) string {
 	if ctx == nil {
 		return ""
@@ -130,8 +128,7 @@ func (s *Service) CommitTx(ctx context.Context) error {
 		return errors.New("no transaction")
 	}
 
-	err := tx.Commit(ctx)
-	if err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		log.Debug().Err(err).Str("trace", fmt.Sprintf("%+v", errors.Wrap(err, "stack"))).Msg("Failed to commit")
 		return err
 	}
@@ -155,8 +152,7 @@ func (s *Service) CommitROTx(ctx context.Context) {
 		return
 	}
 
-	err := tx.Commit(ctx)
-	if err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		log.Debug().Err(err).Str("trace", fmt.Sprintf("%+v", errors.Wrap(err, "stack"))).Msg("Failed to commit")
 		return
 	}

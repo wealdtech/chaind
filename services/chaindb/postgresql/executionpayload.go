@@ -167,7 +167,7 @@ WHERE f_block_root = $1`,
 		&payload.ExtraData,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			// Means there is no execution payload; this is fine.
 			return nil, nil
 		}

@@ -62,7 +62,8 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	md, err := s.getMetadata(ctx)
 	if err != nil {
 		s.activitySem.Release(1)
-		log.Fatal().Err(err).Msg("Failed to obtain metadata")
+		log.Error().Err(err).Msg("Failed to obtain metadata")
+		return
 	}
 
 	if err := s.onEpochTransitionValidators(ctx, md, epoch); err != nil {

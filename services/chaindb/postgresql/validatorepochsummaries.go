@@ -329,7 +329,6 @@ LIMIT $%d`, len(queryVals)))
 		return summaries[i].Index < summaries[j].Index
 	})
 	return summaries, nil
-
 }
 
 // ValidatorSummariesForEpoch obtains all summaries for a given epoch.

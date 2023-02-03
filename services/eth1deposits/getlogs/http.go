@@ -66,6 +66,7 @@ func (s *Service) post(ctx context.Context, endpoint string, body io.Reader) (io
 		cancel()
 		return nil, errors.Wrap(err, "failed to call POST endpoint")
 	}
+	defer resp.Body.Close()
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {

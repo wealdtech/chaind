@@ -105,10 +105,7 @@ func main2() int {
 		return 1
 	}
 
-	if err := initProfiling(); err != nil {
-		log.Error().Err(err).Msg("Failed to initialise profiling")
-		return 1
-	}
+	initProfiling()
 
 	runtime.GOMAXPROCS(runtime.NumCPU() * 8)
 
@@ -202,8 +199,20 @@ func fetchConfig() error {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return errors.Wrap(err, "failed to read configuration file")
+		switch {
+		case errors.As(err, &viper.ConfigFileNotFoundError{}):
+			// It is allowable for chaind to not have a configuration file, but only if
+			// we have the information from elsewhere (e.g. environment variables).  Check
+			// to see if we have any beacon nodes configured, as if not we aren't going to
+			// get very far anyway.
+			if viper.GetString("eth2client.address") == "" {
+				// Assume the underlying issue is that the configuration file is missing.
+				return errors.Wrap(err, "could not find the configuration file")
+			}
+		case errors.As(err, &viper.ConfigParseError{}):
+			return errors.Wrap(err, "could not parse the configuration file")
+		default:
+			return errors.Wrap(err, "failed to obtain configuration")
 		}
 	}
 
@@ -211,7 +220,7 @@ func fetchConfig() error {
 }
 
 // initProfiling initialises the profiling server.
-func initProfiling() error {
+func initProfiling() {
 	profileAddress := viper.GetString("profile-address")
 	if profileAddress != "" {
 		go func() {
@@ -226,7 +235,6 @@ func initProfiling() error {
 			}
 		}()
 	}
-	return nil
 }
 
 func startMonitor(ctx context.Context) (metrics.Service, error) {
@@ -744,6 +752,7 @@ func startSyncCommittees(
 
 // runCommands runs commands if required.
 // Returns true if an exit is required.
+//nolint:unparam
 func runCommands(_ context.Context) (bool, error) {
 	if viper.GetBool("version") {
 		fmt.Printf("%s\n", ReleaseVersion)

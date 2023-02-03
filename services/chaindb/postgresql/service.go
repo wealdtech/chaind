@@ -49,65 +49,12 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 
 	var pool *pgxpool.Pool
 	if parameters.connectionURL != "" {
-		// Use deprecated connection URL method.
-		config, err := pgxpool.ParseConfig(parameters.connectionURL)
-		if err != nil {
-			return nil, errors.Wrap(err, "invalid connection URL")
-		}
-		config.MaxConns = int32(parameters.maxConnections)
-		pool, err = pgxpool.ConnectConfig(context.Background(), config)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to connect to database")
-		}
+		pool, err = newFromURL(ctx, parameters)
 	} else {
-		dsnItems := make([]string, 0, 16)
-		dsnItems = append(dsnItems,
-			fmt.Sprintf("host=%s", parameters.server),
-			fmt.Sprintf("user=%s", parameters.user),
-		)
-		if parameters.password != "" {
-			dsnItems = append(dsnItems, fmt.Sprintf("password=%s", parameters.password))
-		}
-		dsnItems = append(dsnItems, fmt.Sprintf("port=%d", parameters.port))
-
-		var tlsConfig *tls.Config
-		if parameters.caCert != nil || parameters.clientCert != nil {
-			dsnItems = append(dsnItems, "sslmode=verify-full")
-
-			// Add TLS configuration.
-			tlsConfig = &tls.Config{
-				ServerName: parameters.server,
-				MinVersion: tls.VersionTLS13,
-			}
-			if parameters.clientCert != nil {
-				clientPair, err := tls.X509KeyPair(parameters.clientCert, parameters.clientKey)
-				if err != nil {
-					return nil, errors.Wrap(err, "failed to create client certificate")
-				}
-				tlsConfig.Certificates = []tls.Certificate{clientPair}
-			}
-			if parameters.caCert != nil {
-				rootCAs := x509.NewCertPool()
-				if !rootCAs.AppendCertsFromPEM(parameters.caCert) {
-					return nil, errors.New("failed to append root CA certificates")
-				}
-				tlsConfig.RootCAs = rootCAs
-			}
-		}
-
-		dsnItems = append(dsnItems, fmt.Sprintf("pool_max_conns=%d", parameters.maxConnections))
-
-		config, err := pgxpool.ParseConfig(strings.Join(dsnItems, " "))
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to generate pgx config")
-		}
-		config.AfterConnect = registerCustomTypes
-		config.ConnConfig.TLSConfig = tlsConfig
-
-		pool, err = pgxpool.ConnectConfig(context.Background(), config)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to connect to database")
-		}
+		pool, err = newFromComponents(ctx, parameters)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	go func() {
@@ -121,6 +68,82 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}
 
 	return s, nil
+}
+
+func newFromURL(ctx context.Context,
+	parameters *parameters) (
+	*pgxpool.Pool,
+	error,
+) {
+	// Use deprecated connection URL method.
+	config, err := pgxpool.ParseConfig(parameters.connectionURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid connection URL")
+	}
+	config.MaxConns = int32(parameters.maxConnections)
+	pool, err := pgxpool.ConnectConfig(ctx, config)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to connect to database")
+	}
+
+	return pool, nil
+}
+
+func newFromComponents(ctx context.Context,
+	parameters *parameters) (
+	*pgxpool.Pool,
+	error,
+) {
+	dsnItems := make([]string, 0, 16)
+	dsnItems = append(dsnItems,
+		fmt.Sprintf("host=%s", parameters.server),
+		fmt.Sprintf("user=%s", parameters.user),
+	)
+	if parameters.password != "" {
+		dsnItems = append(dsnItems, fmt.Sprintf("password=%s", parameters.password))
+	}
+	dsnItems = append(dsnItems, fmt.Sprintf("port=%d", parameters.port))
+
+	var tlsConfig *tls.Config
+	if parameters.caCert != nil || parameters.clientCert != nil {
+		dsnItems = append(dsnItems, "sslmode=verify-full")
+
+		// Add TLS configuration.
+		tlsConfig = &tls.Config{
+			ServerName: parameters.server,
+			MinVersion: tls.VersionTLS13,
+		}
+	}
+	if parameters.clientCert != nil {
+		clientPair, err := tls.X509KeyPair(parameters.clientCert, parameters.clientKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create client certificate")
+		}
+		tlsConfig.Certificates = []tls.Certificate{clientPair}
+	}
+	if parameters.caCert != nil {
+		rootCAs := x509.NewCertPool()
+		if !rootCAs.AppendCertsFromPEM(parameters.caCert) {
+			return nil, errors.New("failed to append root CA certificates")
+		}
+		tlsConfig.RootCAs = rootCAs
+	}
+
+	dsnItems = append(dsnItems, fmt.Sprintf("pool_max_conns=%d", parameters.maxConnections))
+
+	config, err := pgxpool.ParseConfig(strings.Join(dsnItems, " "))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate pgx config")
+	}
+	config.AfterConnect = registerCustomTypes
+	config.ConnConfig.TLSConfig = tlsConfig
+
+	pool, err := pgxpool.ConnectConfig(ctx, config)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to connect to database")
+	}
+
+	return pool, nil
 }
 
 // skipcq: RVV-B0012

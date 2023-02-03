@@ -87,8 +87,7 @@ func (s *Service) ScheduleJob(ctx context.Context,
 	}
 
 	s.jobsMutex.Lock()
-	_, exists := s.jobs[name]
-	if exists {
+	if _, exists := s.jobs[name]; exists {
 		s.jobsMutex.Unlock()
 		return scheduler.ErrJobAlreadyExists
 	}
@@ -171,8 +170,7 @@ func (s *Service) SchedulePeriodicJob(ctx context.Context,
 	}
 
 	s.jobsMutex.Lock()
-	_, exists := s.jobs[name]
-	if exists {
+	if _, exists := s.jobs[name]; exists {
 		s.jobsMutex.Unlock()
 		return scheduler.ErrJobAlreadyExists
 	}
@@ -189,7 +187,7 @@ func (s *Service) SchedulePeriodicJob(ctx context.Context,
 	go func() {
 		for {
 			runtime, err := runtimeFunc(ctx, runtimeData)
-			if err == scheduler.ErrNoMoreInstances {
+			if errors.Is(err, scheduler.ErrNoMoreInstances) {
 				log.Trace().Str("job", name).Msg("No more instances; period job stopping")
 				s.jobsMutex.Lock()
 				delete(s.jobs, name)

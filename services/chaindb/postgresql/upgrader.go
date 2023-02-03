@@ -555,8 +555,7 @@ func (s *Service) version(ctx context.Context) (uint64, error) {
 
 // setVersion sets the version of the schema.
 func (s *Service) setVersion(ctx context.Context, version uint64) error {
-	tx := s.tx(ctx)
-	if tx == nil {
+	if tx := s.tx(ctx); tx == nil {
 		return ErrNoTransaction
 	}
 
@@ -1316,7 +1315,7 @@ CREATE TABLE t_block_execution_payloads (
 	return nil
 }
 
-// addTimestamp adds timestamp to t_block_execution_payloads
+// addTimestamp adds timestamp to t_block_execution_payloads.
 func addTimestamp(ctx context.Context, s *Service) error {
 	tx := s.tx(ctx)
 	if tx == nil {
@@ -1364,7 +1363,7 @@ ALTER COLUMN f_timestamp DROP DEFAULT
 	return nil
 }
 
-// createValidatorDaySummaries adds t_validator_day_summaries
+// createValidatorDaySummaries adds t_validator_day_summaries.
 func createValidatorDaySummaries(ctx context.Context, s *Service) error {
 	tx := s.tx(ctx)
 	if tx == nil {
@@ -1411,7 +1410,7 @@ CREATE INDEX IF NOT EXISTS i_validator_day_summaries_2 ON t_validator_day_summar
 	return nil
 }
 
-// createBlockBLSToExecutionChanges adds t_block_bls_to_execution_changes
+// createBlockBLSToExecutionChanges adds t_block_bls_to_execution_changes.
 func createBlockBLSToExecutionChanges(ctx context.Context, s *Service) error {
 	tx := s.tx(ctx)
 	if tx == nil {
@@ -1451,7 +1450,7 @@ CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_3 ON t_block_bls_to_
 	return nil
 }
 
-// createBlockWithdrawals adds t_block_withdrawals
+// createBlockWithdrawals adds t_block_withdrawals.
 func createBlockWithdrawals(ctx context.Context, s *Service) error {
 	tx := s.tx(ctx)
 	if tx == nil {

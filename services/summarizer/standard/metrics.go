@@ -24,18 +24,24 @@ import (
 
 var metricsNamespace = "chaind_summarizer"
 
-var highestEpoch phase0.Epoch
-var latestEpoch prometheus.Gauge
-var epochsProcessed prometheus.Gauge
+var (
+	highestEpoch    phase0.Epoch
+	latestEpoch     prometheus.Gauge
+	epochsProcessed prometheus.Counter
+)
 
-var highestDay int64
-var latestDay prometheus.Gauge
-var daysProcessed prometheus.Gauge
+var (
+	highestDay    int64
+	latestDay     prometheus.Gauge
+	daysProcessed prometheus.Counter
+)
 
-var lastEpochPrune prometheus.Gauge
-var lastBalancePrune prometheus.Gauge
+var (
+	lastEpochPrune   prometheus.Gauge
+	lastBalancePrune prometheus.Gauge
+)
 
-func registerMetrics(ctx context.Context, monitor metrics.Service) error {
+func registerMetrics(_ context.Context, monitor metrics.Service) error {
 	if latestEpoch != nil {
 		// Already registered.
 		return nil
@@ -45,12 +51,12 @@ func registerMetrics(ctx context.Context, monitor metrics.Service) error {
 		return nil
 	}
 	if monitor.Presenter() == "prometheus" {
-		return registerPrometheusMetrics(ctx)
+		return registerPrometheusMetrics()
 	}
 	return nil
 }
 
-func registerPrometheusMetrics(ctx context.Context) error {
+func registerPrometheusMetrics() error {
 	latestEpoch = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "latest_epoch",
@@ -60,13 +66,13 @@ func registerPrometheusMetrics(ctx context.Context) error {
 		return errors.Wrap(err, "failed to register latest_epoch")
 	}
 
-	epochsProcessed = prometheus.NewGauge(prometheus.GaugeOpts{
+	epochsProcessed = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
-		Name:      "epochs_processed",
+		Name:      "epochs_processed_total",
 		Help:      "Number of epochs processed",
 	})
 	if err := prometheus.Register(epochsProcessed); err != nil {
-		return errors.Wrap(err, "failed to register epochs_processed")
+		return errors.Wrap(err, "failed to register epochs_processed_total")
 	}
 
 	latestDay = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -78,9 +84,10 @@ func registerPrometheusMetrics(ctx context.Context) error {
 		return errors.Wrap(err, "failed to register latest_day")
 	}
 
-	daysProcessed = prometheus.NewGauge(prometheus.GaugeOpts{
+	//nolint:promlinter
+	daysProcessed = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
-		Name:      "days_processed",
+		Name:      "days_processed_total",
 		Help:      "Number of days processed",
 	})
 	if err := prometheus.Register(daysProcessed); err != nil {
@@ -110,7 +117,7 @@ func registerPrometheusMetrics(ctx context.Context) error {
 
 // monitorLatestEpoch sets the latest epoch without registering an
 // increase in epochs processed.  This does not usually need to be
-// called directly, as it is called as part ofr monitorEpochProcessed.
+// called directly, as it is called as part of monitorEpochProcessed.
 func monitorLatestEpoch(epoch phase0.Epoch) {
 	highestEpoch = epoch
 	if latestEpoch != nil {
@@ -129,7 +136,7 @@ func monitorEpochProcessed(epoch phase0.Epoch) {
 
 // monitorLatestDay sets the latest day without registering an
 // increase in days processed.  This does not usually need to be
-// called directly, as it is called as part ofr monitorDayProcessed.
+// called directly, as it is called as part of monitorDayProcessed.
 func monitorLatestDay(day int64) {
 	highestDay = day
 	if latestDay != nil {

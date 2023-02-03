@@ -24,15 +24,19 @@ import (
 
 var metricsNamespace = "chaind_validators"
 
-var highestEpoch phase0.Epoch
-var latestEpoch prometheus.Gauge
-var epochsProcessed prometheus.Gauge
+var (
+	highestEpoch    phase0.Epoch
+	latestEpoch     prometheus.Gauge
+	epochsProcessed prometheus.Gauge
+)
 
-var balancesHighestEpoch phase0.Epoch
-var balancesLatestEpoch prometheus.Gauge
-var balancesEpochsProcessed prometheus.Gauge
+var (
+	balancesHighestEpoch    phase0.Epoch
+	balancesLatestEpoch     prometheus.Gauge
+	balancesEpochsProcessed prometheus.Gauge
+)
 
-func registerMetrics(ctx context.Context, monitor metrics.Service) error {
+func registerMetrics(_ context.Context, monitor metrics.Service) error {
 	if latestEpoch != nil {
 		// Already registered.
 		return nil
@@ -42,12 +46,12 @@ func registerMetrics(ctx context.Context, monitor metrics.Service) error {
 		return nil
 	}
 	if monitor.Presenter() == "prometheus" {
-		return registerPrometheusMetrics(ctx)
+		return registerPrometheusMetrics()
 	}
 	return nil
 }
 
-func registerPrometheusMetrics(ctx context.Context) error {
+func registerPrometheusMetrics() error {
 	latestEpoch = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "latest_epoch",

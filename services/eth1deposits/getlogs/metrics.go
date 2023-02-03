@@ -23,11 +23,13 @@ import (
 
 var metricsNamespace = "chaind_eth1deposits"
 
-var highestBlock uint64
-var latestBlock prometheus.Gauge
-var blocksProcessed prometheus.Gauge
+var (
+	highestBlock    uint64
+	latestBlock     prometheus.Gauge
+	blocksProcessed prometheus.Gauge
+)
 
-func registerMetrics(ctx context.Context, monitor metrics.Service) error {
+func registerMetrics(_ context.Context, monitor metrics.Service) error {
 	if latestBlock != nil {
 		// Already registered.
 		return nil
@@ -37,12 +39,12 @@ func registerMetrics(ctx context.Context, monitor metrics.Service) error {
 		return nil
 	}
 	if monitor.Presenter() == "prometheus" {
-		return registerPrometheusMetrics(ctx)
+		return registerPrometheusMetrics()
 	}
 	return nil
 }
 
-func registerPrometheusMetrics(ctx context.Context) error {
+func registerPrometheusMetrics() error {
 	latestBlock = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "latest_block",

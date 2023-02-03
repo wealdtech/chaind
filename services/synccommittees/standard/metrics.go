@@ -23,9 +23,11 @@ import (
 
 var metricsNamespace = "chaind_synccommittees"
 
-var highestPeriod uint64
-var latestPeriod prometheus.Gauge
-var periodsProcessed prometheus.Gauge
+var (
+	highestPeriod    uint64
+	latestPeriod     prometheus.Gauge
+	periodsProcessed prometheus.Gauge
+)
 
 func registerMetrics(ctx context.Context, monitor metrics.Service) error {
 	if latestPeriod != nil {
@@ -42,8 +44,7 @@ func registerMetrics(ctx context.Context, monitor metrics.Service) error {
 	return nil
 }
 
-// skipcq: RVV-B0012
-func registerPrometheusMetrics(ctx context.Context) error {
+func registerPrometheusMetrics(_ context.Context) error {
 	latestPeriod = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "latest_period",

@@ -138,7 +138,7 @@ func (s *Service) ChainSpecValue(ctx context.Context, key string) (interface{}, 
 }
 
 // dbValToSpec turns a database value in to a spec value.
-func dbValToSpec(ctx context.Context, key string, val string) interface{} {
+func dbValToSpec(_ context.Context, key string, val string) interface{} {
 	// Handle domains.
 	if strings.HasPrefix(key, "DOMAIN_") {
 		byteVal, err := hex.DecodeString(strings.TrimPrefix(val, "0x"))

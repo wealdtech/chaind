@@ -22,7 +22,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Time units for calculating durations in time.Duration
+// Time units for calculating durations in time.Duration.
 const (
 	Day   = 24 * time.Hour
 	Month = 30 * Day
@@ -39,7 +39,7 @@ type CalendarDuration struct {
 	years   int
 }
 
-// calendarDurationRegex is an ISO-8601 date
+// calendarDurationRegex is an ISO-8601 date.
 var calendarDurationRegex = regexp.MustCompile(`P([\d\.]+Y)?([\d\.]+M)?([\d\.]+D)?T?([\d\.]+H)?([\d\.]+M)?([\d\.]+?S)?`)
 
 // ParseCalendarDuration parses a duration string and returns a calendar duration.
@@ -174,7 +174,7 @@ func (d *CalendarDuration) String() string {
 	return res
 }
 
-// Adverb converts CalendarDuration to an English adverb (Daily / Yearly, etc)
+// Adverb converts CalendarDuration to an English adverb (Daily / Yearly, etc).
 func (d *CalendarDuration) Adverb() string {
 	str := d.String()
 	singlePeriod, _ := regexp.MatchString("P[T]*\\d+\\w$", str)
@@ -220,7 +220,7 @@ func (d *CalendarDuration) Adverb() string {
 	return fmt.Sprintf("%s%s", numbers2words[number], period)
 }
 
-// ToDuration converts CalendarDuration to time.Duration
+// ToDuration converts CalendarDuration to time.Duration.
 func (d *CalendarDuration) ToDuration() time.Duration {
 	return time.Duration(d.years)*Year +
 		time.Duration(d.months)*Month +
@@ -230,7 +230,7 @@ func (d *CalendarDuration) ToDuration() time.Duration {
 		time.Duration(d.seconds)*time.Second
 }
 
-// Mul performs multiplication for CalendarDuration
+// Mul performs multiplication for CalendarDuration.
 func (d *CalendarDuration) Mul(times int) *CalendarDuration {
 	return &CalendarDuration{
 		years:   d.years * times,
@@ -242,7 +242,7 @@ func (d *CalendarDuration) Mul(times int) *CalendarDuration {
 	}
 }
 
-// shiftMonths correctly add months without overflowing
+// shiftMonths correctly add months without overflowing.
 func shiftMonths(date time.Time, months int) time.Time {
 	t := date.AddDate(0, months, 0)
 	if t.Day() < date.Day() {
