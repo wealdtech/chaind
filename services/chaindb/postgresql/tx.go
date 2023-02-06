@@ -90,7 +90,7 @@ func (s *Service) BeginROTx(ctx context.Context) (context.Context, error) {
 }
 
 // tx returns the transaction; nil if no transaction.
-func (s *Service) tx(ctx context.Context) pgx.Tx {
+func (*Service) tx(ctx context.Context) pgx.Tx {
 	if ctx == nil {
 		return nil
 	}
@@ -102,7 +102,7 @@ func (s *Service) tx(ctx context.Context) pgx.Tx {
 }
 
 // txID returns the transaction ID; "<unknown>" string if no transaction.
-func (s *Service) txID(ctx context.Context) string {
+func (*Service) txID(ctx context.Context) string {
 	if ctx == nil {
 		return ""
 	}

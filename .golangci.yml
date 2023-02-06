@@ -152,6 +152,7 @@ linters:
     - ireturn
     - lll
     - maligned
+    - musttag
     - nestif
     - nilnil
     - nlreturn

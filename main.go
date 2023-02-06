@@ -752,6 +752,7 @@ func startSyncCommittees(
 
 // runCommands runs commands if required.
 // Returns true if an exit is required.
+//
 //nolint:unparam
 func runCommands(_ context.Context) (bool, error) {
 	if viper.GetBool("version") {
