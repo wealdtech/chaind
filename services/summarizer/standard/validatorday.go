@@ -116,6 +116,7 @@ func (s *Service) summarizeValidatorsInDay(ctx context.Context,
 		return errors.Wrap(err, "failed to set commit transaction to set validator day summary")
 	}
 
+	monitorDayProcessed(startTime.Unix())
 	return nil
 }
 
@@ -149,26 +150,27 @@ func (s *Service) addValidatorEpochSummaries(ctx context.Context,
 		daySummaries[epochSummary.Index].Proposals += epochSummary.ProposerDuties
 		daySummaries[epochSummary.Index].ProposalsIncluded += epochSummary.ProposalsIncluded
 		daySummaries[epochSummary.Index].Attestations++
-		if epochSummary.AttestationIncluded {
-			daySummaries[epochSummary.Index].AttestationsIncluded++
-			if epochSummary.AttestationTargetCorrect != nil && *epochSummary.AttestationTargetCorrect {
-				daySummaries[epochSummary.Index].AttestationsTargetCorrect++
-			}
-			if epochSummary.AttestationHeadCorrect != nil && *epochSummary.AttestationHeadCorrect {
-				daySummaries[epochSummary.Index].AttestationsHeadCorrect++
-			}
-			if epochSummary.AttestationSourceTimely != nil && *epochSummary.AttestationSourceTimely {
-				daySummaries[epochSummary.Index].AttestationsSourceTimely++
-			}
-			if epochSummary.AttestationTargetTimely != nil && *epochSummary.AttestationTargetTimely {
-				daySummaries[epochSummary.Index].AttestationsTargetTimely++
-			}
-			if epochSummary.AttestationHeadTimely != nil && *epochSummary.AttestationHeadTimely {
-				daySummaries[epochSummary.Index].AttestationsHeadTimely++
-			}
-			if epochSummary.AttestationInclusionDelay != nil {
-				daySummaries[epochSummary.Index].AttestationsInclusionDelay += float64(*epochSummary.AttestationInclusionDelay)
-			}
+		if !epochSummary.AttestationIncluded {
+			continue
+		}
+		daySummaries[epochSummary.Index].AttestationsIncluded++
+		if epochSummary.AttestationTargetCorrect != nil && *epochSummary.AttestationTargetCorrect {
+			daySummaries[epochSummary.Index].AttestationsTargetCorrect++
+		}
+		if epochSummary.AttestationHeadCorrect != nil && *epochSummary.AttestationHeadCorrect {
+			daySummaries[epochSummary.Index].AttestationsHeadCorrect++
+		}
+		if epochSummary.AttestationSourceTimely != nil && *epochSummary.AttestationSourceTimely {
+			daySummaries[epochSummary.Index].AttestationsSourceTimely++
+		}
+		if epochSummary.AttestationTargetTimely != nil && *epochSummary.AttestationTargetTimely {
+			daySummaries[epochSummary.Index].AttestationsTargetTimely++
+		}
+		if epochSummary.AttestationHeadTimely != nil && *epochSummary.AttestationHeadTimely {
+			daySummaries[epochSummary.Index].AttestationsHeadTimely++
+		}
+		if epochSummary.AttestationInclusionDelay != nil {
+			daySummaries[epochSummary.Index].AttestationsInclusionDelay += float64(*epochSummary.AttestationInclusionDelay)
 		}
 	}
 
@@ -240,7 +242,6 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 	firstSlot := s.chainTime.FirstSlotOfEpoch(startEpoch)
 	lastSlot := s.chainTime.LastSlotOfEpoch(endEpoch)
 	// Obtain deposits, and turn them in to a map for easy lookup.
-	// TODO see if this is inclusive or exclusive.
 	dbDeposits, err := s.chainDB.(chaindb.DepositsProvider).DepositsForSlotRange(ctx, firstSlot, lastSlot+1)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to obtain deposits")

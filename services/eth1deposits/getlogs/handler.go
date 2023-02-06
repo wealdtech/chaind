@@ -120,6 +120,7 @@ func (s *Service) handleMissed(ctx context.Context, md *metadata) {
 		}
 	}
 }
+
 func (s *Service) depositFromLogEntry(ctx context.Context, logEntry *logResponse, tx *transaction, receipt *transactionReceipt) (*chaindb.ETH1Deposit, error) {
 	deposit := &chaindb.ETH1Deposit{}
 	deposit.ETH1BlockHash = logEntry.BlockHash

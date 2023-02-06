@@ -461,34 +461,38 @@ func (s *Service) updateAttestationHeadCorrect(ctx context.Context,
 ) error {
 	headCorrect := false
 	if headRoot, exists := headRoots[attestation.Slot]; exists {
+		// We know the root, simple check.
 		headCorrect = bytes.Equal(attestation.BeaconBlockRoot[:], headRoot[:])
-	} else {
-		log.Trace().Uint64("slot", uint64(attestation.Slot)).Msg("Checking attestation head vote")
-		// Start with slot of the attestation.
-		canonicalBlockFound := false
-		for slot := attestation.Slot; !canonicalBlockFound; slot-- {
-			log.Trace().Uint64("slot", uint64(slot)).Msg("Fetching blocks at slot")
-			blocks, err := s.chainDB.(chaindb.BlocksProvider).BlocksBySlot(ctx, slot)
-			if err != nil {
-				return errors.Wrap(err, "failed to obtain block")
-			}
-			for _, block := range blocks {
-				if block.Canonical != nil && *block.Canonical {
-					log.Trace().Uint64("slot", uint64(block.Slot)).Msg("Found canonical block")
-					canonicalBlockFound = true
-					headRoots[attestation.Slot] = block.Root
-					headCorrect = bytes.Equal(attestation.BeaconBlockRoot[:], block.Root[:])
-					log.Trace().Str("attestation_root", fmt.Sprintf("%#x", attestation.BeaconBlockRoot)).Str("block_root", fmt.Sprintf("%#x", block.Root)).Msg("Found canonical block")
-					break
-				}
-			}
-			if slot == 0 {
+		attestation.HeadCorrect = &headCorrect
+
+		return nil
+	}
+
+	log.Trace().Uint64("slot", uint64(attestation.Slot)).Msg("Checking attestation head vote")
+	// Start with slot of the attestation.
+	canonicalBlockFound := false
+	for slot := attestation.Slot; !canonicalBlockFound; slot-- {
+		log.Trace().Uint64("slot", uint64(slot)).Msg("Fetching blocks at slot")
+		blocks, err := s.chainDB.(chaindb.BlocksProvider).BlocksBySlot(ctx, slot)
+		if err != nil {
+			return errors.Wrap(err, "failed to obtain block")
+		}
+		for _, block := range blocks {
+			if block.Canonical != nil && *block.Canonical {
+				log.Trace().Uint64("slot", uint64(block.Slot)).Msg("Found canonical block")
+				canonicalBlockFound = true
+				headRoots[attestation.Slot] = block.Root
+				headCorrect = bytes.Equal(attestation.BeaconBlockRoot[:], block.Root[:])
+				log.Trace().Str("attestation_root", fmt.Sprintf("%#x", attestation.BeaconBlockRoot)).Str("block_root", fmt.Sprintf("%#x", block.Root)).Msg("Found canonical block")
 				break
 			}
 		}
-		if !canonicalBlockFound {
-			return errors.New("failed to obtain canonical block, cannot update attestation")
+		if slot == 0 {
+			break
 		}
+	}
+	if !canonicalBlockFound {
+		return errors.New("failed to obtain canonical block, cannot update attestation")
 	}
 
 	attestation.HeadCorrect = &headCorrect
@@ -501,7 +505,7 @@ func (s *Service) fetchBlock(ctx context.Context, root phase0.Root) (*chaindb.Bl
 	// Start with a simple fetch from the database.
 	block, err := s.blocksProvider.BlockByRoot(ctx, root)
 	if err != nil {
-		if err != pgx.ErrNoRows {
+		if !errors.Is(err, pgx.ErrNoRows) {
 			// Real error.
 			return nil, errors.Wrap(err, "failed to obtain block from provider")
 		}

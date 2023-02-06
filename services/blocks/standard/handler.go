@@ -428,10 +428,7 @@ func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context,
 	defer span.End()
 
 	for i, attesterSlashing := range attesterSlashings {
-		dbAttesterSlashing, err := s.dbAttesterSlashing(ctx, slot, blockRoot, uint64(i), attesterSlashing)
-		if err != nil {
-			return errors.Wrap(err, "failed to obtain database attester slashing")
-		}
+		dbAttesterSlashing := s.dbAttesterSlashing(ctx, slot, blockRoot, uint64(i), attesterSlashing)
 		if err := s.attesterSlashingsSetter.SetAttesterSlashing(ctx, dbAttesterSlashing); err != nil {
 			return errors.Wrap(err, "failed to set attester slashing")
 		}
@@ -448,10 +445,7 @@ func (s *Service) updateDepositsForBlock(ctx context.Context,
 	defer span.End()
 
 	for i, deposit := range deposits {
-		dbDeposit, err := s.dbDeposit(ctx, slot, blockRoot, uint64(i), deposit)
-		if err != nil {
-			return errors.Wrap(err, "failed to obtain database deposit")
-		}
+		dbDeposit := s.dbDeposit(ctx, slot, blockRoot, uint64(i), deposit)
 		if err := s.depositsSetter.SetDeposit(ctx, dbDeposit); err != nil {
 			return errors.Wrap(err, "failed to set deposit")
 		}
@@ -468,10 +462,7 @@ func (s *Service) updateVoluntaryExitsForBlock(ctx context.Context,
 	defer span.End()
 
 	for i, voluntaryExit := range voluntaryExits {
-		dbVoluntaryExit, err := s.dbVoluntaryExit(ctx, slot, blockRoot, uint64(i), voluntaryExit)
-		if err != nil {
-			return errors.Wrap(err, "failed to obtain database voluntary exit")
-		}
+		dbVoluntaryExit := s.dbVoluntaryExit(ctx, slot, blockRoot, uint64(i), voluntaryExit)
 		if err := s.voluntaryExitsSetter.SetVoluntaryExit(ctx, dbVoluntaryExit); err != nil {
 			return errors.Wrap(err, "failed to set voluntary exit")
 		}
@@ -517,8 +508,7 @@ func (s *Service) dbBlock(
 }
 
 func (*Service) dbBlockPhase0(
-	// skipcq: RVV-B0012
-	ctx context.Context,
+	_ context.Context,
 	block *phase0.BeaconBlock,
 ) (*chaindb.Block, error) {
 	bodyRoot, err := block.Body.HashTreeRoot()
@@ -556,8 +546,7 @@ func (*Service) dbBlockPhase0(
 }
 
 func (*Service) dbBlockAltair(
-	// skipcq: RVV-B0012
-	ctx context.Context,
+	_ context.Context,
 	block *altair.BeaconBlock,
 ) (*chaindb.Block, error) {
 	bodyRoot, err := block.Body.HashTreeRoot()
@@ -595,8 +584,7 @@ func (*Service) dbBlockAltair(
 }
 
 func (*Service) dbBlockBellatrix(
-	// skipcq: RVV-B0012
-	ctx context.Context,
+	_ context.Context,
 	block *bellatrix.BeaconBlock,
 ) (*chaindb.Block, error) {
 	bodyRoot, err := block.Body.HashTreeRoot()
@@ -657,8 +645,7 @@ func (*Service) dbBlockBellatrix(
 }
 
 func (*Service) dbBlockCapella(
-	// skipcq: RVV-B0012
-	ctx context.Context,
+	_ context.Context,
 	block *capella.BeaconBlock,
 ) (*chaindb.Block, error) {
 	bodyRoot, err := block.Body.HashTreeRoot()
@@ -834,14 +821,13 @@ func (s *Service) dbSyncAggregate(
 }
 
 func (*Service) dbDeposit(
-	// skipcq: RVV-B0012
-	ctx context.Context,
+	_ context.Context,
 	slot phase0.Slot,
 	blockRoot phase0.Root,
 	index uint64,
 	deposit *phase0.Deposit,
-) (*chaindb.Deposit, error) {
-	dbDeposit := &chaindb.Deposit{
+) *chaindb.Deposit {
+	return &chaindb.Deposit{
 		InclusionSlot:         slot,
 		InclusionBlockRoot:    blockRoot,
 		InclusionIndex:        index,
@@ -849,37 +835,31 @@ func (*Service) dbDeposit(
 		WithdrawalCredentials: deposit.Data.WithdrawalCredentials,
 		Amount:                deposit.Data.Amount,
 	}
-
-	return dbDeposit, nil
 }
 
 func (*Service) dbVoluntaryExit(
-	// skipcq: RVV-B0012
-	ctx context.Context,
+	_ context.Context,
 	slot phase0.Slot,
 	blockRoot phase0.Root,
 	index uint64,
 	voluntaryExit *phase0.SignedVoluntaryExit,
-) (*chaindb.VoluntaryExit, error) {
-	dbVoluntaryExit := &chaindb.VoluntaryExit{
+) *chaindb.VoluntaryExit {
+	return &chaindb.VoluntaryExit{
 		InclusionSlot:      slot,
 		InclusionBlockRoot: blockRoot,
 		InclusionIndex:     index,
 		ValidatorIndex:     voluntaryExit.Message.ValidatorIndex,
 		Epoch:              voluntaryExit.Message.Epoch,
 	}
-
-	return dbVoluntaryExit, nil
 }
 
 func (*Service) dbAttesterSlashing(
-	// skipcq: RVV-B0012
-	ctx context.Context,
+	_ context.Context,
 	slot phase0.Slot,
 	blockRoot phase0.Root,
 	index uint64,
 	attesterSlashing *phase0.AttesterSlashing,
-) (*chaindb.AttesterSlashing, error) {
+) *chaindb.AttesterSlashing {
 	// This is temporary, until attester fastssz is fixed to support []phase0.ValidatorIndex.
 	attestation1Indices := make([]phase0.ValidatorIndex, len(attesterSlashing.Attestation1.AttestingIndices))
 	for i := range attesterSlashing.Attestation1.AttestingIndices {
@@ -914,12 +894,11 @@ func (*Service) dbAttesterSlashing(
 		Attestation2Signature:       attesterSlashing.Attestation2.Signature,
 	}
 
-	return dbAttesterSlashing, nil
+	return dbAttesterSlashing
 }
 
 func (*Service) dbProposerSlashing(
-	// skipcq: RVV-B0012
-	ctx context.Context,
+	_ context.Context,
 	slot phase0.Slot,
 	blockRoot phase0.Root,
 	index uint64,

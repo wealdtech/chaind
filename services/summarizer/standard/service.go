@@ -177,39 +177,44 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	monitorLatestDay(md.LastValidatorDay)
 
 	if !md.PeriodicValidatorRollups {
-		finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, "head")
-		// If we receive an error it could be because the chain hasn't yet started.
-		// Even if not, the handler will kick the process off again.
-		if err == nil && finality.Finalized.Epoch > 2 {
-			go func(ctx context.Context,
-				targetEpoch phase0.Epoch,
-			) {
-				if err := s.summarizeValidatorDays(ctx, targetEpoch); err != nil {
-					log.Error().Err(err).Msg("Failed to summarize validator days")
-					return
-				}
-				md, err := s.getMetadata(ctx)
-				if err != nil {
-					log.Error().Err(err).Msg("Failed to obtain metadata after initial rollup")
-					return
-				}
-				md.PeriodicValidatorRollups = true
-				ctx, cancel, err := s.chainDB.BeginTx(ctx)
-				if err != nil {
-					log.Error().Err(err).Msg("Failed to begin transaction to set metadata after initial rollup")
-				}
-				if err := s.setMetadata(ctx, md); err != nil {
-					cancel()
-					log.Error().Err(err).Msg("Failed to update metadata after initial rollup")
-					return
-				}
-				if err := s.chainDB.CommitTx(ctx); err != nil {
-					cancel()
-					log.Error().Err(err).Msg("failed to set commit transaction to set metadata after initial rollup")
-				}
-			}(ctx, finality.Finalized.Epoch-2)
-		}
+		s.catchup(ctx)
 	}
 
 	return s, nil
+}
+
+func (s *Service) catchup(ctx context.Context) {
+	finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, "head")
+	// If we receive an error it could be because the chain hasn't yet started.
+	// Even if not, the handler will kick the process off again.
+	if err != nil || finality.Finalized.Epoch <= 2 {
+		return
+	}
+
+	go func(ctx context.Context,
+	) {
+		if err := s.summarizeValidatorDays(ctx); err != nil {
+			log.Error().Err(err).Msg("Failed to summarize validator days")
+			return
+		}
+		md, err := s.getMetadata(ctx)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to obtain metadata after initial rollup")
+			return
+		}
+		md.PeriodicValidatorRollups = true
+		ctx, cancel, err := s.chainDB.BeginTx(ctx)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to begin transaction to set metadata after initial rollup")
+		}
+		if err := s.setMetadata(ctx, md); err != nil {
+			cancel()
+			log.Error().Err(err).Msg("Failed to update metadata after initial rollup")
+			return
+		}
+		if err := s.chainDB.CommitTx(ctx); err != nil {
+			cancel()
+			log.Error().Err(err).Msg("failed to set commit transaction to set metadata after initial rollup")
+		}
+	}(ctx)
 }

@@ -24,11 +24,13 @@ import (
 
 var metricsNamespace = "chaind_blocks"
 
-var highestSlot phase0.Slot
-var latestSlot prometheus.Gauge
-var slotsProcessed prometheus.Gauge
+var (
+	highestSlot    phase0.Slot
+	latestSlot     prometheus.Gauge
+	slotsProcessed prometheus.Gauge
+)
 
-func registerMetrics(ctx context.Context, monitor metrics.Service) error {
+func registerMetrics(_ context.Context, monitor metrics.Service) error {
 	if latestSlot != nil {
 		// Already registered.
 		return nil
@@ -38,13 +40,13 @@ func registerMetrics(ctx context.Context, monitor metrics.Service) error {
 		return nil
 	}
 	if monitor.Presenter() == "prometheus" {
-		return registerPrometheusMetrics(ctx)
+		return registerPrometheusMetrics()
 	}
 	return nil
 }
 
 // skipcq: RVV-B0012
-func registerPrometheusMetrics(ctx context.Context) error {
+func registerPrometheusMetrics() error {
 	latestSlot = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "latest_slot",

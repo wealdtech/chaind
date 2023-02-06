@@ -24,11 +24,13 @@ import (
 
 var metricsNamespace = "chaind_proposerduties"
 
-var highestEpoch phase0.Epoch
-var latestEpoch prometheus.Gauge
-var epochsProcessed prometheus.Gauge
+var (
+	highestEpoch    phase0.Epoch
+	latestEpoch     prometheus.Gauge
+	epochsProcessed prometheus.Gauge
+)
 
-func registerMetrics(ctx context.Context, monitor metrics.Service) error {
+func registerMetrics(_ context.Context, monitor metrics.Service) error {
 	if latestEpoch != nil {
 		// Already registered.
 		return nil
@@ -38,13 +40,12 @@ func registerMetrics(ctx context.Context, monitor metrics.Service) error {
 		return nil
 	}
 	if monitor.Presenter() == "prometheus" {
-		return registerPrometheusMetrics(ctx)
+		return registerPrometheusMetrics()
 	}
 	return nil
 }
 
-// skipcq: RVV-B0012
-func registerPrometheusMetrics(ctx context.Context) error {
+func registerPrometheusMetrics() error {
 	latestEpoch = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "latest_epoch",

@@ -26,6 +26,7 @@ type transaction struct {
 	GasPrice uint64
 }
 
+//nolint:tagliatelle
 type transactionJSON struct {
 	GasPrice string `json:"gasPrice"`
 }

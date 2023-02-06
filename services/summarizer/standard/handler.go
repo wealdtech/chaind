@@ -57,7 +57,7 @@ func (s *Service) OnFinalityUpdated(
 		log.Error().Err(err).Msg("Failed to obtain metadata for day summarizer")
 	}
 	if md.PeriodicValidatorRollups {
-		if err := s.summarizeValidatorDays(ctx, finalizedEpoch); err != nil {
+		if err := s.summarizeValidatorDays(ctx); err != nil {
 			log.Warn().Err(err).Msg("Failed to update validator days")
 			return
 		}
@@ -185,7 +185,7 @@ func (s *Service) summarizeValidators(ctx context.Context, summaryEpoch phase0.E
 	return nil
 }
 
-func (s *Service) summarizeValidatorDays(ctx context.Context, summaryEpoch phase0.Epoch) error {
+func (s *Service) summarizeValidatorDays(ctx context.Context) error {
 	md, err := s.getMetadata(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain metadata for validator day summarizer")

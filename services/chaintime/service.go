@@ -20,6 +20,8 @@ import (
 )
 
 // Service provides a number of functions for calculating chain-related times.
+//
+//nolint:interfacebloat
 type Service interface {
 	// GenesisTime provides the time of the chain's genesis.
 	GenesisTime() time.Time

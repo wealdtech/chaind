@@ -35,6 +35,7 @@ type transactionReceipt struct {
 	// LogsBloom etc.
 }
 
+//nolint:tagliatelle
 type transactionReceiptJSON struct {
 	BlockHash         string         `json:"blockHash"`
 	BlockNumber       string         `json:"blockNumber"`

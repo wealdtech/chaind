@@ -121,7 +121,6 @@ func (s *Service) updateSpec(ctx context.Context) {
 		cancel()
 		log.Fatal().Err(err).Msg("Failed to commit transaction")
 	}
-
 }
 
 func (s *Service) updateChainSpec(ctx context.Context) error {

@@ -158,5 +158,4 @@ LIMIT $%d`, len(queryVals)))
 		return aggregates[i].InclusionSlot < aggregates[j].InclusionSlot
 	})
 	return aggregates, nil
-
 }

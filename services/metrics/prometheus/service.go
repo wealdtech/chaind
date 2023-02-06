@@ -16,6 +16,7 @@ package prometheus
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -30,7 +31,7 @@ type Service struct{}
 var log zerolog.Logger
 
 // New creates a new prometheus metrics service.
-func New(ctx context.Context, params ...Parameter) (*Service, error) {
+func New(_ context.Context, params ...Parameter) (*Service, error) {
 	parameters, err := parseAndCheckParameters(params...)
 	if err != nil {
 		return nil, errors.Wrap(err, "problem with parameters")
@@ -46,7 +47,11 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
-		if err := http.ListenAndServe(parameters.address, nil); err != nil {
+		server := &http.Server{
+			Addr:              parameters.address,
+			ReadHeaderTimeout: 5 * time.Second,
+		}
+		if err := server.ListenAndServe(); err != nil {
 			log.Warn().Str("metrics_address", parameters.address).Err(err).Msg("Failed to run metrics server")
 		}
 	}()
@@ -55,6 +60,6 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 }
 
 // Presenter returns the presenter for the events.
-func (s *Service) Presenter() string {
+func (*Service) Presenter() string {
 	return "prometheus"
 }

@@ -35,6 +35,7 @@ type logResponse struct {
 	Removed          bool
 }
 
+//nolint:tagliatelle
 type logResponseJSON struct {
 	Address          string   `json:"address"`
 	Topics           []string `json:"topics"`
