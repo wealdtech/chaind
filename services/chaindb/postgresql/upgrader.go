@@ -27,7 +27,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(10)
+var currentVersion = uint64(11)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -98,6 +98,11 @@ var upgrades = map[uint64]*upgrade{
 		funcs: []func(context.Context, *Service) error{
 			createBlockBLSToExecutionChanges,
 			createBlockWithdrawals,
+		},
+	},
+	11: {
+		funcs: []func(context.Context, *Service) error{
+			recreateForkSchedule,
 		},
 	},
 }
@@ -695,8 +700,9 @@ func createForkSchedule(ctx context.Context, s *Service) error {
 
 	if _, err := tx.Exec(ctx, `
 CREATE TABLE t_fork_schedule (
-  f_epoch   BIGINT UNIQUE NOT NULL
- ,f_version BYTEA NOT NULL
+  f_version BYTEA UNIQUE NOT NULL
+ ,f_epoch   BIGINT NOT NULL
+ ,f_previous_version BYTEA NOT NULL
 )
 `); err != nil {
 		return errors.Wrap(err, "failed to create fork schedule table")
@@ -1091,8 +1097,9 @@ CREATE TABLE t_epoch_summaries (
 );
 
 CREATE TABLE t_fork_schedule (
-  f_epoch   BIGINT UNIQUE NOT NULL
- ,f_version BYTEA NOT NULL
+  f_version BYTEA UNIQUE NOT NULL
+ ,f_epoch   BIGINT NOT NULL
+ ,f_previous_version BYTEA NOT NULL
 );
 
 CREATE TABLE t_sync_committees (
@@ -1493,6 +1500,29 @@ CREATE INDEX IF NOT EXISTS i_block_withdrawals_3 ON t_block_withdrawals(f_valida
 CREATE INDEX IF NOT EXISTS i_block_withdrawals_4 ON t_block_withdrawals(f_address);
 `); err != nil {
 		return errors.Wrap(err, "failed to create block withdrawals index 4")
+	}
+
+	return nil
+}
+
+func recreateForkSchedule(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+	if _, err := tx.Exec(ctx, `
+DROP TABLE t_fork_schedule
+`); err != nil {
+		return errors.Wrap(err, "failed to drop fork schedule")
+	}
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE t_fork_schedule (
+  f_version BYTEA UNIQUE NOT NULL
+ ,f_epoch   BIGINT NOT NULL
+ ,f_previous_version BYTEA NOT NULL
+)
+`); err != nil {
+		return errors.Wrap(err, "failed to create fork schedule")
 	}
 
 	return nil

@@ -104,12 +104,8 @@ func (s *Service) updateAfterRestart(ctx context.Context, startPeriod int64) {
 		md.LatestPeriod = startPeriod - 1
 	}
 
-	if md.LatestPeriod == -1 || s.chainTime.AltairInitialSyncCommitteePeriod() > uint64(md.LatestPeriod) {
-		md.LatestPeriod = int64(s.chainTime.AltairInitialSyncCommitteePeriod())
-		// Decrement if possible.
-		if md.LatestPeriod > 0 {
-			md.LatestPeriod--
-		}
+	if s.chainTime.AltairInitialSyncCommitteePeriod() > uint64(md.LatestPeriod) {
+		md.LatestPeriod = int64(s.chainTime.AltairInitialSyncCommitteePeriod()) - 1
 	}
 
 	log.Info().Int64("period", md.LatestPeriod).Msg("Catching up from period")

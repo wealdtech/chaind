@@ -125,11 +125,11 @@ func (s *Service) SetValidatorDaySummary(ctx context.Context, summary *chaindb.V
 	_, err := tx.Exec(ctx, `
 INSERT INTO t_validator_day_summaries(f_validator_index
                                      ,f_start_timestamp
-                                     ,f_start_balance,
-                                     ,f_start_effective_balance,
-                                     ,f_capital_change,
-                                     ,f_reward_change,
-                                     ,f_effective_balance_change,
+                                     ,f_start_balance
+                                     ,f_start_effective_balance
+                                     ,f_capital_change
+                                     ,f_reward_change
+                                     ,f_effective_balance_change
                                      ,f_proposals
                                      ,f_proposals_included
                                      ,f_attestations

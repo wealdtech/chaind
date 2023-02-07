@@ -83,7 +83,7 @@ func (s *Service) SetValidatorEpochSummaries(ctx context.Context, summaries []*c
 			return errors.Wrap(err, "failed to roll back nested transaction")
 		}
 
-		log.Debug().Err(err).Msg("Failed to copy insert blocks; applying one at a time")
+		log.Debug().Err(err).Msg("Failed to copy insert validator epoch summaries; applying one at a time")
 		for _, summary := range summaries {
 			if err := s.SetValidatorEpochSummary(ctx, summary); err != nil {
 				log.Error().Err(err).Msg("Failure to insert individual summary")

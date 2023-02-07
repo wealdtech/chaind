@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Limited.
+// Copyright © 2021, 2023 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -33,36 +33,23 @@ func (s *Service) SetForkSchedule(ctx context.Context, schedule []*phase0.Fork) 
 	}
 
 	_, err := tx.Exec(ctx, `
-      TRUNCATE TABLE t_fork_schedule
-    `)
+TRUNCATE TABLE t_fork_schedule
+`)
 	if err != nil {
 		return err
 	}
 
-	for i, fork := range schedule {
-		if i == 0 && fork.Epoch != 0 {
-			// Create a synthetic genesis fork.
-			_, err := tx.Exec(ctx, `
-      INSERT INTO t_fork_schedule(f_epoch
-                                 ,f_version
-						         )
-      VALUES($1,$2)
-	  `,
-				0,
-				fork.PreviousVersion[:],
-			)
-			if err != nil {
-				return err
-			}
-		}
+	for _, fork := range schedule {
 		_, err := tx.Exec(ctx, `
-      INSERT INTO t_fork_schedule(f_epoch
-                                 ,f_version
-						         )
-      VALUES($1,$2)
+INSERT INTO t_fork_schedule(f_version
+                           ,f_epoch
+                           ,f_previous_version
+)
+VALUES($1,$2,$3)
 	  `,
-			fork.Epoch,
 			fork.CurrentVersion[:],
+			fork.Epoch,
+			fork.PreviousVersion[:],
 		)
 		if err != nil {
 			return err
@@ -89,11 +76,12 @@ func (s *Service) ForkSchedule(ctx context.Context) ([]*phase0.Fork, error) {
 
 	schedule := make([]*phase0.Fork, 0)
 	rows, err := tx.Query(ctx, `
-      SELECT f_epoch
-            ,f_version
-      FROM t_fork_schedule
-      ORDER BY f_epoch
-	  `)
+SELECT f_version
+      ,f_epoch
+      ,f_previous_version
+FROM t_fork_schedule
+ORDER BY f_epoch
+`)
 	if err != nil {
 		return nil, err
 	}
@@ -102,19 +90,17 @@ func (s *Service) ForkSchedule(ctx context.Context) ([]*phase0.Fork, error) {
 	for rows.Next() {
 		fork := &phase0.Fork{}
 		var version []byte
+		var previousVersion []byte
 		err := rows.Scan(
-			&fork.Epoch,
 			&version,
+			&fork.Epoch,
+			&previousVersion,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
 		copy(fork.CurrentVersion[:], version)
-		if fork.Epoch == 0 {
-			fork.PreviousVersion = fork.CurrentVersion
-		} else {
-			fork.PreviousVersion = schedule[len(schedule)-1].CurrentVersion
-		}
+		copy(fork.PreviousVersion[:], previousVersion)
 		schedule = append(schedule, fork)
 	}
 

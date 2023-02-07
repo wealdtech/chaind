@@ -39,15 +39,21 @@ func (s *Service) OnFinalityUpdated(
 	}
 	defer s.activitySem.Release(1)
 
-	if err := s.summarizeEpochs(ctx, finalizedEpoch); err != nil {
+	if finalizedEpoch == 0 {
+		log.Debug().Msg("Not summarizing on epoch 0")
+		return
+	}
+	summaryEpoch := finalizedEpoch - 1
+
+	if err := s.summarizeEpochs(ctx, summaryEpoch); err != nil {
 		log.Warn().Err(err).Msg("Failed to update epochs")
 		return
 	}
-	if err := s.summarizeBlocks(ctx, finalizedEpoch); err != nil {
+	if err := s.summarizeBlocks(ctx, summaryEpoch); err != nil {
 		log.Warn().Err(err).Msg("Failed to update blocks")
 		return
 	}
-	if err := s.summarizeValidators(ctx, finalizedEpoch); err != nil {
+	if err := s.summarizeValidators(ctx, summaryEpoch); err != nil {
 		log.Warn().Err(err).Msg("Failed to update validators")
 		return
 	}
@@ -62,7 +68,7 @@ func (s *Service) OnFinalityUpdated(
 			return
 		}
 
-		if err := s.prune(ctx, finalizedEpoch); err != nil {
+		if err := s.prune(ctx, summaryEpoch); err != nil {
 			log.Warn().Err(err).Msg("Failed to prune summaries")
 			return
 		}
@@ -178,7 +184,7 @@ func (s *Service) summarizeValidators(ctx context.Context, summaryEpoch phase0.E
 
 	for epoch := lastValidatorEpoch; epoch <= summaryEpoch; epoch++ {
 		if err := s.summarizeValidatorsInEpoch(ctx, md, epoch); err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to update validator summaries for epoch %d", epoch))
+			return errors.Wrap(err, fmt.Sprintf("failed to update validator summaries in epoch %d", epoch))
 		}
 	}
 

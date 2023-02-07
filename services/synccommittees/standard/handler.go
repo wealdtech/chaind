@@ -39,7 +39,7 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	period := s.chainTime.EpochToSyncCommitteePeriod(epoch)
 	log := log.With().Uint64("slot", uint64(slot)).Uint64("epoch", uint64(epoch)).Uint64("period", period).Logger()
 
-	if period < s.chainTime.AltairInitialSyncCommitteePeriod() {
+	if epoch < s.chainTime.AltairInitialEpoch() {
 		log.Trace().Msg("Chain is not yet generating sync committees")
 		return
 	}

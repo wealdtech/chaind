@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Limited.
+// Copyright © 2021 - 2023 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -34,7 +34,7 @@ func (s *Service) summarizeBlocksInEpoch(ctx context.Context,
 	}
 
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
-	maxSlot := s.chainTime.FirstSlotOfEpoch(epoch+1) - 1
+	maxSlot := s.chainTime.LastSlotOfEpoch(epoch)
 	log.Trace().Uint64("min_slot", uint64(minSlot)).Uint64("max_slot", uint64(maxSlot)).Msg("Summarizing blocks for epoch")
 
 	for slot := minSlot; slot <= maxSlot; slot++ {

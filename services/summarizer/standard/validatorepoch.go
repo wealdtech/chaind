@@ -117,11 +117,10 @@ func (s *Service) validatorProposerDutiesForEpoch(ctx context.Context,
 	map[phase0.ValidatorIndex]int,
 	error,
 ) {
+	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
+	maxSlot := s.chainTime.LastSlotOfEpoch(epoch)
 	// Fetch the proposer duties for the epoch.
-	proposerDuties, err := s.proposerDutiesProvider.ProposerDutiesForSlotRange(ctx,
-		s.chainTime.FirstSlotOfEpoch(epoch),
-		s.chainTime.FirstSlotOfEpoch(epoch+1),
-	)
+	proposerDuties, err := s.proposerDutiesProvider.ProposerDutiesForSlotRange(ctx, minSlot, maxSlot+1)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -158,11 +157,10 @@ func (s *Service) validatorProposalsForEpoch(ctx context.Context,
 	map[phase0.ValidatorIndex]int,
 	error,
 ) {
+	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
+	maxSlot := s.chainTime.LastSlotOfEpoch(epoch)
 	// Fetch the block presence for the epoch.
-	presence, err := s.blocksProvider.CanonicalBlockPresenceForSlotRange(ctx,
-		s.chainTime.FirstSlotOfEpoch(epoch),
-		s.chainTime.FirstSlotOfEpoch(epoch+1),
-	)
+	presence, err := s.blocksProvider.CanonicalBlockPresenceForSlotRange(ctx, minSlot, maxSlot+1)
 	if err != nil {
 		return nil, err
 	}
@@ -195,11 +193,10 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 	map[phase0.ValidatorIndex]bool,
 	error,
 ) {
+	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
+	maxSlot := s.chainTime.LastSlotOfEpoch(epoch)
 	// Fetch all attestations for the epoch.
-	attestations, err := s.attestationsProvider.AttestationsForSlotRange(ctx,
-		s.chainTime.FirstSlotOfEpoch(epoch),
-		s.chainTime.FirstSlotOfEpoch(epoch+1),
-	)
+	attestations, err := s.attestationsProvider.AttestationsForSlotRange(ctx, minSlot, maxSlot+1)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, errors.Wrap(err, "failed to obtain attestations for slot range")
 	}
@@ -218,7 +215,7 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 	for _, attestation := range attestations {
 		if attestation.Canonical == nil {
 			// This should not happen, so flag it as an error.
-			log.Error().Uint64("slot", uint64(attestation.Slot)).Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Msg("Non-canonical attestation; ignoring")
+			log.Error().Uint64("slot", uint64(attestation.Slot)).Uint64("inclusion_slot", uint64(attestation.InclusionSlot)).Msg("Indeterminate attestation; ignoring")
 			continue
 		}
 		if !*attestation.Canonical {
