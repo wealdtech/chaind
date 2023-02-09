@@ -1136,12 +1136,14 @@ CREATE TABLE t_block_bls_to_execution_changes (
   f_block_root            BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
  ,f_block_number          BIGINT  NOT NULL
  ,f_index                 INTEGER NOT NULL
+ ,f_validator_index       BIGINT  NOT NULL
  ,f_from_bls_pubkey       BYTEA   NOT NULL
  ,f_to_execution_address  BYTEA   NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_1 ON t_block_bls_to_execution_changes(f_block_root,f_block_number,f_index);
 CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_2 ON t_block_bls_to_execution_changes(f_block_number);
 CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_3 ON t_block_bls_to_execution_changes(f_to_execution_address);
+CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_4 ON t_block_bls_to_execution_changes(f_validator_index);
 
 -- t_block_withdrawals is a subtable for t_blocks.
 -- This data is actually part of the execution payload, but flattened for our purposes.
