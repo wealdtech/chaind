@@ -1431,6 +1431,7 @@ CREATE TABLE t_block_bls_to_execution_changes (
   f_block_root            BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
  ,f_block_number          BIGINT  NOT NULL
  ,f_index                 INTEGER NOT NULL
+ ,f_validator_index       BIGINT  NOT NULL
  ,f_from_bls_pubkey       BYTEA   NOT NULL
  ,f_to_execution_address  BYTEA   NOT NULL
 )
@@ -1454,6 +1455,12 @@ CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_2 ON t_block_bls_to_
 CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_3 ON t_block_bls_to_execution_changes(f_to_execution_address);
 `); err != nil {
 		return errors.Wrap(err, "failed to create block bls to execution changes index 3")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_4 ON t_block_bls_to_execution_changes(f_validator_index);
+`); err != nil {
+		return errors.Wrap(err, "failed to create block bls to execution changes index 4")
 	}
 
 	return nil

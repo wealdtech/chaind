@@ -52,7 +52,7 @@ INSERT INTO t_block_bls_to_execution_changes(f_block_root
                                             ,f_from_bls_pubkey
                                             ,f_to_execution_address
                                             )
-VALUES($1,$2,$3,$4,$5)
+VALUES($1,$2,$3,$4,$5,$6)
 ON CONFLICT (f_block_root,f_block_number,f_index) DO
 UPDATE
 SET f_validator_index = excluded.f_validator_index 
