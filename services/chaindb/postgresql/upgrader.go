@@ -1150,7 +1150,6 @@ CREATE TABLE t_block_bls_to_execution_changes (
 CREATE UNIQUE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_1 ON t_block_bls_to_execution_changes(f_block_root,f_block_number,f_index);
 CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_2 ON t_block_bls_to_execution_changes(f_block_number);
 CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_3 ON t_block_bls_to_execution_changes(f_to_execution_address);
-CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_4 ON t_block_bls_to_execution_changes(f_validator_index);
 
 -- t_block_withdrawals is a subtable for t_blocks.
 -- This data is actually part of the execution payload, but flattened for our purposes.
@@ -1510,12 +1509,6 @@ CREATE INDEX IF NOT EXISTS i_block_withdrawals_2 ON t_block_withdrawals(f_block_
 CREATE INDEX IF NOT EXISTS i_block_withdrawals_3 ON t_block_withdrawals(f_validator_index);
 `); err != nil {
 		return errors.Wrap(err, "failed to create block withdrawals index 3")
-	}
-
-	if _, err := tx.Exec(ctx, `
-CREATE INDEX IF NOT EXISTS i_block_withdrawals_4 ON t_block_withdrawals(f_address);
-`); err != nil {
-		return errors.Wrap(err, "failed to create block withdrawals index 4")
 	}
 
 	return nil
