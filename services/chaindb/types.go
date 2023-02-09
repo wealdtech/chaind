@@ -51,6 +51,7 @@ type Validator struct {
 	ActivationEpoch            phase0.Epoch
 	ExitEpoch                  phase0.Epoch
 	WithdrawableEpoch          phase0.Epoch
+	WithdrawalCredentials      []byte
 }
 
 // ValidatorBalance holds information about a validator's balance at a given epoch.

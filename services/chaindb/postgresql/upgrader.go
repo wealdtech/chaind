@@ -851,9 +851,11 @@ CREATE TABLE t_validators (
  ,f_exit_epoch                   BIGINT
  ,f_withdrawable_epoch           BIGINT
  ,f_effective_balance            BIGINT NOT NULL
+ ,f_withdrawal_credentials		 BYTEA NOT NULL
 );
 CREATE UNIQUE INDEX i_validators_1 ON t_validators(f_index);
 CREATE UNIQUE INDEX i_validators_2 ON t_validators(f_public_key);
+CREATE INDEX i_validators_3 ON t_validators(f_withdrawal_credentials);
 
 -- t_blocks contains all blocks proposed by validators.
 -- N.B. it is possible for multiple valid blocks to be proposed in a single slot

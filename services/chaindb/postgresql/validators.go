@@ -69,8 +69,9 @@ func (s *Service) SetValidator(ctx context.Context, validator *chaindb.Validator
                               ,f_activation_epoch
                               ,f_exit_epoch
                               ,f_withdrawable_epoch
-                              ,f_effective_balance)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+                              ,f_effective_balance
+							  ,f_withdrawal_credentials)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
       ON CONFLICT (f_index) DO
       UPDATE
       SET f_public_key = excluded.f_public_key
@@ -80,6 +81,7 @@ func (s *Service) SetValidator(ctx context.Context, validator *chaindb.Validator
          ,f_exit_epoch = excluded.f_exit_epoch
          ,f_withdrawable_epoch = excluded.f_withdrawable_epoch
          ,f_effective_balance = excluded.f_effective_balance
+		 ,f_withdrawal_credentials = excluded.f_withdrawal_credentials
 		 `,
 		validator.PublicKey[:],
 		validator.Index,
@@ -89,6 +91,7 @@ func (s *Service) SetValidator(ctx context.Context, validator *chaindb.Validator
 		exitEpoch,
 		withdrawableEpoch,
 		validator.EffectiveBalance,
+		validator.WithdrawalCredentials[:],
 	)
 
 	return err
@@ -177,6 +180,7 @@ func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) 
             ,f_exit_epoch
             ,f_withdrawable_epoch
             ,f_effective_balance
+			,f_withdrawal_credentials
       FROM t_validators
       ORDER BY f_index
 	  `)
@@ -293,6 +297,56 @@ func (s *Service) ValidatorsByIndex(ctx context.Context, indices []phase0.Valida
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
 		validators[validator.Index] = validator
+	}
+
+	return validators, nil
+}
+
+// ValidatorsByWithdrawalCredential fetches all validators with the given withdrawal credential.
+func (s *Service) ValidatorsByWithdrawalCredential(ctx context.Context, withdrawalCredentials []byte) ([]*chaindb.Validator, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorsByWithdrawalCredential")
+	defer span.End()
+
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, err := s.BeginROTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		defer s.CommitROTx(ctx)
+		tx = s.tx(ctx)
+	}
+
+	sqlWithdrawalCredentials := make([]byte, len(withdrawalCredentials))
+	copy(sqlWithdrawalCredentials, withdrawalCredentials)
+
+	rows, err := tx.Query(ctx, `
+      SELECT f_public_key
+            ,f_index
+            ,f_slashed
+            ,f_activation_eligibility_epoch
+            ,f_activation_epoch
+            ,f_exit_epoch
+            ,f_withdrawable_epoch
+            ,f_effective_balance
+      FROM t_validators
+      WHERE f_withdrawal_credentials = ANY($1)
+      ORDER BY f_index
+	  `,
+		sqlWithdrawalCredentials,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	validators := make([]*chaindb.Validator, 0)
+	for rows.Next() {
+		validator, err := validatorFromRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		validators = append(validators, validator)
 	}
 
 	return validators, nil
@@ -585,6 +639,7 @@ func validatorFromRow(rows pgx.Rows) (*chaindb.Validator, error) {
 	var activationEpoch sql.NullInt64
 	var exitEpoch sql.NullInt64
 	var withdrawableEpoch sql.NullInt64
+	var withdrawalCredentials []byte
 	validator := &chaindb.Validator{}
 	err := rows.Scan(
 		&publicKey,
@@ -595,6 +650,7 @@ func validatorFromRow(rows pgx.Rows) (*chaindb.Validator, error) {
 		&exitEpoch,
 		&withdrawableEpoch,
 		&validator.EffectiveBalance,
+		&withdrawalCredentials,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to scan row")
@@ -620,6 +676,7 @@ func validatorFromRow(rows pgx.Rows) (*chaindb.Validator, error) {
 	} else {
 		validator.WithdrawableEpoch = phase0.Epoch(withdrawableEpoch.Int64)
 	}
+	copy(validator.WithdrawalCredentials[:], withdrawalCredentials)
 
 	return validator, nil
 }
