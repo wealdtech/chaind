@@ -3,6 +3,7 @@
   - add open telemetry tracing
   - avoid fetching duplicate proposer duties
   - introduce daily validator summaries, and pruning of validator balances and validator epoch summaries
+  - support Capella
 
 0.6.17:
   - expose read-only transaction functions
