@@ -27,7 +27,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(11)
+var currentVersion = uint64(12)
 
 type upgrade struct {
 	requiresRefetch bool
