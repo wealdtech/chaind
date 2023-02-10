@@ -1544,31 +1544,9 @@ func recreateValidators(ctx context.Context, s *Service) error {
 	}
 
 	if _, err := tx.Exec(ctx, `
-CREATE TABLE t_validators (
-  f_public_key                   BYTEA NOT NULL
- ,f_index                        BIGINT NOT NULL
- ,f_slashed                      BOOLEAN NOT NULL
- ,f_activation_eligibility_epoch BIGINT
- ,f_activation_epoch             BIGINT
- ,f_exit_epoch                   BIGINT
- ,f_withdrawable_epoch           BIGINT
- ,f_effective_balance            BIGINT NOT NULL
- ,f_withdrawal_credentials		 BYTEA NOT NULL
-);
+	ALTER TABLE t_validators ADD COLUMN f_withdrawal_credentials BYTEA;
 `); err != nil {
 		return errors.Wrap(err, "failed to create block bls to execution changes table")
-	}
-
-	if _, err := tx.Exec(ctx, `
-CREATE UNIQUE INDEX IF NOT EXISTS i_validators_1 ON t_validators(f_index);
-`); err != nil {
-		return errors.Wrap(err, "failed to create validators index 1")
-	}
-
-	if _, err := tx.Exec(ctx, `
-CREATE UNIQUE INDEX IF NOT EXISTS i_validators_2 ON t_validators(f_public_key);
-`); err != nil {
-		return errors.Wrap(err, "failed to create validators index 2")
 	}
 
 	if _, err := tx.Exec(ctx, `
