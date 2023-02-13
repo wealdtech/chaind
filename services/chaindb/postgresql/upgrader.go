@@ -116,7 +116,7 @@ func (s *Service) Upgrade(ctx context.Context) (bool, error) {
 		return false, errors.Wrap(err, "failed to check presence of tables")
 	}
 	if !tableExists {
-		return s.Init(ctx)
+		return false, s.Init(ctx)
 	}
 
 	version, err := s.version(ctx)
@@ -806,15 +806,15 @@ CREATE UNIQUE INDEX i_sync_aggregates_1 ON t_sync_aggregates(f_inclusion_slot, f
 }
 
 // Init initialises the database.
-func (s *Service) Init(ctx context.Context) (bool, error) {
+func (s *Service) Init(ctx context.Context) error {
 	ctx, cancel, err := s.BeginTx(ctx)
 	if err != nil {
-		return false, errors.Wrap(err, "failed to begin initial tables transaction")
+		return errors.Wrap(err, "failed to begin initial tables transaction")
 	}
 	tx := s.tx(ctx)
 	if tx == nil {
 		cancel()
-		return false, ErrNoTransaction
+		return ErrNoTransaction
 	}
 
 	if _, err := tx.Exec(ctx, `
@@ -1160,20 +1160,20 @@ CREATE INDEX IF NOT EXISTS i_block_withdrawals_3 ON t_block_withdrawals(f_valida
 CREATE INDEX IF NOT EXISTS i_block_withdrawals_4 ON t_block_withdrawals(f_address);
 `); err != nil {
 		cancel()
-		return false, errors.Wrap(err, "failed to create initial tables")
+		return errors.Wrap(err, "failed to create initial tables")
 	}
 
 	if err := s.setVersion(ctx, currentVersion); err != nil {
 		cancel()
-		return false, errors.Wrap(err, "failed to set initial schema version")
+		return errors.Wrap(err, "failed to set initial schema version")
 	}
 
 	if err := s.CommitTx(ctx); err != nil {
 		cancel()
-		return false, errors.Wrap(err, "failed to commit initial tables transaction")
+		return errors.Wrap(err, "failed to commit initial tables transaction")
 	}
 
-	return true, nil
+	return nil
 }
 
 // addValidatorSummaryTimely adds timely fields to the t_validator_epoch_summaries table.
