@@ -244,6 +244,9 @@ func needsUpdate(validator *phase0.Validator,
 	if dbValidator.WithdrawableEpoch != validator.WithdrawableEpoch {
 		return true
 	}
+	if !bytes.Equal(dbValidator.WithdrawalCredentials[:], validator.WithdrawalCredentials[:]) {
+		return true
+	}
 
 	return false
 }
