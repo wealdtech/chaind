@@ -1,9 +1,9 @@
 module github.com/wealdtech/chaind
 
-go 1.18
+go 1.20
 
 require (
-	github.com/attestantio/go-eth2-client v0.15.2
+	github.com/attestantio/go-eth2-client v0.15.6
 	github.com/aws/aws-sdk-go v1.44.196
 	github.com/jackc/pgtype v1.13.0
 	github.com/jackc/pgx/v4 v4.17.2
