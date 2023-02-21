@@ -48,7 +48,7 @@ func (s *Service) setBLSToExecutionChanges(ctx context.Context, block *chaindb.B
 INSERT INTO t_block_bls_to_execution_changes(f_block_root
                                             ,f_block_number
                                             ,f_index
-											,f_validator_index
+                                            ,f_validator_index
                                             ,f_from_bls_pubkey
                                             ,f_to_execution_address
                                             )
@@ -96,7 +96,7 @@ func (s *Service) BLSToExecutionChanges(ctx context.Context, filter *chaindb.BLS
 SELECT f_block_root
       ,f_block_number
       ,f_index
-	  ,f_validator_index
+      ,f_validator_index
       ,f_from_bls_pubkey
       ,f_to_execution_address
 FROM t_block_bls_to_execution_changes`)

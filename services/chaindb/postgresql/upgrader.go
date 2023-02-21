@@ -107,7 +107,7 @@ var upgrades = map[uint64]*upgrade{
 	},
 	12: {
 		funcs: []func(context.Context, *Service) error{
-			recreateValidators,
+			addValidatorWithdrawalCredentials,
 		},
 	},
 }
@@ -856,7 +856,7 @@ CREATE TABLE t_validators (
  ,f_exit_epoch                   BIGINT
  ,f_withdrawable_epoch           BIGINT
  ,f_effective_balance            BIGINT NOT NULL
- ,f_withdrawal_credentials		 BYTEA NOT NULL
+ ,f_withdrawal_credentials       BYTEA NOT NULL
 );
 CREATE UNIQUE INDEX i_validators_1 ON t_validators(f_index);
 CREATE UNIQUE INDEX i_validators_2 ON t_validators(f_public_key);
@@ -1511,6 +1511,12 @@ CREATE INDEX IF NOT EXISTS i_block_withdrawals_3 ON t_block_withdrawals(f_valida
 		return errors.Wrap(err, "failed to create block withdrawals index 3")
 	}
 
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX IF NOT EXISTS i_block_withdrawals_4 ON t_block_withdrawals(f_address);
+`); err != nil {
+		return errors.Wrap(err, "failed to create block withdrawals index 4")
+	}
+
 	return nil
 }
 
@@ -1537,7 +1543,7 @@ CREATE TABLE t_fork_schedule (
 	return nil
 }
 
-func recreateValidators(ctx context.Context, s *Service) error {
+func addValidatorWithdrawalCredentials(ctx context.Context, s *Service) error {
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction

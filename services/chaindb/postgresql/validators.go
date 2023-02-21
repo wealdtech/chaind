@@ -70,7 +70,7 @@ func (s *Service) SetValidator(ctx context.Context, validator *chaindb.Validator
                               ,f_exit_epoch
                               ,f_withdrawable_epoch
                               ,f_effective_balance
-							  ,f_withdrawal_credentials)
+                              ,f_withdrawal_credentials)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
       ON CONFLICT (f_index) DO
       UPDATE
@@ -81,7 +81,7 @@ func (s *Service) SetValidator(ctx context.Context, validator *chaindb.Validator
          ,f_exit_epoch = excluded.f_exit_epoch
          ,f_withdrawable_epoch = excluded.f_withdrawable_epoch
          ,f_effective_balance = excluded.f_effective_balance
-		 ,f_withdrawal_credentials = excluded.f_withdrawal_credentials
+         ,f_withdrawal_credentials = excluded.f_withdrawal_credentials
 		 `,
 		validator.PublicKey[:],
 		validator.Index,
@@ -180,7 +180,7 @@ func (s *Service) Validators(ctx context.Context) ([]*chaindb.Validator, error) 
             ,f_exit_epoch
             ,f_withdrawable_epoch
             ,f_effective_balance
-			,f_withdrawal_credentials
+            ,f_withdrawal_credentials
       FROM t_validators
       ORDER BY f_index
 	  `)
