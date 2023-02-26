@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	eth2client "github.com/attestantio/go-eth2-client"
-	"github.com/attestantio/go-eth2-client/spec"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
@@ -530,16 +529,9 @@ func (s *Service) fetchBlock(ctx context.Context, root phase0.Root) (*chaindb.Bl
 			// No blocks yet; bow out but no error.
 			return nil, nil
 		}
-		var earliestAllowableSlot phase0.Slot
-		switch signedBlock.Version {
-		case spec.DataVersionPhase0:
-			earliestAllowableSlot = signedBlock.Phase0.Message.Slot
-		case spec.DataVersionAltair:
-			earliestAllowableSlot = signedBlock.Altair.Message.Slot
-		case spec.DataVersionBellatrix:
-			earliestAllowableSlot = signedBlock.Bellatrix.Message.Slot
-		default:
-			return nil, errors.New("unknown block version")
+		earliestAllowableSlot, err := signedBlock.Slot()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to obtain slot of block")
 		}
 		if earliestAllowableSlot < 1024 {
 			earliestAllowableSlot = 0

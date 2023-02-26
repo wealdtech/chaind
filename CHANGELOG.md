@@ -1,5 +1,6 @@
 dev:
   - fix issue where capella fork was not detected
+  - pick up capella epochs in finalizer
 
 0.7.0:
   - speed up sync by only updating changed validators
