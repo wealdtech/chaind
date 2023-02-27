@@ -111,6 +111,8 @@ func (s *Service) onEpochTransitionValidators(ctx context.Context,
 			continue
 		}
 
+		withdrawalCredentials := [32]byte{}
+		copy(withdrawalCredentials[:], validator.Validator.WithdrawalCredentials)
 		dbValidator := &chaindb.Validator{
 			PublicKey:                  validator.Validator.PublicKey,
 			Index:                      index,
@@ -120,7 +122,7 @@ func (s *Service) onEpochTransitionValidators(ctx context.Context,
 			ActivationEpoch:            validator.Validator.ActivationEpoch,
 			ExitEpoch:                  validator.Validator.ExitEpoch,
 			WithdrawableEpoch:          validator.Validator.WithdrawableEpoch,
-			WithdrawalCredentials:      validator.Validator.WithdrawalCredentials,
+			WithdrawalCredentials:      withdrawalCredentials,
 		}
 		if err := s.validatorsSetter.SetValidator(ctx, dbValidator); err != nil {
 			cancel()
@@ -244,7 +246,7 @@ func needsUpdate(validator *phase0.Validator,
 	if dbValidator.WithdrawableEpoch != validator.WithdrawableEpoch {
 		return true
 	}
-	if !bytes.Equal(dbValidator.WithdrawalCredentials[:], validator.WithdrawalCredentials[:]) {
+	if !bytes.Equal(dbValidator.WithdrawalCredentials[:], validator.WithdrawalCredentials) {
 		return true
 	}
 

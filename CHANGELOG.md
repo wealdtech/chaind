@@ -1,6 +1,8 @@
 dev:
   - fix issue where capella fork was not detected
   - pick up capella epochs in finalizer
+  - add validator index to BLS to execution changes (thanks to @samlaf)
+  - add withdrawal credentials to validators (thanks to @samlaf)
 
 0.7.0:
   - speed up sync by only updating changed validators
