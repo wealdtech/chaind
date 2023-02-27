@@ -232,6 +232,7 @@ func (s *Service) ValidatorsByPublicKey(ctx context.Context, pubKeys []phase0.BL
             ,f_exit_epoch
             ,f_withdrawable_epoch
             ,f_effective_balance
+            ,f_withdrawal_credentials
       FROM t_validators
       WHERE f_public_key = ANY($1)
       ORDER BY f_index
@@ -279,6 +280,7 @@ func (s *Service) ValidatorsByIndex(ctx context.Context, indices []phase0.Valida
             ,f_exit_epoch
             ,f_withdrawable_epoch
             ,f_effective_balance
+            ,f_withdrawal_credentials
       FROM t_validators
       WHERE f_index = ANY($1)
       ORDER BY f_index
@@ -329,6 +331,7 @@ func (s *Service) ValidatorsByWithdrawalCredential(ctx context.Context, withdraw
             ,f_exit_epoch
             ,f_withdrawable_epoch
             ,f_effective_balance
+            ,f_withdrawal_credentials
       FROM t_validators
       WHERE f_withdrawal_credentials = ANY($1)
       ORDER BY f_index
