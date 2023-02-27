@@ -48,18 +48,21 @@ func (s *Service) setBLSToExecutionChanges(ctx context.Context, block *chaindb.B
 INSERT INTO t_block_bls_to_execution_changes(f_block_root
                                             ,f_block_number
                                             ,f_index
+                                            ,f_validator_index
                                             ,f_from_bls_pubkey
                                             ,f_to_execution_address
                                             )
-VALUES($1,$2,$3,$4,$5)
+VALUES($1,$2,$3,$4,$5,$6)
 ON CONFLICT (f_block_root,f_block_number,f_index) DO
 UPDATE
-SET f_from_bls_pubkey = excluded.f_from_bls_pubkey
+SET f_validator_index = excluded.f_validator_index 
+   ,f_from_bls_pubkey = excluded.f_from_bls_pubkey
    ,f_to_execution_address = excluded.f_to_execution_address
 `,
 			change.InclusionBlockRoot[:],
 			change.InclusionSlot,
 			change.InclusionIndex,
+			change.ValidatorIndex,
 			change.FromBLSPubKey[:],
 			change.ToExecutionAddress[:],
 		); err != nil {
@@ -93,7 +96,8 @@ func (s *Service) BLSToExecutionChanges(ctx context.Context, filter *chaindb.BLS
 SELECT f_block_root
       ,f_block_number
       ,f_index
-      ,f_from_blS_pubkey
+      ,f_validator_index
+      ,f_from_bls_pubkey
       ,f_to_execution_address
 FROM t_block_bls_to_execution_changes`)
 

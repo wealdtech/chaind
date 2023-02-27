@@ -120,6 +120,7 @@ func (s *Service) onEpochTransitionValidators(ctx context.Context,
 			ActivationEpoch:            validator.Validator.ActivationEpoch,
 			ExitEpoch:                  validator.Validator.ExitEpoch,
 			WithdrawableEpoch:          validator.Validator.WithdrawableEpoch,
+			WithdrawalCredentials:      validator.Validator.WithdrawalCredentials,
 		}
 		if err := s.validatorsSetter.SetValidator(ctx, dbValidator); err != nil {
 			cancel()
@@ -241,6 +242,9 @@ func needsUpdate(validator *phase0.Validator,
 		return true
 	}
 	if dbValidator.WithdrawableEpoch != validator.WithdrawableEpoch {
+		return true
+	}
+	if !bytes.Equal(dbValidator.WithdrawalCredentials[:], validator.WithdrawalCredentials[:]) {
 		return true
 	}
 

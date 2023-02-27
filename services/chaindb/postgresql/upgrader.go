@@ -27,7 +27,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(11)
+var currentVersion = uint64(12)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -103,6 +103,11 @@ var upgrades = map[uint64]*upgrade{
 	11: {
 		funcs: []func(context.Context, *Service) error{
 			recreateForkSchedule,
+		},
+	},
+	12: {
+		funcs: []func(context.Context, *Service) error{
+			addValidatorWithdrawalCredentials,
 		},
 	},
 }
@@ -851,9 +856,11 @@ CREATE TABLE t_validators (
  ,f_exit_epoch                   BIGINT
  ,f_withdrawable_epoch           BIGINT
  ,f_effective_balance            BIGINT NOT NULL
+ ,f_withdrawal_credentials       BYTEA NOT NULL
 );
 CREATE UNIQUE INDEX i_validators_1 ON t_validators(f_index);
 CREATE UNIQUE INDEX i_validators_2 ON t_validators(f_public_key);
+CREATE INDEX i_validators_3 ON t_validators(f_withdrawal_credentials);
 
 -- t_blocks contains all blocks proposed by validators.
 -- N.B. it is possible for multiple valid blocks to be proposed in a single slot
@@ -1136,6 +1143,7 @@ CREATE TABLE t_block_bls_to_execution_changes (
   f_block_root            BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
  ,f_block_number          BIGINT  NOT NULL
  ,f_index                 INTEGER NOT NULL
+ ,f_validator_index       BIGINT  NOT NULL
  ,f_from_bls_pubkey       BYTEA   NOT NULL
  ,f_to_execution_address  BYTEA   NOT NULL
 );
@@ -1429,6 +1437,7 @@ CREATE TABLE t_block_bls_to_execution_changes (
   f_block_root            BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
  ,f_block_number          BIGINT  NOT NULL
  ,f_index                 INTEGER NOT NULL
+ ,f_validator_index       BIGINT  NOT NULL
  ,f_from_bls_pubkey       BYTEA   NOT NULL
  ,f_to_execution_address  BYTEA   NOT NULL
 )
@@ -1452,6 +1461,12 @@ CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_2 ON t_block_bls_to_
 CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_3 ON t_block_bls_to_execution_changes(f_to_execution_address);
 `); err != nil {
 		return errors.Wrap(err, "failed to create block bls to execution changes index 3")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX IF NOT EXISTS i_block_bls_to_execution_changes_4 ON t_block_bls_to_execution_changes(f_validator_index);
+`); err != nil {
+		return errors.Wrap(err, "failed to create block bls to execution changes index 4")
 	}
 
 	return nil
@@ -1523,6 +1538,27 @@ CREATE TABLE t_fork_schedule (
 )
 `); err != nil {
 		return errors.Wrap(err, "failed to create fork schedule")
+	}
+
+	return nil
+}
+
+func addValidatorWithdrawalCredentials(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+	ALTER TABLE t_validators ADD COLUMN f_withdrawal_credentials BYTEA;
+`); err != nil {
+		return errors.Wrap(err, "failed to create block bls to execution changes table")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX IF NOT EXISTS i_validators_3 ON t_validators(f_withdrawal_credentials);
+`); err != nil {
+		return errors.Wrap(err, "failed to create validators index 3")
 	}
 
 	return nil
