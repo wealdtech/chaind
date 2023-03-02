@@ -1,4 +1,4 @@
-dev:
+0.7.1:
   - fix issue where capella fork was not detected
   - pick up capella epochs in finalizer
   - add validator index to BLS to execution changes (thanks to @samlaf)
