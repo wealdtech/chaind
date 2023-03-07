@@ -60,7 +60,7 @@ import (
 )
 
 // ReleaseVersion is the release version for the code.
-var ReleaseVersion = "0.7.1"
+var ReleaseVersion = "0.7.2"
 
 func main() {
 	os.Exit(main2())
@@ -69,6 +69,18 @@ func main() {
 func main2() int {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// runCommands will not return if a command is run.
+	exit, err := runCommands(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to run command: %v\n", err)
+	}
+	if exit {
+		if err == nil {
+			return 0
+		}
+		return 1
+	}
 
 	if err := fetchConfig(); err != nil {
 		zerologger.Error().Err(err).Msg("Failed to fetch configuration")
@@ -82,18 +94,6 @@ func main2() int {
 	}
 	if err := initLogging(); err != nil {
 		log.Error().Err(err).Msg("Failed to initialise logging")
-		return 1
-	}
-
-	// runCommands will not return if a command is run.
-	exit, err := runCommands(ctx)
-	if err != nil {
-		log.Error().Err(err).Msg("Command returned error")
-	}
-	if exit {
-		if err == nil {
-			return 0
-		}
 		return 1
 	}
 
