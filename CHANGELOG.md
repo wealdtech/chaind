@@ -1,3 +1,6 @@
+0.7.2:
+  - fix upgrade issue from significantly earlier version of database
+
 0.7.1:
   - fix issue where capella fork was not detected
   - pick up capella epochs in finalizer

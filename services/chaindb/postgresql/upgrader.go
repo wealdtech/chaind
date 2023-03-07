@@ -1574,7 +1574,7 @@ func addValidatorIndexToChanges(ctx context.Context, s *Service) error {
 
 	if _, err := tx.Exec(ctx, `
 ALTER TABLE t_block_bls_to_execution_changes
-ADD COLUMN f_validator_index BIGINT
+ADD COLUMN IF NOT EXISTS f_validator_index BIGINT
 `); err != nil {
 		return errors.Wrap(err, "failed to add f_validator_index to t_block_bls_to_execution_changes")
 	}
