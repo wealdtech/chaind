@@ -89,6 +89,9 @@ type BeaconCommitteesSetter interface {
 
 // BlocksProvider defines functions to access blocks.
 type BlocksProvider interface {
+	// Blocks provides blocks according to the filter.
+	Blocks(ctx context.Context, filter *BlockFilter) ([]*Block, error)
+
 	// BlocksBySlot fetches all blocks with the given slot.
 	BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*Block, error)
 

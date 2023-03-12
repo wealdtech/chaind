@@ -184,3 +184,90 @@ WHERE f_block_root = $1`,
 
 	return payload, nil
 }
+
+// executionPayloads fetches the execution payloads of multiple blocks.
+func (s *Service) executionPayloads(ctx context.Context,
+	tx pgx.Tx,
+	roots []phase0.Root,
+) (
+	map[phase0.Root]*chaindb.ExecutionPayload,
+	error,
+) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "executionPayloads")
+	defer span.End()
+
+	broots := make([][]byte, len(roots))
+	for i := range roots {
+		broots[i] = roots[i][:]
+	}
+
+	rows, err := tx.Query(ctx, `
+SELECT f_block_root
+      ,f_block_number
+      ,f_block_hash
+      ,f_parent_hash
+      ,f_fee_recipient
+      ,f_state_root
+      ,f_receipts_root
+      ,f_logs_bloom
+      ,f_prev_randao
+      ,f_gas_limit
+      ,f_gas_used
+      ,f_base_fee_per_gas
+      ,f_timestamp
+      ,f_extra_data
+FROM t_block_execution_payloads
+WHERE f_block_root = ANY($1)`,
+		broots,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res := make(map[phase0.Root]*chaindb.ExecutionPayload)
+	for rows.Next() {
+		payload := &chaindb.ExecutionPayload{}
+		var blockRoot []byte
+		var blockHash []byte
+		var parentHash []byte
+		var feeRecipient []byte
+		var stateRoot []byte
+		var receiptsRoot []byte
+		var logsBloom []byte
+		var prevRandao []byte
+		var baseFeePerGas decimal.Decimal
+		err := rows.Scan(&blockRoot,
+			&payload.BlockNumber,
+			&blockHash,
+			&parentHash,
+			&feeRecipient,
+			&stateRoot,
+			&receiptsRoot,
+			&logsBloom,
+			&prevRandao,
+			&payload.GasLimit,
+			&payload.GasUsed,
+			&baseFeePerGas,
+			&payload.Timestamp,
+			&payload.ExtraData,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		copy(payload.BlockHash[:], blockHash)
+		copy(payload.ParentHash[:], parentHash)
+		copy(payload.FeeRecipient[:], feeRecipient)
+		copy(payload.StateRoot[:], stateRoot)
+		copy(payload.ReceiptsRoot[:], receiptsRoot)
+		copy(payload.LogsBloom[:], logsBloom)
+		copy(payload.PrevRandao[:], prevRandao)
+		payload.BaseFeePerGas = baseFeePerGas.BigInt()
+
+		var key phase0.Root
+		copy(key[:], blockRoot)
+		res[key] = payload
+	}
+
+	return res, nil
+}

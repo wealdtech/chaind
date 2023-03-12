@@ -159,6 +159,34 @@ type BLSToExecutionChangeFilter struct {
 	ValidatorIndices []phase0.ValidatorIndex
 }
 
+// BlockFilter defines a filter for fetching blocks.
+// Filter elements are ANDed together.
+// Results are always returned in ascending (slot,root) order.
+type BlockFilter struct {
+	// Limit is the maximum number of items to return.
+	Limit uint32
+
+	// Order is either OrderEarliest, in which case the earliest results
+	// that match the filter are returned, or OrderLatest, in which case the
+	// latest results that match the filter are returned.
+	// The default is OrderEarliest.
+	Order Order
+
+	// From is the earliest slot from which to fetch items.
+	// This relates to the inclusion slot.
+	// If nil then there is no earliest slot.
+	From *phase0.Slot
+
+	// To is the latest slot to which to fetch items.
+	// This relates to the inclusion slot.
+	// If nil then there is no latest slot.
+	To *phase0.Slot
+
+	// Canonical must match the canonical flag.
+	// If nil then no filter is applied
+	Canonical *bool
+}
+
 // WithdrawalFilter defines a filter for fetching withdrawals.
 // Filter elements are ANDed together.
 // Results are always returned in ascending (slot,index) order.

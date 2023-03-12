@@ -14,8 +14,12 @@
 package postgresql
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
@@ -94,6 +98,161 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 	}
 
 	return nil
+}
+
+// Blocks provides withdrawals according to the filter.
+func (s *Service) Blocks(ctx context.Context, filter *chaindb.BlockFilter) ([]*chaindb.Block, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "Blocks")
+	defer span.End()
+
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, err := s.BeginROTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		defer s.CommitROTx(ctx)
+		tx = s.tx(ctx)
+	}
+
+	// Build the query.
+	queryBuilder := strings.Builder{}
+	queryVals := make([]interface{}, 0)
+
+	queryBuilder.WriteString(`
+SELECT f_slot
+      ,f_proposer_index
+      ,f_root
+      ,f_graffiti
+      ,f_randao_reveal
+      ,f_body_root
+      ,f_parent_root
+      ,f_state_root
+      ,f_canonical
+      ,f_eth1_block_hash
+      ,f_eth1_deposit_count
+      ,f_eth1_deposit_root
+FROM t_blocks`)
+
+	wherestr := "WHERE"
+
+	if filter.From != nil {
+		queryVals = append(queryVals, *filter.From)
+		queryBuilder.WriteString(fmt.Sprintf(`
+%s f_slot >= $%d`, wherestr, len(queryVals)))
+		wherestr = "  AND"
+	}
+
+	if filter.To != nil {
+		queryVals = append(queryVals, *filter.To)
+		queryBuilder.WriteString(fmt.Sprintf(`
+%s f_slot <= $%d`, wherestr, len(queryVals)))
+	}
+
+	if filter.Canonical != nil {
+		queryVals = append(queryVals, *filter.Canonical)
+		queryBuilder.WriteString(fmt.Sprintf(`
+%s f_canonical = $%d`, wherestr, len(queryVals)))
+	}
+
+	switch filter.Order {
+	case chaindb.OrderEarliest:
+		queryBuilder.WriteString(`
+ORDER BY f_slot, f_root`)
+	case chaindb.OrderLatest:
+		queryBuilder.WriteString(`
+ORDER BY f_slot DESC,f_root DESC`)
+	default:
+		return nil, errors.New("no order specified")
+	}
+
+	if filter.Limit > 0 {
+		queryVals = append(queryVals, filter.Limit)
+		queryBuilder.WriteString(fmt.Sprintf(`
+LIMIT $%d`, len(queryVals)))
+	}
+
+	if e := log.Trace(); e.Enabled() {
+		params := make([]string, len(queryVals))
+		for i := range queryVals {
+			params[i] = fmt.Sprintf("%v", queryVals[i])
+		}
+		e.Str("query", strings.ReplaceAll(queryBuilder.String(), "\n", " ")).Strs("params", params).Msg("SQL query")
+	}
+
+	rows, err := tx.Query(ctx,
+		queryBuilder.String(),
+		queryVals...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	blocks := make([]*chaindb.Block, 0)
+	for rows.Next() {
+		block := &chaindb.Block{}
+		var blockRoot []byte
+		var randaoReveal []byte
+		var bodyRoot []byte
+		var parentRoot []byte
+		var stateRoot []byte
+		var canonical sql.NullBool
+		var eth1DepositRoot []byte
+		err := rows.Scan(
+			&block.Slot,
+			&block.ProposerIndex,
+			&blockRoot,
+			&block.Graffiti,
+			&randaoReveal,
+			&bodyRoot,
+			&parentRoot,
+			&stateRoot,
+			&canonical,
+			&block.ETH1BlockHash,
+			&block.ETH1DepositCount,
+			&eth1DepositRoot,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		copy(block.Root[:], blockRoot)
+		copy(block.RANDAOReveal[:], randaoReveal)
+		copy(block.BodyRoot[:], bodyRoot)
+		copy(block.ParentRoot[:], parentRoot)
+		copy(block.StateRoot[:], stateRoot)
+		if canonical.Valid {
+			val := canonical.Bool
+			block.Canonical = &val
+		}
+		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+		blocks = append(blocks, block)
+	}
+
+	// Add execution payload to blocks.
+	roots := make([]phase0.Root, len(blocks))
+	for i := range blocks {
+		roots[i] = blocks[i].Root
+	}
+	payloads, err := s.executionPayloads(ctx, tx, roots)
+	if err != nil {
+		return nil, err
+	}
+	for _, block := range blocks {
+		if payload, exists := payloads[block.Root]; exists {
+			block.ExecutionPayload = payload
+		}
+	}
+
+	// Always return order of slot then root.
+	sort.Slice(blocks, func(i int, j int) bool {
+		if blocks[i].Slot != blocks[j].Slot {
+			return blocks[i].Slot < blocks[j].Slot
+		}
+		return bytes.Compare(blocks[i].Root[:], blocks[j].Root[:]) < 0
+	})
+
+	return blocks, nil
 }
 
 // BlocksBySlot fetches all blocks with the given slot.
