@@ -1,3 +1,6 @@
+0.7.3:
+  - API update only
+
 0.7.2:
   - fix upgrade issue from significantly earlier version of database
 
