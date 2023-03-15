@@ -260,9 +260,11 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 	}
 
 	// Obtain withdrawals, and turn them in to a map for easy lookup.
+	canonical := true
 	dbWithdrawals, err := s.chainDB.(chaindb.WithdrawalsProvider).Withdrawals(ctx, &chaindb.WithdrawalFilter{
-		From: &firstSlot,
-		To:   &lastSlot,
+		From:      &firstSlot,
+		To:        &lastSlot,
+		Canonical: &canonical,
 	})
 	if err != nil {
 		return false, errors.Wrap(err, "failed to obtain withdrawals")

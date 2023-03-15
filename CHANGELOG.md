@@ -1,3 +1,6 @@
+0.7.4:
+  - Ensure that only canonical withdrawals are included in summaries
+
 0.7.3:
   - API update only
 

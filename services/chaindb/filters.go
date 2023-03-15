@@ -211,6 +211,11 @@ type WithdrawalFilter struct {
 	To *phase0.Slot
 
 	// ValidatorIndices is the list of validator indices for which to obtain items.
-	// If nil then no filter is applied
+	// If nil then no filter is applied.
 	ValidatorIndices []phase0.ValidatorIndex
+
+	// Canonical will return only withdrawals from canonical or non-canonical blocks.
+	// Note that neither true nor false will return withdrawals from indeterminate blocks.
+	// If nil then no filter is applied.
+	Canonical *bool
 }

@@ -118,6 +118,14 @@ FROM t_block_withdrawals`)
 
 	wherestr := "WHERE"
 
+	if filter.Canonical != nil {
+		queryVals = append(queryVals, *filter.Canonical)
+		queryBuilder.WriteString(fmt.Sprintf(`
+LEFT JOIN t_blocks ON f_block_number = f_slot
+%s f_canonical = $%d`, wherestr, len(queryVals)))
+		wherestr = "  AND"
+	}
+
 	if filter.From != nil {
 		queryVals = append(queryVals, *filter.From)
 		queryBuilder.WriteString(fmt.Sprintf(`
