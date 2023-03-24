@@ -93,7 +93,7 @@ func main2() int {
 		return 1
 	}
 	if err := initLogging(); err != nil {
-		log.Error().Err(err).Msg("Failed to initialise logging")
+		fmt.Fprintf(os.Stderr, "Failed to initialise logging: %v\n", err)
 		return 1
 	}
 
