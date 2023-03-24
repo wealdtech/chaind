@@ -196,6 +196,11 @@ eth1deposits:
   # keep track of this itself, however if you wish to start from a different block this
   # can be set.
   # start-block: 500
+metrics:
+  prometheus:
+    # port on which prometheus metrics will be exposed
+    # the endpoint in this example would then be localhost:8041/metrics
+    listen-address: localhost:8041
 ```
 
 ## Support

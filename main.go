@@ -173,6 +173,7 @@ func fetchConfig() error {
 	pflag.String("eth1deposits.start-block", "", "Ethereum 1 block from which to start fetching deposits")
 	pflag.String("eth1client.address", "", "Address for Ethereum 1 node")
 	pflag.String("chaindb.url", "", "URL for database")
+	pflag.String("metrics.prometheus.listen-address", "", "port to expose prometheus metrics")
 	pflag.Uint("chaindb.max-connections", 16, "maximum number of concurrent database connections")
 	pflag.Parse()
 	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
