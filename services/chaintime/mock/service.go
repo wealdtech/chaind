@@ -41,10 +41,10 @@ func (s *service) SlotsPerEpoch() uint64 {
 }
 
 // StartOfSlot provides the time at which a given slot starts.
-func (s *service) StartOfSlot(slot phase0.Slot) time.Time { return time.Time{} }
+func (s *service) StartOfSlot(_ phase0.Slot) time.Time { return time.Time{} }
 
 // StartOfEpoch provides the time at which a given epoch starts.
-func (s *service) StartOfEpoch(epoch phase0.Epoch) time.Time { return time.Time{} }
+func (s *service) StartOfEpoch(_ phase0.Epoch) time.Time { return time.Time{} }
 
 // CurrentSlot provides the current slot.
 func (s *service) CurrentSlot() phase0.Slot {
@@ -62,42 +62,42 @@ func (s *service) CurrentSyncCommitteePeriod() uint64 {
 }
 
 // SlotToEpoch provides the epoch of the given slot.
-func (s *service) SlotToEpoch(slot phase0.Slot) phase0.Epoch {
+func (s *service) SlotToEpoch(_ phase0.Slot) phase0.Epoch {
 	return 0
 }
 
 // SlotToSyncCommitteePeriod provides the sync committee period of the given slot.
-func (s *service) SlotToSyncCommitteePeriod(slot phase0.Slot) uint64 {
+func (s *service) SlotToSyncCommitteePeriod(_ phase0.Slot) uint64 {
 	return 0
 }
 
 // EpochToSyncCommitteePeriod provides the sync committee period of the given epoch.
-func (s *service) EpochToSyncCommitteePeriod(epoch phase0.Epoch) uint64 {
+func (s *service) EpochToSyncCommitteePeriod(_ phase0.Epoch) uint64 {
 	return 0
 }
 
 // FirstSlotOfEpoch provides the first slot of the given epoch.
-func (s *service) FirstSlotOfEpoch(epoch phase0.Epoch) phase0.Slot {
+func (s *service) FirstSlotOfEpoch(_ phase0.Epoch) phase0.Slot {
 	return 0
 }
 
 // LastSlotOfEpoch provides the last slot of the given epoch.
-func (s *service) LastSlotOfEpoch(epoch phase0.Epoch) phase0.Slot {
+func (s *service) LastSlotOfEpoch(_ phase0.Epoch) phase0.Slot {
 	return 0
 }
 
 // TimestampToSlot provides the slot of the given timestamp.
-func (s *service) TimestampToSlot(timestamp time.Time) phase0.Slot {
+func (s *service) TimestampToSlot(_ time.Time) phase0.Slot {
 	return 0
 }
 
 // TimestampToEpoch provides the epoch of the given timestamp.
-func (s *service) TimestampToEpoch(timestamp time.Time) phase0.Epoch {
+func (s *service) TimestampToEpoch(_ time.Time) phase0.Epoch {
 	return 0
 }
 
 // FirstEpochOfSyncPeriod provides the first epoch of the given sync period.
-func (s *service) FirstEpochOfSyncPeriod(period uint64) phase0.Epoch {
+func (s *service) FirstEpochOfSyncPeriod(_ uint64) phase0.Epoch {
 	return 0
 }
 

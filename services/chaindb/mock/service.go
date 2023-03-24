@@ -30,105 +30,147 @@ func New() chaindb.Service {
 }
 
 // AttestationsForBlock fetches all attestations made for the given block.
-func (s *service) AttestationsForBlock(ctx context.Context, blockRoot phase0.Root) ([]*chaindb.Attestation, error) {
+func (s *service) AttestationsForBlock(_ context.Context, _ phase0.Root) ([]*chaindb.Attestation, error) {
 	return nil, nil
 }
 
 // AttestationsInBlock fetches all attestations contained in the given block.
-func (s *service) AttestationsInBlock(ctx context.Context, blockRoot phase0.Root) ([]*chaindb.Attestation, error) {
+func (s *service) AttestationsInBlock(_ context.Context, _ phase0.Root) ([]*chaindb.Attestation, error) {
 	return nil, nil
 }
 
 // AttestationsForSlotRange fetches all attestations made for the given slot range.
 // Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 // attestations for slots 2 and 3.
-func (s *service) AttestationsForSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*chaindb.Attestation, error) {
+func (s *service) AttestationsForSlotRange(_ context.Context,
+	_ phase0.Slot,
+	_ phase0.Slot,
+) (
+	[]*chaindb.Attestation,
+	error,
+) {
 	return nil, nil
 }
 
 // AttestationsInSlotRange fetches all attestations made in the given slot range.
 // Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 // attestations in slots 2 and 3.
-func (s *service) AttestationsInSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*chaindb.Attestation, error) {
+func (s *service) AttestationsInSlotRange(_ context.Context,
+	_ phase0.Slot,
+	_ phase0.Slot,
+) (
+	[]*chaindb.Attestation,
+	error,
+) {
 	return nil, nil
 }
 
 // IndeterminateAttestationSlots fetches the slots in the given range with attestations that do not have a canonical status.
-func (s *service) IndeterminateAttestationSlots(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]phase0.Slot, error) {
+func (s *service) IndeterminateAttestationSlots(_ context.Context,
+	_ phase0.Slot,
+	_ phase0.Slot,
+) (
+	[]phase0.Slot,
+	error,
+) {
 	return nil, nil
 }
 
 // SetAttestation sets an attestation.
-func (s *service) SetAttestation(ctx context.Context, attestation *chaindb.Attestation) error {
+func (s *service) SetAttestation(_ context.Context, _ *chaindb.Attestation) error {
 	return nil
 }
 
 // AttesterSlashingsForSlotRange fetches all attester slashings made for the given slot range.
 // It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
-func (s *service) AttesterSlashingsForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]*chaindb.AttesterSlashing, error) {
+func (s *service) AttesterSlashingsForSlotRange(_ context.Context,
+	_ phase0.Slot,
+	_ phase0.Slot,
+) (
+	[]*chaindb.AttesterSlashing,
+	error,
+) {
 	return nil, nil
 }
 
 // AttesterSlashingsForValidator fetches all attester slashings made for the given validator.
 // It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
-func (s *service) AttesterSlashingsForValidator(ctx context.Context, index phase0.ValidatorIndex) ([]*chaindb.AttesterSlashing, error) {
+func (s *service) AttesterSlashingsForValidator(_ context.Context,
+	_ phase0.ValidatorIndex,
+) (
+	[]*chaindb.AttesterSlashing,
+	error,
+) {
 	return nil, nil
 }
 
 // SetAttesterSlashing sets an attester slashing.
-func (s *service) SetAttesterSlashing(ctx context.Context, attesterSlashing *chaindb.AttesterSlashing) error {
+func (s *service) SetAttesterSlashing(_ context.Context, _ *chaindb.AttesterSlashing) error {
 	return nil
 }
 
 // BeaconCommitteeBySlotAndIndex fetches the beacon committee with the given slot and index.
-func (s *service) BeaconCommitteeBySlotAndIndex(ctx context.Context, slot phase0.Slot, index phase0.CommitteeIndex) (*chaindb.BeaconCommittee, error) {
+func (s *service) BeaconCommitteeBySlotAndIndex(_ context.Context,
+	_ phase0.Slot,
+	_ phase0.CommitteeIndex,
+) (
+	*chaindb.BeaconCommittee,
+	error,
+) {
 	return nil, nil
 }
 
 // AttesterDuties fetches the attester duties at the given slot range for the given validator indices.
-func (s *service) AttesterDuties(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot, validatorIndices []phase0.ValidatorIndex) ([]*chaindb.AttesterDuty, error) {
+func (s *service) AttesterDuties(_ context.Context,
+	_ phase0.Slot,
+	_ phase0.Slot,
+	_ []phase0.ValidatorIndex,
+) (
+	[]*chaindb.AttesterDuty,
+	error,
+) {
 	return nil, nil
 }
 
 // SetBeaconCommittee sets a beacon committee.
-func (s *service) SetBeaconCommittee(ctx context.Context, beaconCommittee *chaindb.BeaconCommittee) error {
+func (s *service) SetBeaconCommittee(_ context.Context, _ *chaindb.BeaconCommittee) error {
 	return nil
 }
 
 // BlocksBySlot fetches all blocks with the given slot.
-func (s *service) BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*chaindb.Block, error) {
+func (s *service) BlocksBySlot(_ context.Context, _ phase0.Slot) ([]*chaindb.Block, error) {
 	return nil, nil
 }
 
 // BlocksForSlotRange fetches all blocks with the given slot range.
 // Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 // blocks duties for slots 2 and 3.
-func (s *service) BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*chaindb.Block, error) {
+func (s *service) BlocksForSlotRange(_ context.Context, _ phase0.Slot, _ phase0.Slot) ([]*chaindb.Block, error) {
 	return nil, nil
 }
 
 // BlockByRoot fetches the block with the given root.
-func (s *service) BlockByRoot(ctx context.Context, root phase0.Root) (*chaindb.Block, error) {
+func (s *service) BlockByRoot(_ context.Context, _ phase0.Root) (*chaindb.Block, error) {
 	return nil, nil
 }
 
 // BlocksByParentRoot fetches the blocks with the given parent root.
-func (s *service) BlocksByParentRoot(ctx context.Context, root phase0.Root) ([]*chaindb.Block, error) {
+func (s *service) BlocksByParentRoot(_ context.Context, _ phase0.Root) ([]*chaindb.Block, error) {
 	return nil, nil
 }
 
 // EmptySlots fetches the slots in the given range without a block in the database.
-func (s *service) EmptySlots(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]phase0.Slot, error) {
+func (s *service) EmptySlots(_ context.Context, _ phase0.Slot, _ phase0.Slot) ([]phase0.Slot, error) {
 	return nil, nil
 }
 
 // LatestBlocks fetches the blocks with the highest slot number in the database.
-func (s *service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
+func (s *service) LatestBlocks(_ context.Context) ([]*chaindb.Block, error) {
 	return nil, nil
 }
 
 // IndeterminateBlocks fetches the blocks in the given range that do not have a canonical status.
-func (s *service) IndeterminateBlocks(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]phase0.Root, error) {
+func (s *service) IndeterminateBlocks(_ context.Context, _ phase0.Slot, _ phase0.Slot) ([]phase0.Root, error) {
 	return nil, nil
 }
 
@@ -136,17 +178,17 @@ func (s *service) IndeterminateBlocks(ctx context.Context, minSlot phase0.Slot, 
 // of a canonical block.
 // Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 // presence duties for slots 2 and 3.
-func (s *service) CanonicalBlockPresenceForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]bool, error) {
+func (s *service) CanonicalBlockPresenceForSlotRange(_ context.Context, _ phase0.Slot, _ phase0.Slot) ([]bool, error) {
 	return nil, nil
 }
 
 // LatestCanonicalBlock returns the slot of the latest canonical block known in the database.
-func (s *service) LatestCanonicalBlock(ctx context.Context) (phase0.Slot, error) {
+func (s *service) LatestCanonicalBlock(_ context.Context) (phase0.Slot, error) {
 	return 0, nil
 }
 
 // SetBlock sets a block.
-func (s *service) SetBlock(ctx context.Context, block *chaindb.Block) error {
+func (s *service) SetBlock(_ context.Context, _ *chaindb.Block) error {
 	return nil
 }
 
@@ -156,7 +198,7 @@ func (s *service) Spec(ctx context.Context) (map[string]interface{}, error) {
 }
 
 // ChainSpec fetches all chain specification values.
-func (s *service) ChainSpec(ctx context.Context) (map[string]interface{}, error) {
+func (s *service) ChainSpec(_ context.Context) (map[string]interface{}, error) {
 	return map[string]interface{}{
 		"ALTAIR_FORK_EPOCH":                        uint64(74240),
 		"ALTAIR_FORK_VERSION":                      phase0.Version{0x01, 0x00, 0x00, 0x00},
@@ -259,111 +301,120 @@ func (s *service) ChainSpec(ctx context.Context) (map[string]interface{}, error)
 }
 
 // ChainSpecValue fetches a chain specification value given its key.
-func (s *service) ChainSpecValue(ctx context.Context, key string) (interface{}, error) {
+func (s *service) ChainSpecValue(_ context.Context, _ string) (interface{}, error) {
 	return nil, nil
 }
 
 // SetChainSpecValue sets the value of the provided key.
-func (s *service) SetChainSpecValue(ctx context.Context, key string, value interface{}) error {
+func (s *service) SetChainSpecValue(_ context.Context, _ string, _ interface{}) error {
 	return nil
 }
 
 // ForkSchedule provides details of past and future changes in the chain's fork version.
-func (s *service) ForkSchedule(ctx context.Context) ([]*phase0.Fork, error) {
+func (s *service) ForkSchedule(_ context.Context) ([]*phase0.Fork, error) {
 	return nil, nil
 }
 
 // SetForkSchedule sets the fork schedule.
-func (s *service) SetForkSchedule(ctx context.Context, schedule []*phase0.Fork) error {
+func (s *service) SetForkSchedule(_ context.Context, _ []*phase0.Fork) error {
 	return nil
 }
 
 // Genesis fetches genesis values.
-func (s *service) Genesis(ctx context.Context) (*api.Genesis, error) {
+func (s *service) Genesis(_ context.Context) (*api.Genesis, error) {
 	return nil, nil
 }
 
 // SetGenesis sets the genesis information.
-func (s *service) SetGenesis(ctx context.Context, genesis *api.Genesis) error {
+func (s *service) SetGenesis(_ context.Context, _ *api.Genesis) error {
 	return nil
 }
 
 // ETH1DepositsByPublicKey fetches Ethereum 1 deposits for a given set of validator public keys.
-func (s *service) ETH1DepositsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) ([]*chaindb.ETH1Deposit, error) {
+func (s *service) ETH1DepositsByPublicKey(_ context.Context, _ []phase0.BLSPubKey) ([]*chaindb.ETH1Deposit, error) {
 	return nil, nil
 }
 
 // SetETH1Deposit sets an Ethereum 1 deposit.
-func (s *service) SetETH1Deposit(ctx context.Context, deposit *chaindb.ETH1Deposit) error {
+func (s *service) SetETH1Deposit(_ context.Context, _ *chaindb.ETH1Deposit) error {
 	return nil
 }
 
 // ProposerDutiesForSlotRange fetches all proposer duties for the given slot range.
 // Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 // proposer duties for slots 2 and 3.
-func (s *service) ProposerDutiesForSlotRange(ctx context.Context, startSlot phase0.Slot, endSlot phase0.Slot) ([]*chaindb.ProposerDuty, error) {
+func (s *service) ProposerDutiesForSlotRange(_ context.Context, _ phase0.Slot, _ phase0.Slot) ([]*chaindb.ProposerDuty, error) {
 	return nil, nil
 }
 
 // ProposerDutiesForValidator provides all proposer duties for the given validator index.
-func (s *service) ProposerDutiesForValidator(ctx context.Context, proposer phase0.ValidatorIndex) ([]*chaindb.ProposerDuty, error) {
+func (s *service) ProposerDutiesForValidator(_ context.Context, _ phase0.ValidatorIndex) ([]*chaindb.ProposerDuty, error) {
 	return nil, nil
 }
 
 // SetProposerDuty sets a proposer duty.
-func (s *service) SetProposerDuty(ctx context.Context, proposerDuty *chaindb.ProposerDuty) error {
+func (s *service) SetProposerDuty(_ context.Context, _ *chaindb.ProposerDuty) error {
 	return nil
 }
 
 // ProposerSlashingsForSlotRange fetches all proposer slashings made for the given slot range.
 // It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
-func (s *service) ProposerSlashingsForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]*chaindb.ProposerSlashing, error) {
+func (s *service) ProposerSlashingsForSlotRange(_ context.Context, _ phase0.Slot, _ phase0.Slot) ([]*chaindb.ProposerSlashing, error) {
 	return nil, nil
 }
 
 // ProposerSlashingsForValidator fetches all proposer slashings made for the given validator.
 // It will return slashings from blocks that are canonical or undefined, but not from non-canonical blocks.
-func (s *service) ProposerSlashingsForValidator(ctx context.Context, index phase0.ValidatorIndex) ([]*chaindb.ProposerSlashing, error) {
+func (s *service) ProposerSlashingsForValidator(_ context.Context, _ phase0.ValidatorIndex) ([]*chaindb.ProposerSlashing, error) {
 	return nil, nil
 }
 
 // SetProposerSlashing sets an proposer slashing.
-func (s *service) SetProposerSlashing(ctx context.Context, proposerSlashing *chaindb.ProposerSlashing) error {
+func (s *service) SetProposerSlashing(_ context.Context, _ *chaindb.ProposerSlashing) error {
 	return nil
 }
 
 // SyncAggregateForBlock provides the sync aggregate for the supplied block root.
-func (s *service) SyncAggregateForBlock(ctx context.Context, blockRoot phase0.Root) (*chaindb.SyncAggregate, error) {
+func (s *service) SyncAggregateForBlock(_ context.Context, _ phase0.Root) (*chaindb.SyncAggregate, error) {
 	return nil, nil
 }
 
 // SetSyncAggregate sets the sync aggregate.
-func (s *service) SetSyncAggregate(ctx context.Context, syncAggregate *chaindb.SyncAggregate) error {
+func (s *service) SetSyncAggregate(_ context.Context, _ *chaindb.SyncAggregate) error {
 	return nil
 }
 
 // Validators fetches all validators.
-func (s *service) Validators(ctx context.Context) ([]*chaindb.Validator, error) {
+func (s *service) Validators(_ context.Context) ([]*chaindb.Validator, error) {
 	return nil, nil
 }
 
 // ValidatorsByPublicKey fetches all validators matching the given public keys.
 // This is a common starting point for external entities to query specific validators, as they should
 // always have the public key at a minimum, hence the return map keyed by public key.
-func (s *service) ValidatorsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) (map[phase0.BLSPubKey]*chaindb.Validator, error) {
+func (s *service) ValidatorsByPublicKey(_ context.Context,
+	_ []phase0.BLSPubKey,
+) (
+	map[phase0.BLSPubKey]*chaindb.Validator,
+	error,
+) {
 	return nil, nil
 }
 
 // ValidatorsByIndex fetches all validators matching the given indices.
-func (s *service) ValidatorsByIndex(ctx context.Context, indices []phase0.ValidatorIndex) (map[phase0.ValidatorIndex]*chaindb.Validator, error) {
+func (s *service) ValidatorsByIndex(_ context.Context,
+	_ []phase0.ValidatorIndex,
+) (
+	map[phase0.ValidatorIndex]*chaindb.Validator,
+	error,
+) {
 	return nil, nil
 }
 
 // ValidatorBalancesByIndexAndEpoch fetches the validator balances for the given validators and epoch.
-func (s *service) ValidatorBalancesByIndexAndEpoch(
-	ctx context.Context,
-	indices []phase0.ValidatorIndex,
-	epoch phase0.Epoch,
+func (s *service) ValidatorBalancesByIndexAndEpoch(_ context.Context,
+	_ []phase0.ValidatorIndex,
+	_ phase0.Epoch,
 ) (
 	map[phase0.ValidatorIndex]*chaindb.ValidatorBalance,
 	error,
@@ -374,11 +425,10 @@ func (s *service) ValidatorBalancesByIndexAndEpoch(
 // ValidatorBalancesByIndexAndEpochRange fetches the validator balances for the given validators and epoch range.
 // Ranges are inclusive of start and exclusive of end i.e. a request with startEpoch 2 and endEpoch 4 will provide
 // balances for epochs 2 and 3.
-func (s *service) ValidatorBalancesByIndexAndEpochRange(
-	ctx context.Context,
-	indices []phase0.ValidatorIndex,
-	startEpoch phase0.Epoch,
-	endEpoch phase0.Epoch,
+func (s *service) ValidatorBalancesByIndexAndEpochRange(_ context.Context,
+	_ []phase0.ValidatorIndex,
+	_ phase0.Epoch,
+	_ phase0.Epoch,
 ) (
 	map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance,
 	error,
@@ -387,10 +437,9 @@ func (s *service) ValidatorBalancesByIndexAndEpochRange(
 }
 
 // ValidatorBalancesByIndexAndEpochs fetches the validator balances for the given validators at the specified epochs.
-func (s *service) ValidatorBalancesByIndexAndEpochs(
-	ctx context.Context,
-	indices []phase0.ValidatorIndex,
-	epochs []phase0.Epoch,
+func (s *service) ValidatorBalancesByIndexAndEpochs(_ context.Context,
+	_ []phase0.ValidatorIndex,
+	_ []phase0.Epoch,
 ) (
 	map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance,
 	error,
@@ -399,10 +448,9 @@ func (s *service) ValidatorBalancesByIndexAndEpochs(
 }
 
 // AggregateValidatorBalancesByIndexAndEpoch fetches the aggregate validator balances for the given validators and epoch.
-func (s *service) AggregateValidatorBalancesByIndexAndEpoch(
-	ctx context.Context,
-	indices []phase0.ValidatorIndex,
-	epoch phase0.Epoch,
+func (s *service) AggregateValidatorBalancesByIndexAndEpoch(_ context.Context,
+	_ []phase0.ValidatorIndex,
+	_ phase0.Epoch,
 ) (
 	*chaindb.AggregateValidatorBalance,
 	error,
@@ -414,11 +462,10 @@ func (s *service) AggregateValidatorBalancesByIndexAndEpoch(
 // epoch range.
 // Ranges are inclusive of start and exclusive of end i.e. a request with startEpoch 2 and endEpoch 4 will provide
 // balances for epochs 2 and 3.
-func (s *service) AggregateValidatorBalancesByIndexAndEpochRange(
-	ctx context.Context,
-	indices []phase0.ValidatorIndex,
-	startEpoch phase0.Epoch,
-	endEpoch phase0.Epoch,
+func (s *service) AggregateValidatorBalancesByIndexAndEpochRange(_ context.Context,
+	_ []phase0.ValidatorIndex,
+	_ phase0.Epoch,
+	_ phase0.Epoch,
 ) (
 	[]*chaindb.AggregateValidatorBalance,
 	error,
@@ -427,10 +474,9 @@ func (s *service) AggregateValidatorBalancesByIndexAndEpochRange(
 }
 
 // AggregateValidatorBalancesByIndexAndEpochs fetches the validator balances for the given validators at the specified epochs.
-func (s *service) AggregateValidatorBalancesByIndexAndEpochs(
-	ctx context.Context,
-	indices []phase0.ValidatorIndex,
-	epochs []phase0.Epoch,
+func (s *service) AggregateValidatorBalancesByIndexAndEpochs(_ context.Context,
+	_ []phase0.ValidatorIndex,
+	_ []phase0.Epoch,
 ) (
 	[]*chaindb.AggregateValidatorBalance,
 	error,
@@ -439,115 +485,115 @@ func (s *service) AggregateValidatorBalancesByIndexAndEpochs(
 }
 
 // SetValidator sets a validator.
-func (s *service) SetValidator(ctx context.Context, validator *chaindb.Validator) error {
+func (s *service) SetValidator(_ context.Context, _ *chaindb.Validator) error {
 	return nil
 }
 
 // SetValidatorBalance sets a validator balance.
-func (s *service) SetValidatorBalance(ctx context.Context, validatorBalance *chaindb.ValidatorBalance) error {
+func (s *service) SetValidatorBalance(_ context.Context, _ *chaindb.ValidatorBalance) error {
 	return nil
 }
 
 // SetValidatorBalances sets multiple validator balances.
-func (s *service) SetValidatorBalances(ctx context.Context, validatorBalances []*chaindb.ValidatorBalance) error {
+func (s *service) SetValidatorBalances(_ context.Context, _ []*chaindb.ValidatorBalance) error {
 	return nil
 }
 
 // DepositsByPublicKey fetches deposits for a given set of validator public keys.
-func (s *service) DepositsByPublicKey(ctx context.Context, pubKeys []phase0.BLSPubKey) (map[phase0.BLSPubKey][]*chaindb.Deposit, error) {
+func (s *service) DepositsByPublicKey(_ context.Context, _ []phase0.BLSPubKey) (map[phase0.BLSPubKey][]*chaindb.Deposit, error) {
 	return nil, nil
 }
 
 // DepositsForSlotRange fetches all deposits made in the given slot range.
 // It will return deposits from blocks that are canonical or undefined, but not from non-canonical blocks.
-func (s *service) DepositsForSlotRange(ctx context.Context, minSlot phase0.Slot, maxSlot phase0.Slot) ([]*chaindb.Deposit, error) {
+func (s *service) DepositsForSlotRange(_ context.Context, _ phase0.Slot, _ phase0.Slot) ([]*chaindb.Deposit, error) {
 	return nil, nil
 }
 
 // SetDeposit sets a deposit.
-func (s *service) SetDeposit(ctx context.Context, deposit *chaindb.Deposit) error {
+func (s *service) SetDeposit(_ context.Context, _ *chaindb.Deposit) error {
 	return nil
 }
 
 // SetVoluntaryExit sets a voluntary exit.
-func (s *service) SetVoluntaryExit(ctx context.Context, voluntaryExit *chaindb.VoluntaryExit) error {
+func (s *service) SetVoluntaryExit(_ context.Context, _ *chaindb.VoluntaryExit) error {
 	return nil
 }
 
 // SetValidatorEpochSummary sets a validator epoch summary.
-func (s *service) SetValidatorEpochSummary(ctx context.Context, summary *chaindb.ValidatorEpochSummary) error {
+func (s *service) SetValidatorEpochSummary(_ context.Context, _ *chaindb.ValidatorEpochSummary) error {
 	return nil
 }
 
 // SetValidatorEpochSummaries sets multiple validator epoch summaries.
-func (s *service) SetValidatorEpochSummaries(ctx context.Context, summaries []*chaindb.ValidatorEpochSummary) error {
+func (s *service) SetValidatorEpochSummaries(_ context.Context, _ []*chaindb.ValidatorEpochSummary) error {
 	return nil
 }
 
 // BlockSummaryForSlot obtains the summary of a block for a given slot.
-func (s *service) BlockSummaryForSlot(ctx context.Context, slot phase0.Slot) (*chaindb.BlockSummary, error) {
+func (s *service) BlockSummaryForSlot(_ context.Context, _ phase0.Slot) (*chaindb.BlockSummary, error) {
 	return nil, nil
 }
 
 // ValidatorSummaries provides summaries according to the filter.
-func (s *service) ValidatorSummaries(ctx context.Context, filter *chaindb.ValidatorSummaryFilter) ([]*chaindb.ValidatorEpochSummary, error) {
+func (s *service) ValidatorSummaries(_ context.Context, _ *chaindb.ValidatorSummaryFilter) ([]*chaindb.ValidatorEpochSummary, error) {
 	return nil, nil
 }
 
 // ValidatorSummariesForEpoch obtains all summaries for a given epoch.
-func (s *service) ValidatorSummariesForEpoch(ctx context.Context, epoch phase0.Epoch) ([]*chaindb.ValidatorEpochSummary, error) {
+func (s *service) ValidatorSummariesForEpoch(_ context.Context, _ phase0.Epoch) ([]*chaindb.ValidatorEpochSummary, error) {
 	return nil, nil
 }
 
 // ValidatorSummaryForEpoch obtains the summary of a validator for a given epoch.
-func (s *service) ValidatorSummaryForEpoch(ctx context.Context, index phase0.ValidatorIndex, epoch phase0.Epoch) (*chaindb.ValidatorEpochSummary, error) {
+func (s *service) ValidatorSummaryForEpoch(_ context.Context, _ phase0.ValidatorIndex, _ phase0.Epoch) (*chaindb.ValidatorEpochSummary, error) {
 	return nil, nil
 }
 
 // SetBlockSummary sets a block summary.
-func (s *service) SetBlockSummary(ctx context.Context, summary *chaindb.BlockSummary) error {
+func (s *service) SetBlockSummary(_ context.Context, _ *chaindb.BlockSummary) error {
 	return nil
 }
 
 // SetEpochSummary sets an epoch summary.
-func (s *service) SetEpochSummary(ctx context.Context, summary *chaindb.EpochSummary) error {
+func (s *service) SetEpochSummary(_ context.Context, _ *chaindb.EpochSummary) error {
 	return nil
 }
 
 // SyncCommittee provides a sync committee for the given sync committee period.
-func (s *service) SyncCommittee(ctx context.Context, period uint64) (*chaindb.SyncCommittee, error) {
+func (s *service) SyncCommittee(_ context.Context, _ uint64) (*chaindb.SyncCommittee, error) {
 	return nil, nil
 }
 
 // SetSyncCommittee sets a sync committee.
-func (s *service) SetSyncCommittee(ctx context.Context, syncCommittee *chaindb.SyncCommittee) error {
+func (s *service) SetSyncCommittee(_ context.Context, _ *chaindb.SyncCommittee) error {
 	return nil
 }
 
 // BeginTx begins a transaction.
-func (s *service) BeginTx(ctx context.Context) (context.Context, context.CancelFunc, error) {
+func (s *service) BeginTx(_ context.Context) (context.Context, context.CancelFunc, error) {
 	return nil, nil, nil
 }
 
 // CommitTx commits a transaction.
-func (s *service) CommitTx(ctx context.Context) error {
+func (s *service) CommitTx(_ context.Context) error {
 	return nil
 }
 
 // BeginROTx begins a read-only transaction.
-func (s *service) BeginROTx(ctx context.Context) (context.Context, error) {
+func (s *service) BeginROTx(_ context.Context) (context.Context, error) {
 	return nil, nil
 }
 
 // CommitROTx commits a read-only transaction.
-func (s *service) CommitROTx(ctx context.Context) {}
+func (s *service) CommitROTx(_ context.Context) {}
 
 // SetMetadata sets a metadata key to a JSON value.
-func (s *service) SetMetadata(ctx context.Context, key string, value []byte) error {
+func (s *service) SetMetadata(_ context.Context, _ string, _ []byte) error {
 	return nil
 }
 
 // Metadata obtains the JSON value from a metadata key.
-func (s *service) Metadata(ctx context.Context, key string) ([]byte, error) {
+func (s *service) Metadata(_ context.Context, _ string) ([]byte, error) {
 	return nil, nil
 }

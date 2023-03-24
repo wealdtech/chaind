@@ -147,7 +147,7 @@ func newFromComponents(ctx context.Context,
 }
 
 // skipcq: RVV-B0012
-func registerCustomTypes(ctx context.Context, conn *pgx.Conn) error {
+func registerCustomTypes(_ context.Context, conn *pgx.Conn) error {
 	conn.ConnInfo().RegisterDataType(pgtype.DataType{
 		Value: &shopspring.Numeric{},
 		Name:  "numeric",
