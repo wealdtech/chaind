@@ -54,8 +54,9 @@ func (s *Service) SetEpochSummary(ctx context.Context, summary *chaindb.EpochSum
                                    ,f_attester_slashings
                                    ,f_deposits
                                    ,f_exiting_validators
-                                   ,f_canonical_blocks)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+                                   ,f_canonical_blocks
+                                   ,f_withdrawals)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
       ON CONFLICT (f_epoch) DO
       UPDATE
       SET f_activation_queue_length = excluded.f_activation_queue_length
@@ -77,6 +78,7 @@ func (s *Service) SetEpochSummary(ctx context.Context, summary *chaindb.EpochSum
          ,f_deposits = excluded.f_deposits
          ,f_exiting_validators = excluded.f_exiting_validators
          ,f_canonical_blocks = excluded.f_canonical_blocks
+         ,f_withdrawals = excluded.f_withdrawals
 		 `,
 		summary.Epoch,
 		summary.ActivationQueueLength,
@@ -98,6 +100,7 @@ func (s *Service) SetEpochSummary(ctx context.Context, summary *chaindb.EpochSum
 		summary.Deposits,
 		summary.ExitingValidators,
 		summary.CanonicalBlocks,
+		summary.Withdrawals,
 	)
 
 	return err
@@ -143,6 +146,7 @@ SELECT f_epoch
       ,f_deposits
       ,f_exiting_validators
       ,f_canonical_blocks
+      ,f_withdrawals
 FROM t_epoch_summaries`)
 
 	wherestr := "WHERE"
@@ -218,6 +222,7 @@ LIMIT $%d`, len(queryVals)))
 			&summary.Deposits,
 			&summary.ExitingValidators,
 			&summary.CanonicalBlocks,
+			&summary.Withdrawals,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
