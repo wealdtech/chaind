@@ -1,3 +1,6 @@
+dev:
+  - Add provider for epoch summaries
+
 0.7.4:
   - Ensure that only canonical withdrawals are included in summaries
 

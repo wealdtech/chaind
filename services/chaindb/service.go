@@ -415,6 +415,12 @@ type BlockSummariesSetter interface {
 	SetBlockSummary(ctx context.Context, summary *BlockSummary) error
 }
 
+// EpochSummariesProvider defines functions to fetch epoch summaries.
+type EpochSummariesProvider interface {
+	// EpochSummaries provides summaries according to the filter.
+	EpochSummaries(ctx context.Context, filter *EpochSummaryFilter) ([]*EpochSummary, error)
+}
+
 // EpochSummariesSetter defines functions to create and update epoch summaries.
 type EpochSummariesSetter interface {
 	// SetEpochSummary sets an epoch summary.

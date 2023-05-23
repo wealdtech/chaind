@@ -1,4 +1,4 @@
-// Copyright © 2021 Weald Technology Trading.
+// Copyright © 2021 - 2023 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -53,6 +53,28 @@ type ValidatorSummaryFilter struct {
 	// ValidatorIndices is the list of validator indices for which to obtain summaries.
 	// If nil then no filter is applied
 	ValidatorIndices *[]phase0.ValidatorIndex
+}
+
+// EpochSummaryFilter defines a filter for fetching epoch summaries.
+// Filter elements are ANDed together.
+// Results are always returned in ascending epoch order.
+type EpochSummaryFilter struct {
+	// Limit is the maximum number of summaries to return.
+	Limit uint32
+
+	// Order is either OrderEarliest, in which case the earliest results
+	// that match the filter are returned, or OrderLatest, in which case the
+	// latest results that match the filter are returned.
+	// The default is OrderEarliest.
+	Order Order
+
+	// From is the earliest epoch from which to fetch summaries.
+	// If nil then there is no earliest epoch.
+	From *phase0.Epoch
+
+	// To is the latest epoch from which to fetch summaries.
+	// If nil then there is no latest epoch.
+	To *phase0.Epoch
 }
 
 // ValidatorDaySummaryFilter defines a filter for fetching validator day summaries.
