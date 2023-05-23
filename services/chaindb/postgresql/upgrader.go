@@ -27,7 +27,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(12)
+var currentVersion = uint64(13)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -109,6 +109,11 @@ var upgrades = map[uint64]*upgrade{
 		funcs: []func(context.Context, *Service) error{
 			addValidatorWithdrawalCredentials,
 			addValidatorIndexToChanges,
+		},
+	},
+	13: {
+		funcs: []func(context.Context, *Service) error{
+			addEpochWithdrawals,
 		},
 	},
 }
@@ -1102,6 +1107,7 @@ CREATE TABLE t_epoch_summaries (
  ,f_deposits                         BIGINT NOT NULL
  ,f_exiting_validators               BIGINT NOT NULL
  ,f_canonical_blocks                 BIGINT NOT NULL
+ ,f_withdrawals                      BIGINT NOT NULL
 );
 
 CREATE TABLE t_fork_schedule (
@@ -1577,6 +1583,55 @@ ALTER TABLE t_block_bls_to_execution_changes
 ADD COLUMN IF NOT EXISTS f_validator_index BIGINT
 `); err != nil {
 		return errors.Wrap(err, "failed to add f_validator_index to t_block_bls_to_execution_changes")
+	}
+
+	return nil
+}
+
+func addEpochWithdrawals(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_epoch_summaries
+ADD COLUMN IF NOT EXISTS f_withdrawals BIGINT
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_withdrawals to t_epoch_summaries")
+	}
+
+	// Populate withdrawals for the data we have.
+	if _, err := tx.Exec(ctx, `
+WITH new_values AS (
+  SELECT f_block_number/32 AS f_epoch
+        ,SUM(f_amount) AS f_amount
+  FROM t_block_withdrawals
+  GROUP BY f_epoch
+)
+UPDATE t_epoch_summaries
+SET f_withdrawals = new_values.f_amount
+FROM new_values
+WHERE new_values.f_epoch = t_epoch_summaries.f_epoch
+`); err != nil {
+		return errors.Wrap(err, "failed to populate f_withdrawals in t_epoch_summaries (1)")
+	}
+
+	// Fill in 0 for the epochs without withdrawals.
+	if _, err := tx.Exec(ctx, `
+UPDATE t_epoch_summaries
+SET f_withdrawals = 0
+WHERE f_withdrawals IS NULL
+`); err != nil {
+		return errors.Wrap(err, "failed to populate f_withdrawals in t_epoch_summaries (2)")
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_epoch_summaries
+ALTER COLUMN f_withdrawals
+SET NOT NULL
+`); err != nil {
+		return errors.Wrap(err, "failed to make f_withdrawals on t_epoch_summaries not null")
 	}
 
 	return nil

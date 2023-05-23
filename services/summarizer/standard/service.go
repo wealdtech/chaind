@@ -37,6 +37,7 @@ type Service struct {
 	attestationsProvider            chaindb.AttestationsProvider
 	blocksProvider                  chaindb.BlocksProvider
 	depositsProvider                chaindb.DepositsProvider
+	withdrawalsProvider             chaindb.WithdrawalsProvider
 	validatorsProvider              chaindb.ValidatorsProvider
 	attesterSlashingsProvider       chaindb.AttesterSlashingsProvider
 	proposerSlashingsProvider       chaindb.ProposerSlashingsProvider
@@ -88,6 +89,11 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	depositsProvider, isProvider := parameters.chainDB.(chaindb.DepositsProvider)
 	if !isProvider {
 		return nil, errors.New("chain DB does not provide deposits")
+	}
+
+	withdrawalsProvider, isProvider := parameters.chainDB.(chaindb.WithdrawalsProvider)
+	if !isProvider {
+		return nil, errors.New("chain DB does not provide withdrawals")
 	}
 
 	validatorsProvider, isProvider := parameters.chainDB.(chaindb.ValidatorsProvider)
@@ -152,6 +158,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		attestationsProvider:            attestationsProvider,
 		blocksProvider:                  blocksProvider,
 		depositsProvider:                depositsProvider,
+		withdrawalsProvider:             withdrawalsProvider,
 		validatorsProvider:              validatorsProvider,
 		attesterSlashingsProvider:       attesterSlashingsProvider,
 		proposerSlashingsProvider:       proposerSlashingsProvider,

@@ -100,6 +100,12 @@ func (s *Service) summarizeEpoch(ctx context.Context,
 	}
 	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set deposit stats")
 
+	err = s.withdrawalStatsForEpoch(ctx, epoch, summary)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to calculate withdrawal summary statistics for epoch")
+	}
+	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set withdrawal stats")
+
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to begin transaction to set epoch summary")
@@ -194,6 +200,30 @@ func (s *Service) depositStatsForEpoch(ctx context.Context,
 	}
 
 	summary.Deposits = len(deposits)
+
+	return nil
+}
+
+func (s *Service) withdrawalStatsForEpoch(ctx context.Context,
+	epoch phase0.Epoch,
+	summary *chaindb.EpochSummary,
+) error {
+	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
+	maxSlot := s.chainTime.LastSlotOfEpoch(epoch)
+	log.Trace().Uint64("epoch", uint64(epoch)).Uint64("min_slot", uint64(minSlot)).Uint64("max_slot", uint64(maxSlot)).Msg("Updating withdrawal statistics")
+	canonical := true
+	withdrawals, err := s.withdrawalsProvider.Withdrawals(ctx, &chaindb.WithdrawalFilter{
+		From:      &minSlot,
+		To:        &maxSlot,
+		Canonical: &canonical,
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain withdrawals")
+	}
+
+	for _, withdrawal := range withdrawals {
+		summary.Withdrawals += withdrawal.Amount
+	}
 
 	return nil
 }

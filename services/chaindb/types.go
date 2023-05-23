@@ -270,6 +270,7 @@ type EpochSummary struct {
 	Deposits                      int
 	ExitingValidators             int
 	CanonicalBlocks               int
+	Withdrawals                   phase0.Gwei
 }
 
 // SyncCommittee holds information for sync committees.
