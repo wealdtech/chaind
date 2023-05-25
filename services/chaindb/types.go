@@ -1,4 +1,4 @@
-// Copyright © 2020, 2021 Weald Technology Trading.
+// Copyright © 2020 - 2023 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -224,6 +224,7 @@ type ValidatorDaySummary struct {
 	StartEffectiveBalance         uint64
 	CapitalChange                 int64
 	RewardChange                  int64
+	Withdrawals                   uint64
 	EffectiveBalanceChange        int64
 	Proposals                     int
 	ProposalsIncluded             int

@@ -114,6 +114,7 @@ var upgrades = map[uint64]*upgrade{
 	13: {
 		funcs: []func(context.Context, *Service) error{
 			addEpochWithdrawals,
+			addValidatorDayWithdrawals,
 		},
 	},
 }
@@ -1606,7 +1607,16 @@ ADD COLUMN IF NOT EXISTS f_withdrawals BIGINT
 WITH new_values AS (
   SELECT f_block_number/32 AS f_epoch
         ,SUM(f_amount) AS f_amount
-  FROM t_block_withdrawals
+  FROM (
+    SELECT f_block_number
+          ,f_amount
+    FROM t_block_withdrawals
+    WHERE f_block_number IN (
+      SELECT f_slot
+        FROM t_blocks
+        WHERE f_canonical = TRUE
+      )
+  ) c
   GROUP BY f_epoch
 )
 UPDATE t_epoch_summaries
@@ -1632,6 +1642,67 @@ ALTER COLUMN f_withdrawals
 SET NOT NULL
 `); err != nil {
 		return errors.Wrap(err, "failed to make f_withdrawals on t_epoch_summaries not null")
+	}
+
+	return nil
+}
+
+func addValidatorDayWithdrawals(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_validator_day_summaries
+ADD COLUMN IF NOT EXISTS f_withdrawals BIGINT
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_withdrawals to t_validator_day_summaries")
+	}
+
+	// Populate withdrawals for the data we have.
+	if _, err := tx.Exec(ctx, `
+WITH new_values AS (
+  SELECT date_trunc('day',(SELECT f_time FROM t_genesis) + interval '12 seconds' * f_block_number) AS f_day
+        ,f_validator_index
+        ,SUM(f_amount) AS f_amount
+  FROM (
+    SELECT f_block_number
+          ,f_validator_index
+          ,f_amount
+    FROM t_block_withdrawals
+    WHERE f_block_number IN (
+      SELECT f_slot
+        FROM t_blocks
+        WHERE f_canonical = TRUE
+      )
+  ) c
+  GROUP BY f_validator_index, f_day
+)
+UPDATE t_validator_day_summaries
+SET f_withdrawals = new_values.f_amount
+FROM new_values
+WHERE new_values.f_validator_index = t_validator_day_summaries.f_validator_index
+  AND new_values.f_day = t_validator_day_summaries.f_start_timestamp
+`); err != nil {
+		return errors.Wrap(err, "failed to populate f_withdrawals in t_validator_day_summaries (1)")
+	}
+
+	// Fill in 0 for the epochs without withdrawals.
+	if _, err := tx.Exec(ctx, `
+UPDATE t_validator_day_summaries
+SET f_withdrawals = 0
+WHERE f_withdrawals IS NULL
+`); err != nil {
+		return errors.Wrap(err, "failed to populate f_withdrawals in t_validator_day_summaries (2)")
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_validator_day_summaries
+ALTER COLUMN f_withdrawals
+SET NOT NULL
+`); err != nil {
+		return errors.Wrap(err, "failed to make f_withdrawals on t_validator_day_summaries not null")
 	}
 
 	return nil

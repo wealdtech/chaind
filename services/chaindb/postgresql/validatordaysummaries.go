@@ -50,6 +50,7 @@ func (s *Service) SetValidatorDaySummaries(ctx context.Context, summaries []*cha
 			"f_start_effective_balance",
 			"f_capital_change",
 			"f_reward_change",
+			"f_withdrawals",
 			"f_effective_balance_change",
 			"f_proposals",
 			"f_proposals_included",
@@ -72,6 +73,7 @@ func (s *Service) SetValidatorDaySummaries(ctx context.Context, summaries []*cha
 				summaries[i].StartEffectiveBalance,
 				summaries[i].CapitalChange,
 				summaries[i].RewardChange,
+				summaries[i].Withdrawals,
 				summaries[i].EffectiveBalanceChange,
 				summaries[i].Proposals,
 				summaries[i].ProposalsIncluded,
@@ -129,6 +131,7 @@ INSERT INTO t_validator_day_summaries(f_validator_index
                                      ,f_start_effective_balance
                                      ,f_capital_change
                                      ,f_reward_change
+                                     ,f_withdrawals
                                      ,f_effective_balance_change
                                      ,f_proposals
                                      ,f_proposals_included
@@ -142,13 +145,14 @@ INSERT INTO t_validator_day_summaries(f_validator_index
                                      ,f_attestations_inclusion_delay
                                      ,f_sync_committee_messages
                                      ,f_sync_committee_messages_included)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
 ON CONFLICT (f_validator_index,f_start_timestamp) DO
 UPDATE
 SET f_start_balance = excluded.f_start_balance
    ,f_start_effective_balance = excluded.f_start_effective_balance
    ,f_capital_change = excluded.f_capital_change
    ,f_reward_change = excluded.f_reward_change
+   ,f_withdrawals = excluded.f_withdrawals
    ,f_effective_balance_change = excluded.f_effective_balance_change
    ,f_proposals = excluded.f_proposals
    ,f_proposals_included = excluded.f_proposals_included
@@ -169,6 +173,7 @@ SET f_start_balance = excluded.f_start_balance
 		summary.StartEffectiveBalance,
 		summary.CapitalChange,
 		summary.RewardChange,
+		summary.Withdrawals,
 		summary.EffectiveBalanceChange,
 		summary.Proposals,
 		summary.ProposalsIncluded,
@@ -213,6 +218,7 @@ SELECT f_validator_index
       ,f_start_effective_balance
       ,f_capital_change
       ,f_reward_change
+      ,f_withdrawals
       ,f_effective_balance_change
       ,f_proposals
       ,f_proposals_included
@@ -293,6 +299,7 @@ LIMIT $%d`, len(queryVals)))
 			&summary.StartEffectiveBalance,
 			&summary.CapitalChange,
 			&summary.RewardChange,
+			&summary.Withdrawals,
 			&summary.EffectiveBalanceChange,
 			&summary.Proposals,
 			&summary.ProposalsIncluded,

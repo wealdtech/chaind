@@ -239,10 +239,12 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 		daySummaries[startBalance.Index].StartEffectiveBalance = uint64(startBalance.EffectiveBalance)
 	}
 
-	firstSlot := s.chainTime.FirstSlotOfEpoch(startEpoch)
-	lastSlot := s.chainTime.LastSlotOfEpoch(endEpoch)
+	startSlot := s.chainTime.TimestampToSlot(startTime)
+	// The end slot should be the last slot that has finished at the given time, not the slot in progress
+	// at the given time, so this is always reduced by 1.
+	endslot := s.chainTime.TimestampToSlot(endTime) - 1
 	// Obtain deposits, and turn them in to a map for easy lookup.
-	dbDeposits, err := s.chainDB.(chaindb.DepositsProvider).DepositsForSlotRange(ctx, firstSlot, lastSlot+1)
+	dbDeposits, err := s.chainDB.(chaindb.DepositsProvider).DepositsForSlotRange(ctx, startSlot, endslot+1)
 	if err != nil {
 		return false, errors.Wrap(err, "failed to obtain deposits")
 	}
@@ -262,8 +264,8 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 	// Obtain withdrawals, and turn them in to a map for easy lookup.
 	canonical := true
 	dbWithdrawals, err := s.chainDB.(chaindb.WithdrawalsProvider).Withdrawals(ctx, &chaindb.WithdrawalFilter{
-		From:      &firstSlot,
-		To:        &lastSlot,
+		From:      &startSlot,
+		To:        &endslot,
 		Canonical: &canonical,
 	})
 	if err != nil {
@@ -307,6 +309,7 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 		} else {
 			withdrawals = 0
 		}
+		daySummaries[endBalance.Index].Withdrawals = uint64(withdrawals)
 
 		capitalChange := int64(deposits) - int64(withdrawals)
 
