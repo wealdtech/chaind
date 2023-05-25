@@ -21,17 +21,9 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/pkg/errors"
 )
-
-func init() {
-	// We seed math.rand here so that we can obtain different IDs for requests.
-	// This is purely used as a way to match request and response entries in logs, so there is no
-	// requirement for this to cryptographically secure.
-	rand.Seed(time.Now().UnixNano())
-}
 
 // post sends an HTTP post request and returns the body.
 func (s *Service) post(ctx context.Context, endpoint string, body io.Reader) (io.Reader, error) {

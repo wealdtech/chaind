@@ -324,26 +324,7 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 		time.Sleep(timeToGenesis)
 	}
 
-	// Wait for the node to sync.
-	for {
-		syncState, err := eth2Client.(eth2client.NodeSyncingProvider).NodeSyncing(ctx)
-		if err != nil {
-			log.Debug().Err(err).Msg("Failed to obtain node sync state; will re-test in 1 minute")
-			time.Sleep(time.Minute)
-			continue
-		}
-		if syncState == nil {
-			log.Debug().Msg("No node sync state; will re-test in 1 minute")
-			time.Sleep(time.Minute)
-			continue
-		}
-		if syncState.IsSyncing {
-			log.Debug().Msg("Node syncing; will re-test in 1 minute")
-			time.Sleep(time.Minute)
-			continue
-		}
-		break
-	}
+	waitForNodeSync(ctx, eth2Client)
 
 	// Spec should be the first service that starts.  This adds configuration data to
 	// chaindb so it is accessible to other services.
@@ -408,6 +389,28 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 	}
 
 	return nil
+}
+
+func waitForNodeSync(ctx context.Context, eth2Client eth2client.Service) {
+	for {
+		syncState, err := eth2Client.(eth2client.NodeSyncingProvider).NodeSyncing(ctx)
+		if err != nil {
+			log.Debug().Err(err).Msg("Failed to obtain node sync state; will re-test in 1 minute")
+			time.Sleep(time.Minute)
+			continue
+		}
+		if syncState == nil {
+			log.Debug().Msg("No node sync state; will re-test in 1 minute")
+			time.Sleep(time.Minute)
+			continue
+		}
+		if syncState.IsSyncing {
+			log.Debug().Msg("Node syncing; will re-test in 1 minute")
+			time.Sleep(time.Minute)
+			continue
+		}
+		break
+	}
 }
 
 func logModules() {

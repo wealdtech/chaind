@@ -336,6 +336,17 @@ func (s *Service) slashingsStatsForEpoch(ctx context.Context,
 	maxSlot := s.chainTime.LastSlotOfEpoch(epoch)
 	log.Trace().Uint64("epoch", uint64(epoch)).Uint64("min_slot", uint64(minSlot)).Uint64("max_slot", uint64(maxSlot)).Msg("Updating slashing statistics")
 
+	if err := s.proposerSlashingStatsForSlotRange(ctx, minSlot, maxSlot, summary); err != nil {
+		return err
+	}
+	return s.attesterSlashingStatsForSlotRange(ctx, minSlot, maxSlot, summary)
+}
+
+func (s *Service) proposerSlashingStatsForSlotRange(ctx context.Context,
+	minSlot phase0.Slot,
+	maxSlot phase0.Slot,
+	summary *chaindb.EpochSummary,
+) error {
 	proposerSlashings, err := s.proposerSlashingsProvider.ProposerSlashingsForSlotRange(ctx, minSlot, maxSlot+1)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain proposer slashings")
@@ -369,6 +380,14 @@ func (s *Service) slashingsStatsForEpoch(ctx context.Context,
 		}
 	}
 
+	return nil
+}
+
+func (s *Service) attesterSlashingStatsForSlotRange(ctx context.Context,
+	minSlot phase0.Slot,
+	maxSlot phase0.Slot,
+	summary *chaindb.EpochSummary,
+) error {
 	attesterSlashings, err := s.attesterSlashingsProvider.AttesterSlashingsForSlotRange(ctx, minSlot, maxSlot+1)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain attester slashings")

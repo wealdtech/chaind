@@ -17,7 +17,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"time"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
@@ -32,13 +31,6 @@ type Tx struct{}
 
 // TxID is a context tag for the transaction TxID.
 type TxID struct{}
-
-func init() {
-	// We seed math.rand here so that we can obtain different IDs for requests.
-	// This is purely used as a way to match request and response entries in logs, so there is no
-	// requirement for this to cryptographically secure.
-	rand.Seed(time.Now().UnixNano())
-}
 
 // BeginTx begins a transaction on the database.
 // The transaction can be rolled back by invoking the cancel function.
