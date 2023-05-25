@@ -296,7 +296,8 @@ type ExecutionPayload struct {
 	BaseFeePerGas *big.Int
 	BlockHash     [32]byte
 	// No transactions, they are stored in execd.
-	Withdrawals []*Withdrawal
+	Withdrawals   []*Withdrawal
+	ExcessDataGas *big.Int
 }
 
 // BLSToExecutionChange holds information about credentials change operations.

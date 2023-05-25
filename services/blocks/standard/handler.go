@@ -24,6 +24,7 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/altair"
 	"github.com/attestantio/go-eth2-client/spec/bellatrix"
 	"github.com/attestantio/go-eth2-client/spec/capella"
+	"github.com/attestantio/go-eth2-client/spec/deneb"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
@@ -180,6 +181,8 @@ func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.VersionedSigned
 		return s.onBlockBellatrix(ctx, signedBlock.Bellatrix, dbBlock)
 	case spec.DataVersionCapella:
 		return s.onBlockCapella(ctx, signedBlock.Capella, dbBlock)
+	case spec.DataVersionDeneb:
+		return s.onBlockDeneb(ctx, signedBlock.Deneb, dbBlock)
 	default:
 		return errors.New("unknown block version")
 	}
@@ -310,6 +313,49 @@ func (s *Service) onBlockBellatrix(ctx context.Context, signedBlock *bellatrix.S
 
 func (s *Service) onBlockCapella(ctx context.Context, signedBlock *capella.SignedBeaconBlock, dbBlock *chaindb.Block) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "OnBlockCapella")
+	defer span.End()
+
+	if err := s.updateAttestationsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.Attestations); err != nil {
+		return errors.Wrap(err, "failed to update attestations")
+	}
+	if err := s.updateProposerSlashingsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.ProposerSlashings); err != nil {
+		return errors.Wrap(err, "failed to update proposer slashings")
+	}
+	if err := s.updateAttesterSlashingsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.AttesterSlashings); err != nil {
+		return errors.Wrap(err, "failed to update attester slashings")
+	}
+	if err := s.updateDepositsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.Deposits); err != nil {
+		return errors.Wrap(err, "failed to update deposits")
+	}
+	if err := s.updateVoluntaryExitsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.VoluntaryExits); err != nil {
+		return errors.Wrap(err, "failed to update voluntary exits")
+	}
+	if err := s.updateSyncAggregateForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.SyncAggregate); err != nil {
+		return errors.Wrap(err, "failed to update sync aggregate")
+	}
+	return nil
+}
+
+func (s *Service) onBlockDeneb(ctx context.Context, signedBlock *deneb.SignedBeaconBlock, dbBlock *chaindb.Block) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "OnBlockDeneb")
 	defer span.End()
 
 	if err := s.updateAttestationsForBlock(ctx,
@@ -502,6 +548,8 @@ func (s *Service) dbBlock(
 		return s.dbBlockBellatrix(ctx, block.Bellatrix.Message)
 	case spec.DataVersionCapella:
 		return s.dbBlockCapella(ctx, block.Capella.Message)
+	case spec.DataVersionDeneb:
+		return s.dbBlockDeneb(ctx, block.Deneb.Message)
 	default:
 		return nil, errors.New("unknown block version")
 	}
@@ -725,6 +773,87 @@ func (*Service) dbBlockCapella(
 			BaseFeePerGas: baseFeePerGas,
 			BlockHash:     block.Body.ExecutionPayload.BlockHash,
 			Withdrawals:   withdrawals,
+		},
+		BLSToExecutionChanges: blsToExecutionChanges,
+	}
+
+	return dbBlock, nil
+}
+
+func (*Service) dbBlockDeneb(
+	_ context.Context,
+	block *deneb.BeaconBlock,
+) (*chaindb.Block, error) {
+	bodyRoot, err := block.Body.HashTreeRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to calculate body root")
+	}
+
+	header := &phase0.BeaconBlockHeader{
+		Slot:          block.Slot,
+		ProposerIndex: block.ProposerIndex,
+		ParentRoot:    block.ParentRoot,
+		StateRoot:     block.StateRoot,
+		BodyRoot:      bodyRoot,
+	}
+	root, err := header.HashTreeRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to calculate block root")
+	}
+
+	blsToExecutionChanges := make([]*chaindb.BLSToExecutionChange, len(block.Body.BLSToExecutionChanges))
+	for i := range block.Body.BLSToExecutionChanges {
+		blsToExecutionChanges[i] = &chaindb.BLSToExecutionChange{
+			InclusionBlockRoot: root,
+			InclusionSlot:      block.Slot,
+			InclusionIndex:     uint(i),
+			ValidatorIndex:     block.Body.BLSToExecutionChanges[i].Message.ValidatorIndex,
+		}
+		copy(blsToExecutionChanges[i].FromBLSPubKey[:], block.Body.BLSToExecutionChanges[i].Message.FromBLSPubkey[:])
+		copy(blsToExecutionChanges[i].ToExecutionAddress[:], block.Body.BLSToExecutionChanges[i].Message.ToExecutionAddress[:])
+	}
+
+	withdrawals := make([]*chaindb.Withdrawal, len(block.Body.ExecutionPayload.Withdrawals))
+	for i := range block.Body.ExecutionPayload.Withdrawals {
+		withdrawals[i] = &chaindb.Withdrawal{
+			InclusionBlockRoot: root,
+			InclusionSlot:      block.Slot,
+			InclusionIndex:     uint(i),
+			Index:              block.Body.ExecutionPayload.Withdrawals[i].Index,
+			ValidatorIndex:     block.Body.ExecutionPayload.Withdrawals[i].ValidatorIndex,
+			Amount:             block.Body.ExecutionPayload.Withdrawals[i].Amount,
+		}
+		copy(withdrawals[i].Address[:], block.Body.ExecutionPayload.Withdrawals[i].Address[:])
+	}
+
+	dbBlock := &chaindb.Block{
+		Slot:             block.Slot,
+		ProposerIndex:    block.ProposerIndex,
+		Root:             root,
+		Graffiti:         block.Body.Graffiti[:],
+		RANDAOReveal:     block.Body.RANDAOReveal,
+		BodyRoot:         bodyRoot,
+		ParentRoot:       block.ParentRoot,
+		StateRoot:        block.StateRoot,
+		ETH1BlockHash:    block.Body.ETH1Data.BlockHash,
+		ETH1DepositCount: block.Body.ETH1Data.DepositCount,
+		ETH1DepositRoot:  block.Body.ETH1Data.DepositRoot,
+		ExecutionPayload: &chaindb.ExecutionPayload{
+			ParentHash:    block.Body.ExecutionPayload.ParentHash,
+			FeeRecipient:  block.Body.ExecutionPayload.FeeRecipient,
+			StateRoot:     block.Body.ExecutionPayload.StateRoot,
+			ReceiptsRoot:  block.Body.ExecutionPayload.ReceiptsRoot,
+			LogsBloom:     block.Body.ExecutionPayload.LogsBloom,
+			PrevRandao:    block.Body.ExecutionPayload.PrevRandao,
+			BlockNumber:   block.Body.ExecutionPayload.BlockNumber,
+			GasLimit:      block.Body.ExecutionPayload.GasLimit,
+			GasUsed:       block.Body.ExecutionPayload.GasUsed,
+			Timestamp:     block.Body.ExecutionPayload.Timestamp,
+			ExtraData:     block.Body.ExecutionPayload.ExtraData,
+			BaseFeePerGas: block.Body.ExecutionPayload.BaseFeePerGas.ToBig(),
+			BlockHash:     block.Body.ExecutionPayload.BlockHash,
+			Withdrawals:   withdrawals,
+			ExcessDataGas: block.Body.ExecutionPayload.ExcessDataGas.ToBig(),
 		},
 		BLSToExecutionChanges: blsToExecutionChanges,
 	}

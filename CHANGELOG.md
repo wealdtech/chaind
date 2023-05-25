@@ -2,6 +2,7 @@ dev:
   - Add provider for epoch summaries
   - Add withdrawals to epoch summaries table
   - Add withdrawals to validator day summaries table
+  - Add excess data gas to block execution payload table
 
 0.7.4:
   - Ensure that only canonical withdrawals are included in summaries

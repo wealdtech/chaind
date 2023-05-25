@@ -115,6 +115,7 @@ var upgrades = map[uint64]*upgrade{
 		funcs: []func(context.Context, *Service) error{
 			addEpochWithdrawals,
 			addValidatorDayWithdrawals,
+			addExcessDataGas,
 		},
 	},
 }
@@ -910,6 +911,7 @@ CREATE TABLE t_block_execution_payloads (
  ,f_base_fee_per_gas NUMERIC NOT NULL
  ,f_extra_data       BYTEA
  ,f_timestamp        BIGINT NOT NULL
+ ,f_excess_data_gas  BIGINT NOT NULL DEFAULT 0
 );
 
 -- t_beacon_committees contains all beacon committees.
@@ -1703,6 +1705,22 @@ ALTER COLUMN f_withdrawals
 SET NOT NULL
 `); err != nil {
 		return errors.Wrap(err, "failed to make f_withdrawals on t_validator_day_summaries not null")
+	}
+
+	return nil
+}
+
+func addExcessDataGas(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_block_execution_payloads
+ADD COLUMN f_excess_data_gas BIGINT NOT NULL DEFAULT 0
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_excess_data_gas to t_block_execution_payloads")
 	}
 
 	return nil

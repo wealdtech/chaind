@@ -132,7 +132,6 @@ linters:
     - cyclop
     - deadcode
     - dupl
-    - exhaustive
     - exhaustivestruct
     - exhaustruct
     - forbidigo

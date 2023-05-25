@@ -1,4 +1,4 @@
-// Copyright © 2022 Weald Technology Trading.
+// Copyright © 2022, 2023 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -54,6 +54,11 @@ func (s *Service) setExecutionPayload(ctx context.Context, block *chaindb.Block)
 		extraData = &block.ExecutionPayload.ExtraData
 	}
 
+	excessDataGas := decimal.Zero
+	if block.ExecutionPayload.ExcessDataGas != nil {
+		excessDataGas = decimal.NewFromBigInt(block.ExecutionPayload.BaseFeePerGas, 0)
+	}
+
 	_, err := tx.Exec(ctx, `
 INSERT INTO t_block_execution_payloads(f_block_root
                                       ,f_block_number
@@ -69,8 +74,9 @@ INSERT INTO t_block_execution_payloads(f_block_root
                                       ,f_base_fee_per_gas
                                       ,f_timestamp
                                       ,f_extra_data
+                                      ,f_excess_data_gas
                                       )
-VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 ON CONFLICT (f_block_root) DO
 UPDATE
 SET f_block_number = excluded.f_block_number
@@ -86,6 +92,7 @@ SET f_block_number = excluded.f_block_number
    ,f_base_fee_per_gas = excluded.f_base_fee_per_gas
    ,f_timestamp = excluded.f_timestamp
    ,f_extra_data = excluded.f_extra_data
+   ,f_excess_data_gas = excluded.f_excess_data_gas
 `,
 		block.Root[:],
 		block.ExecutionPayload.BlockNumber,
@@ -101,6 +108,7 @@ SET f_block_number = excluded.f_block_number
 		decimal.NewFromBigInt(block.ExecutionPayload.BaseFeePerGas, 0),
 		block.ExecutionPayload.Timestamp,
 		extraData,
+		excessDataGas,
 	)
 	if err != nil {
 		return err
@@ -133,6 +141,7 @@ func (s *Service) executionPayload(ctx context.Context,
 	var logsBloom []byte
 	var prevRandao []byte
 	var baseFeePerGas decimal.Decimal
+	var excessDataGas decimal.Decimal
 
 	err := tx.QueryRow(ctx, `
 SELECT f_block_number
@@ -148,6 +157,7 @@ SELECT f_block_number
       ,f_base_fee_per_gas
       ,f_timestamp
       ,f_extra_data
+      ,f_excess_data_gas
 FROM t_block_execution_payloads
 WHERE f_block_root = $1`,
 		root[:],
@@ -165,6 +175,7 @@ WHERE f_block_root = $1`,
 		&baseFeePerGas,
 		&payload.Timestamp,
 		&payload.ExtraData,
+		&excessDataGas,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -181,6 +192,7 @@ WHERE f_block_root = $1`,
 	copy(payload.LogsBloom[:], logsBloom)
 	copy(payload.PrevRandao[:], prevRandao)
 	payload.BaseFeePerGas = baseFeePerGas.BigInt()
+	payload.ExcessDataGas = excessDataGas.BigInt()
 
 	return payload, nil
 }
@@ -216,6 +228,7 @@ SELECT f_block_root
       ,f_base_fee_per_gas
       ,f_timestamp
       ,f_extra_data
+      ,f_excess_data_gas
 FROM t_block_execution_payloads
 WHERE f_block_root = ANY($1)`,
 		broots,
@@ -237,6 +250,7 @@ WHERE f_block_root = ANY($1)`,
 		var logsBloom []byte
 		var prevRandao []byte
 		var baseFeePerGas decimal.Decimal
+		var excessDataGas decimal.Decimal
 		err := rows.Scan(&blockRoot,
 			&payload.BlockNumber,
 			&blockHash,
@@ -251,6 +265,7 @@ WHERE f_block_root = ANY($1)`,
 			&baseFeePerGas,
 			&payload.Timestamp,
 			&payload.ExtraData,
+			&payload.ExcessDataGas,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
@@ -263,6 +278,7 @@ WHERE f_block_root = ANY($1)`,
 		copy(payload.LogsBloom[:], logsBloom)
 		copy(payload.PrevRandao[:], prevRandao)
 		payload.BaseFeePerGas = baseFeePerGas.BigInt()
+		payload.ExcessDataGas = excessDataGas.BigInt()
 
 		var key phase0.Root
 		copy(key[:], blockRoot)
