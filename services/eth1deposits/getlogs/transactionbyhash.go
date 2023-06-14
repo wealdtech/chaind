@@ -35,7 +35,7 @@ func (s *Service) transactionByHash(ctx context.Context, txHash []byte) (*transa
 	}
 	url := s.base.ResolveReference(reference).String()
 
-	reqBody := bytes.NewBuffer([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_getTransactionByHash","params":["%#x"],"id":1901}`, txHash)))
+	reqBody := bytes.NewBufferString(fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_getTransactionByHash","params":["%#x"],"id":1901}`, txHash))
 	respBodyReader, err := s.post(ctx, url, reqBody)
 	if err != nil {
 		log.Trace().Str("url", url).Err(err).Msg("Request failed")

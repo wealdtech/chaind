@@ -35,7 +35,7 @@ func (s *Service) getLogs(ctx context.Context, startBlock uint64, endBlock uint6
 	}
 	url := s.base.ResolveReference(reference).String()
 
-	reqBody := bytes.NewBuffer([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"address":["%#x"],"topics":["0x649bbc62d0e31342afea4e5cd82d4049e7e1ee912fc0889aa790803be39038c5"],"fromBlock":"%#x","toBlock":"%#x"}],"id":11}`, s.depositContractAddress, startBlock, endBlock)))
+	reqBody := bytes.NewBufferString(fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"address":["%#x"],"topics":["0x649bbc62d0e31342afea4e5cd82d4049e7e1ee912fc0889aa790803be39038c5"],"fromBlock":"%#x","toBlock":"%#x"}],"id":11}`, s.depositContractAddress, startBlock, endBlock))
 	respBodyReader, err := s.post(ctx, url, reqBody)
 	if err != nil {
 		log.Trace().Str("url", url).Err(err).Msg("Request failed")

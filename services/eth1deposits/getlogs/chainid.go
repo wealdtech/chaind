@@ -36,7 +36,7 @@ func (s *Service) chainID(ctx context.Context) (uint64, error) {
 	}
 	url := s.base.ResolveReference(reference).String()
 
-	reqBody := bytes.NewBuffer([]byte(`{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1901}`))
+	reqBody := bytes.NewBufferString(`{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1901}`)
 	respBodyReader, err := s.post(ctx, url, reqBody)
 	if err != nil {
 		log.Trace().Str("url", url).Err(err).Msg("Request failed")

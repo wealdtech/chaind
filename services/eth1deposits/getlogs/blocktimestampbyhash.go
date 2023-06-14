@@ -41,7 +41,7 @@ func (s *Service) blockTimestampByHash(ctx context.Context, blockHash []byte) (t
 	}
 	url := s.base.ResolveReference(reference).String()
 
-	reqBody := bytes.NewBuffer([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_getBlockByHash","params":["%#x",false],"id":1901}`, blockHash)))
+	reqBody := bytes.NewBufferString(fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_getBlockByHash","params":["%#x",false],"id":1901}`, blockHash))
 	respBodyReader, err := s.post(ctx, url, reqBody)
 	if err != nil {
 		log.Trace().Str("url", url).Err(err).Msg("Request failed")
