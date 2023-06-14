@@ -1,4 +1,4 @@
-// Copyright © 2020, 2021 Weald Technology Trading.
+// Copyright © 2020 - 2023 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -261,6 +261,10 @@ func (s *Service) ValidatorsByIndex(ctx context.Context, indices []phase0.Valida
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorsByIndex")
 	defer span.End()
 
+	if len(indices) == 0 {
+		return map[phase0.ValidatorIndex]*chaindb.Validator{}, nil
+	}
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -419,6 +423,10 @@ func (s *Service) ValidatorBalancesByIndexAndEpoch(
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorBalancesByIndexAndEpoch")
 	defer span.End()
 
+	if len(validatorIndices) == 0 {
+		return map[phase0.ValidatorIndex]*chaindb.ValidatorBalance{}, nil
+	}
+
 	tx := s.tx(ctx)
 	if tx == nil {
 		ctx, err := s.BeginROTx(ctx)
@@ -473,6 +481,10 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 ) {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorBalancesByIndexAndEpochRange")
 	defer span.End()
+
+	if len(validatorIndices) == 0 {
+		return map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance{}, nil
+	}
 
 	tx := s.tx(ctx)
 	if tx == nil {
@@ -549,6 +561,10 @@ func (s *Service) ValidatorBalancesByIndexAndEpochs(
 ) {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ValidatorBalancesByIndexAndEpochs")
 	defer span.End()
+
+	if len(validatorIndices) == 0 {
+		return map[phase0.ValidatorIndex][]*chaindb.ValidatorBalance{}, nil
+	}
 
 	tx := s.tx(ctx)
 	if tx == nil {
