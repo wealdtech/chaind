@@ -137,6 +137,11 @@ func (s *service) SetBeaconCommittee(_ context.Context, _ *chaindb.BeaconCommitt
 	return nil
 }
 
+// Blocks provides blocks according to the filter.
+func (s *service) Blocks(_ context.Context, _ *chaindb.BlockFilter) ([]*chaindb.Block, error) {
+	return []*chaindb.Block{}, nil
+}
+
 // BlocksBySlot fetches all blocks with the given slot.
 func (s *service) BlocksBySlot(_ context.Context, _ phase0.Slot) ([]*chaindb.Block, error) {
 	return nil, nil
@@ -411,6 +416,17 @@ func (s *service) ValidatorsByIndex(_ context.Context,
 	return nil, nil
 }
 
+// ValidatorBalancesByEpoch fetches all validator balances for the given epoch.
+func (s *service) ValidatorBalancesByEpoch(
+	_ context.Context,
+	_ phase0.Epoch,
+) (
+	[]*chaindb.ValidatorBalance,
+	error,
+) {
+	return nil, nil
+}
+
 // ValidatorBalancesByIndexAndEpoch fetches the validator balances for the given validators and epoch.
 func (s *service) ValidatorBalancesByIndexAndEpoch(_ context.Context,
 	_ []phase0.ValidatorIndex,
@@ -568,6 +584,11 @@ func (s *service) SyncCommittee(_ context.Context, _ uint64) (*chaindb.SyncCommi
 // SetSyncCommittee sets a sync committee.
 func (s *service) SetSyncCommittee(_ context.Context, _ *chaindb.SyncCommittee) error {
 	return nil
+}
+
+// Withdrawals provides withdrawals according to the filter.
+func (s *service) Withdrawals(_ context.Context, _ *chaindb.WithdrawalFilter) ([]*chaindb.Withdrawal, error) {
+	return []*chaindb.Withdrawal{}, nil
 }
 
 // BeginTx begins a transaction.
