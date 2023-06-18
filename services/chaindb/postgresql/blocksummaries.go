@@ -15,6 +15,8 @@ package postgresql
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
@@ -54,6 +56,102 @@ func (s *Service) SetBlockSummary(ctx context.Context, summary *chaindb.BlockSum
 	)
 
 	return err
+}
+
+func (s *Service) BlockSummaries(ctx context.Context, filter *chaindb.BlockSummaryFilter) ([]*chaindb.BlockSummary, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "BlockSummaries")
+	defer span.End()
+
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, err := s.BeginROTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		defer s.CommitROTx(ctx)
+		tx = s.tx(ctx)
+	}
+
+	// Build the query.
+	queryBuilder := strings.Builder{}
+	queryVals := make([]interface{}, 0)
+
+	queryBuilder.WriteString(`
+SELECT f_slot
+      ,f_attestations_for_block
+      ,f_duplicate_attestations_for_block
+      ,f_votes_for_block
+      ,f_parent_distance
+FROM t_block_summaries`)
+
+	conditions := make([]string, 0)
+
+	if filter.From != nil {
+		queryVals = append(queryVals, *filter.From)
+		conditions = append(conditions, fmt.Sprintf(`f_slot >= $%d`, len(queryVals)))
+	}
+
+	if filter.To != nil {
+		queryVals = append(queryVals, *filter.To)
+		conditions = append(conditions, fmt.Sprintf(`f_to <= $%d`, len(queryVals)))
+	}
+
+	if len(conditions) > 0 {
+		queryBuilder.WriteString(`
+WHERE`)
+		queryBuilder.WriteString(strings.Join(conditions, " OR "))
+	}
+
+	switch filter.Order {
+	case chaindb.OrderEarliest:
+		queryBuilder.WriteString(`
+ORDER BY f_slot`)
+	case chaindb.OrderLatest:
+		queryBuilder.WriteString(`
+ORDER BY f_slot DESC`)
+	default:
+		return nil, errors.New("no order specified")
+	}
+
+	if filter.Limit > 0 {
+		queryVals = append(queryVals, filter.Limit)
+		queryBuilder.WriteString(fmt.Sprintf(`
+LIMIT $%d`, len(queryVals)))
+	}
+
+	if e := log.Trace(); e.Enabled() {
+		params := make([]string, len(queryVals))
+		for i := range queryVals {
+			params[i] = fmt.Sprintf("%v", queryVals[i])
+		}
+		e.Str("query", strings.ReplaceAll(queryBuilder.String(), "\n", " ")).Strs("params", params).Msg("SQL query")
+	}
+
+	rows, err := tx.Query(ctx,
+		queryBuilder.String(),
+		queryVals...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	summaries := make([]*chaindb.BlockSummary, 0)
+	for rows.Next() {
+		summary := &chaindb.BlockSummary{}
+		if err := rows.Scan(
+			&summary.Slot,
+			&summary.AttestationsForBlock,
+			&summary.DuplicateAttestationsForBlock,
+			&summary.VotesForBlock,
+			&summary.ParentDistance,
+		); err != nil {
+			return nil, err
+		}
+		summaries = append(summaries, summary)
+	}
+
+	return summaries, nil
 }
 
 // BlockSummaryForSlot obtains the summary of a block for a given slot.

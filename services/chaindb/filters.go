@@ -29,6 +29,28 @@ const (
 	OrderLatest
 )
 
+// BlockSummaryFilter defines a filter for fetching block summaries.
+// Filter elements are ANDed together.
+// Results are always returned in ascending slot order.
+type BlockSummaryFilter struct {
+	// Limit is the maximum number of items to return.
+	Limit uint32
+
+	// Order is either OrderEarliest, in which case the earliest results
+	// that match the filter are returned, or OrderLatest, in which case the
+	// latest results that match the filter are returned.
+	// The default is OrderEarliest.
+	Order Order
+
+	// From is the earliest slot from which to fetch items.
+	// If nil then no condition is applied.
+	From *phase0.Slot
+
+	// To is the latest slot from which to fetch items.
+	// If nil then no condition is applied.
+	To *phase0.Slot
+}
+
 // ValidatorSummaryFilter defines a filter for fetching validator summaries.
 // Filter elements are ANDed together.
 // Results are always returned in ascending (epoch, validator index) order.
