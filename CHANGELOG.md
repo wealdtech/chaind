@@ -1,3 +1,6 @@
+0.7.6:
+  - Fix error in the Blocks() provider
+
 0.7.5:
   - Add provider for epoch summaries
   - Add withdrawals to epoch summaries table

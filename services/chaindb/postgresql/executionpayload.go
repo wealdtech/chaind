@@ -265,7 +265,7 @@ WHERE f_block_root = ANY($1)`,
 			&baseFeePerGas,
 			&payload.Timestamp,
 			&payload.ExtraData,
-			&payload.ExcessDataGas,
+			&excessDataGas,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
