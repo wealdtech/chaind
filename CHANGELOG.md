@@ -1,4 +1,4 @@
-dev:
+0.7.5:
   - Add provider for epoch summaries
   - Add withdrawals to epoch summaries table
   - Add withdrawals to validator day summaries table
