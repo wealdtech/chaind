@@ -89,7 +89,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		eventData := event.Data.(*api.FinalizedCheckpointEvent)
 		log.Trace().Str("event", eventData.String()).Msg("Received event")
 
-		// The finalizer event commonly occurs at the same time as the blocks event.  Because they cannot both run at the same
+		// The finalizer event commonly occurs at the same time as the head event.  Because they cannot both run at the same
 		// time, we sleep for a bit here to allow that to process first.
 		time.Sleep(4 * time.Second)
 		finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, "head")
@@ -97,7 +97,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 			log.Error().Err(err).Msg("Failed to obtain finality data")
 		}
 
-		s.OnFinalityCheckpointReceived(ctx, finality.Finalized.Epoch, finality.Finalized.Root, finality.Justified.Epoch, finality.Justified.Root)
+		s.OnFinalityCheckpointReceived(ctx, finality)
 	}); err != nil {
 		return nil, errors.Wrap(err, "failed to add finality checkpoint received handler")
 	}

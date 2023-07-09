@@ -20,6 +20,7 @@ import (
 	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	apiv1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
@@ -29,24 +30,21 @@ import (
 // OnFinalityCheckpointReceived receives finality checkpoint notifications.
 func (s *Service) OnFinalityCheckpointReceived(
 	ctx context.Context,
-	finalizedEpoch phase0.Epoch,
-	finalizedBlockRoot phase0.Root,
-	justifiedEpoch phase0.Epoch,
-	justifiedBlockRoot phase0.Root,
+	finality *apiv1.Finality,
 ) {
-	log := log.With().Uint64("finalized_epoch", uint64(finalizedEpoch)).Logger()
+	log := log.With().Uint64("finalized_epoch", uint64(finality.Finalized.Epoch)).Logger()
 	log.Trace().
-		Str("finalized_block_root", fmt.Sprintf("%#x", finalizedBlockRoot)).
-		Str("justified_epoch", fmt.Sprintf("%d", justifiedEpoch)).
-		Str("justified_bock_root", fmt.Sprintf("%#x", justifiedBlockRoot)).
+		Stringer("finalized_block_root", finality.Finalized.Root).
+		Uint64("justified_epoch", uint64(finality.Justified.Epoch)).
+		Stringer("justified_bock_root", finality.Justified.Root).
 		Msg("Finality checkpoint received")
 
 	// Only allow 1 handler to be active.
 	acquired := s.activitySem.TryAcquire(1)
 	if !acquired {
-		// If this semaphore is held by the blocks handler it will finish very soon, so
-		// wait for a second and try again.
-		time.Sleep(time.Second)
+		// If this semaphore is held by the blocks handler it will be free very soon, so
+		// wait for a bit and try again.
+		time.Sleep(2 * time.Second)
 		acquired = s.activitySem.TryAcquire(1)
 		if !acquired {
 			log.Debug().Msg("Another handler (either finalizer or blocks) running")
@@ -61,7 +59,7 @@ func (s *Service) OnFinalityCheckpointReceived(
 	// Rather than attempt to update everything from here back to what could be
 	// the genesis block we break the process in to batches of ~1024 slots.  To do this,
 	// pick checkpoints from here backwards and act on each one individually.
-	stack, err := s.buildFinalityStack(ctx, justifiedBlockRoot, justifiedEpoch)
+	stack, err := s.buildFinalityStack(ctx, finality.Justified.Root, finality.Justified.Epoch)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to build finality stack")
 		return
@@ -87,7 +85,7 @@ func (s *Service) OnFinalityCheckpointReceived(
 
 	// Notify that finality has been updated.
 	for _, finalityHandler := range s.finalityHandlers {
-		go finalityHandler.OnFinalityUpdated(ctx, finalizedEpoch)
+		go finalityHandler.OnFinalityUpdated(ctx, finality.Finalized.Epoch)
 	}
 }
 
