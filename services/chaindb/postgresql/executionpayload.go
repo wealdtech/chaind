@@ -54,11 +54,6 @@ func (s *Service) setExecutionPayload(ctx context.Context, block *chaindb.Block)
 		extraData = &block.ExecutionPayload.ExtraData
 	}
 
-	excessDataGas := decimal.Zero
-	if block.ExecutionPayload.ExcessDataGas != nil {
-		excessDataGas = decimal.NewFromBigInt(block.ExecutionPayload.BaseFeePerGas, 0)
-	}
-
 	_, err := tx.Exec(ctx, `
 INSERT INTO t_block_execution_payloads(f_block_root
                                       ,f_block_number
@@ -108,7 +103,7 @@ SET f_block_number = excluded.f_block_number
 		decimal.NewFromBigInt(block.ExecutionPayload.BaseFeePerGas, 0),
 		block.ExecutionPayload.Timestamp,
 		extraData,
-		excessDataGas,
+		block.ExecutionPayload.ExcessDataGas,
 	)
 	if err != nil {
 		return err
@@ -141,7 +136,6 @@ func (s *Service) executionPayload(ctx context.Context,
 	var logsBloom []byte
 	var prevRandao []byte
 	var baseFeePerGas decimal.Decimal
-	var excessDataGas decimal.Decimal
 
 	err := tx.QueryRow(ctx, `
 SELECT f_block_number
@@ -175,7 +169,7 @@ WHERE f_block_root = $1`,
 		&baseFeePerGas,
 		&payload.Timestamp,
 		&payload.ExtraData,
-		&excessDataGas,
+		&payload.ExcessDataGas,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -192,7 +186,6 @@ WHERE f_block_root = $1`,
 	copy(payload.LogsBloom[:], logsBloom)
 	copy(payload.PrevRandao[:], prevRandao)
 	payload.BaseFeePerGas = baseFeePerGas.BigInt()
-	payload.ExcessDataGas = excessDataGas.BigInt()
 
 	return payload, nil
 }
@@ -250,7 +243,6 @@ WHERE f_block_root = ANY($1)`,
 		var logsBloom []byte
 		var prevRandao []byte
 		var baseFeePerGas decimal.Decimal
-		var excessDataGas decimal.Decimal
 		err := rows.Scan(&blockRoot,
 			&payload.BlockNumber,
 			&blockHash,
@@ -265,7 +257,7 @@ WHERE f_block_root = ANY($1)`,
 			&baseFeePerGas,
 			&payload.Timestamp,
 			&payload.ExtraData,
-			&excessDataGas,
+			&payload.ExcessDataGas,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
@@ -278,7 +270,6 @@ WHERE f_block_root = ANY($1)`,
 		copy(payload.LogsBloom[:], logsBloom)
 		copy(payload.PrevRandao[:], prevRandao)
 		payload.BaseFeePerGas = baseFeePerGas.BigInt()
-		payload.ExcessDataGas = excessDataGas.BigInt()
 
 		var key phase0.Root
 		copy(key[:], blockRoot)

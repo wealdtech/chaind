@@ -17,15 +17,14 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 )
 
 // metadata stored about this service.
 type metadata struct {
-	LastFinalizedEpoch  phase0.Epoch   `json:"latest_epoch"`
-	LatestCanonicalSlot phase0.Slot    `json:"latest_canonical_slot"`
-	MissedEpochs        []phase0.Epoch `json:"missed_epochs,omitempty"`
+	LastFinalizedEpoch  int64   `json:"latest_epoch"`
+	LatestCanonicalSlot int64   `json:"latest_canonical_slot"`
+	MissedEpochs        []int64 `json:"missed_epochs,omitempty"`
 }
 
 // metadataKey is the key for the metadata.
@@ -33,7 +32,10 @@ var metadataKey = "finalizer.standard"
 
 // getMetadata gets metadata for this service.
 func (s *Service) getMetadata(ctx context.Context) (*metadata, error) {
-	md := &metadata{}
+	md := &metadata{
+		LastFinalizedEpoch:  -1,
+		LatestCanonicalSlot: -1,
+	}
 	mdJSON, err := s.chainDB.Metadata(ctx, metadataKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch metadata")

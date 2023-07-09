@@ -19,6 +19,7 @@ import (
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	api "github.com/attestantio/go-eth2-client/api/v1"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
@@ -106,7 +107,9 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain metadata")
 	}
-	monitorLatestEpoch(md.LastFinalizedEpoch)
+	if md.LastFinalizedEpoch > -1 {
+		monitorLatestEpoch(phase0.Epoch(md.LastFinalizedEpoch))
+	}
 
 	return s, nil
 }

@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
@@ -43,8 +44,14 @@ func (s *Service) OnFinalityCheckpointReceived(
 	// Only allow 1 handler to be active.
 	acquired := s.activitySem.TryAcquire(1)
 	if !acquired {
-		log.Debug().Msg("Another handler (either finalizer or blocks) running")
-		return
+		// If this semaphore is held by the blocks handler it will finish very soon, so
+		// wait for a second and try again.
+		time.Sleep(time.Second)
+		acquired = s.activitySem.TryAcquire(1)
+		if !acquired {
+			log.Debug().Msg("Another handler (either finalizer or blocks) running")
+			return
+		}
 	}
 	defer s.activitySem.Release(1)
 
@@ -96,7 +103,7 @@ func (s *Service) buildFinalityStack(ctx context.Context,
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain finalizer metadata")
 	}
-	lastestKnownCanonicalSlot := md.LatestCanonicalSlot
+	earliestNonCanonicalSlot := phase0.Slot(md.LatestCanonicalSlot + 1)
 
 	// Build a list of checkpoints that allow us to break up a potentially large
 	// set of database operations into smaller chunks of ~1024 slots each (first
@@ -125,7 +132,7 @@ func (s *Service) buildFinalityStack(ctx context.Context,
 			break
 		}
 		slot -= slotsPerChunk
-		if slot < lastestKnownCanonicalSlot {
+		if slot < earliestNonCanonicalSlot {
 			// Reached the location we have already finalized.
 			break
 		}
@@ -189,7 +196,7 @@ func (s *Service) updateCanonicalBlocks(ctx context.Context, root phase0.Root) e
 	}
 	log.Trace().Uint64("slot", uint64(block.Slot)).Msg("Canonicalizing up to slot")
 
-	if err := s.canonicalizeBlocks(ctx, root, md.LatestCanonicalSlot); err != nil {
+	if err := s.canonicalizeBlocks(ctx, root, phase0.Slot(md.LatestCanonicalSlot)); err != nil {
 		return errors.Wrap(err, "failed to update canonical blocks from canonical root")
 	}
 
@@ -197,7 +204,7 @@ func (s *Service) updateCanonicalBlocks(ctx context.Context, root phase0.Root) e
 		return errors.Wrap(err, "failed to update indeterminate blocks from canonical root")
 	}
 
-	md.LatestCanonicalSlot = block.Slot
+	md.LatestCanonicalSlot = int64(block.Slot)
 	if err := s.setMetadata(ctx, md); err != nil {
 		return errors.Wrap(err, "failed to update metadata on finality")
 	}
@@ -312,19 +319,14 @@ func (s *Service) updateAttestations(ctx context.Context, epoch phase0.Epoch) er
 		return nil
 	}
 
-	// First epoch is last finalized epoch + 1, unless it's 0 because we don't know the
-	// difference between actually 0 and undefined.
-	firstEpoch := md.LastFinalizedEpoch
-	if firstEpoch != 0 {
-		firstEpoch++
-	}
+	firstEpoch := phase0.Epoch(md.LastFinalizedEpoch + 1)
 
 	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("latest_epoch", uint64(epoch)).Msg("Epochs over which to update attestations")
 	for curEpoch := firstEpoch; curEpoch <= epoch; curEpoch++ {
 		if err := s.updateAttestationsInEpoch(ctx, curEpoch); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("failed to update attestations in epoch %d", epoch))
 		}
-		md.LastFinalizedEpoch = curEpoch
+		md.LastFinalizedEpoch = int64(curEpoch)
 
 		if err := s.setMetadata(ctx, md); err != nil {
 			return errors.Wrap(err, "failed to update metadata for epoch")

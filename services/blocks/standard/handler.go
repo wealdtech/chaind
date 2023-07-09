@@ -183,8 +183,10 @@ func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.VersionedSigned
 		return s.onBlockCapella(ctx, signedBlock.Capella, dbBlock)
 	case spec.DataVersionDeneb:
 		return s.onBlockDeneb(ctx, signedBlock.Deneb, dbBlock)
-	default:
+	case spec.DataVersionUnknown:
 		return errors.New("unknown block version")
+	default:
+		return fmt.Errorf("unhandled block version %v", signedBlock.Version)
 	}
 }
 
@@ -550,8 +552,10 @@ func (s *Service) dbBlock(
 		return s.dbBlockCapella(ctx, block.Capella.Message)
 	case spec.DataVersionDeneb:
 		return s.dbBlockDeneb(ctx, block.Deneb.Message)
-	default:
+	case spec.DataVersionUnknown:
 		return nil, errors.New("unknown block version")
+	default:
+		return nil, fmt.Errorf("unhandled block version %v", block.Version)
 	}
 }
 
@@ -853,7 +857,7 @@ func (*Service) dbBlockDeneb(
 			BaseFeePerGas: block.Body.ExecutionPayload.BaseFeePerGas.ToBig(),
 			BlockHash:     block.Body.ExecutionPayload.BlockHash,
 			Withdrawals:   withdrawals,
-			ExcessDataGas: block.Body.ExecutionPayload.ExcessDataGas.ToBig(),
+			ExcessDataGas: block.Body.ExecutionPayload.ExcessDataGas,
 		},
 		BLSToExecutionChanges: blsToExecutionChanges,
 	}
