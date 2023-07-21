@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  chaind:
+    image: wealdtech/chaind:latest
+    restart: unless-stopped
+    networks:
+      - chaind
+    volumes:
+      - ./chaind.config.docker-compose.yml:/app/chaind.yml:ro
+    command: --base-dir /app
+    environment:
+      CHAIND_CHAINDB_URL: postgres://chaind:chaind@db:5432
+      CHAIND_ETH2CLIENT_ADDRESS: http://localhost:5051/
+
+  db:
+    image: "postgres:14.2-bullseye"
+    networks:
+      - chaind
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chaind
+      POSTGRES_PASSWORD: chaind
+      POSTGRES_DB: chaind
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+networks:
+  chaind:
+    driver: bridge
+
+volumes:
+  db_data:
