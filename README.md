@@ -102,7 +102,7 @@ Or if you prefer using docker-compose:
 ```sh
 CHAIND_ETH2CLIENT_ADDRESS=http://localhost:5051/ docker-compose up -d
 ```
-You can modify the configuration in chaind.config.docker-compose.yml file.
+You can modify the configuration in chaind.config.docker-compose.yml file. The postgres server is exposed at 127.0.0.1:5432.
 
 ### Managing the database size
 Two tables take up the majority of the database size.  These are:
