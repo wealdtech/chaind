@@ -401,7 +401,7 @@ func (s *Service) syncCommitteesForEpochs(ctx context.Context,
 	error,
 ) {
 	startPeriod := s.chainTime.EpochToSyncCommitteePeriod(startEpoch)
-	if startPeriod > 0 {
+	if startPeriod > 0 && startPeriod > s.chainTime.AltairInitialSyncCommitteePeriod() {
 		// We could be on the first epoch of a period, so also grab the prior period.
 		startPeriod--
 	}
@@ -411,7 +411,7 @@ func (s *Service) syncCommitteesForEpochs(ctx context.Context,
 	for period := startPeriod; period <= endPeriod; period++ {
 		syncCommittee, err := s.chainDB.(chaindb.SyncCommitteesProvider).SyncCommittee(ctx, period)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to obtain sync commiittees")
+			return nil, errors.Wrap(err, "failed to obtain sync committees")
 		}
 		syncCommittees = append(syncCommittees, syncCommittee)
 	}
