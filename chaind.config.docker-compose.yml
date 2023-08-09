@@ -1,0 +1,63 @@
+# log-level is the base log level of the process.
+# 'info' should be a suitable log level, unless detailed information is
+# required in which case 'debug' or 'trace' can be used.
+log-level: debug
+# log-file specifies that log output should go to a file.  If this is not
+# present log output will be to stderr.
+# log-file: /var/log/chaind.log
+chaindb:
+  # url is the URL of the PostgreSQL database.
+  # url: postgres://chain:secret@localhost:5432
+  max-connections: 16
+# eth2client contains configuration for the Ethereum 2 client.
+eth2client:
+  # log-level is the log level of the specific module.  If not present the base log
+  # level will be used.
+  log-level: debug
+  # address is the address of the beacon node.
+  # address: localhost:5051
+# eth1client contains configuration for the Ethereum 1 client.
+eth1client:
+  # address is the address of the Ethereum 1 node.
+  # address: localhost:8545
+# blocks contains configuration for obtaining block-related information.
+blocks:
+  # enable states if this module will be operational.
+  enable: true
+  # address is a separate connection for this module.  If not present then
+  # chaind will use the eth2client connection.
+  # address: localhost:5051
+  # start-slot is the slot from which to start.  chaind should keep track of this itself,
+  # however if you wish to start from a later slot this can be set.
+  # start-slot: 2000
+  # refetch will refetch block data from a beacon node even if it has already has a block
+  # in its database.
+  # refetch: false
+# validators contains configuration for obtaining validator-related information.
+validators:
+  enable: true
+  # balances contains configuration for obtaining validator balances.  This is
+  # a separate configuration flag for two reasons.  First, it can take a long
+  # time to retrieve this information.  Second, the information can be
+  # derived from the data obtained by the other modules.
+  balances:
+    enable: false
+# beacon-committees contains configuration for obtaining beacon committee-related
+# information.
+beacon-committees:
+  enable: true
+# proposer-duties contains configuration for obtaining proposer duty-related
+# information.
+proposer-duties:
+  enable: true
+# finalizer updates tables with information available for finalized states.
+finalizer:
+  enable: true
+# eth1deposits contains information about transactions made to the deposit contract
+# on the Ethereum 1 network.
+eth1deposits:
+  enable: false
+  # start-block is the block from which to start fetching deposits.  chaind should
+  # keep track of this itself, however if you wish to start from a different block this
+  # can be set.
+  # start-block: 500

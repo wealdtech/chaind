@@ -71,6 +71,8 @@ createuser chain -P
 createdb -E UTF8 --owner=chain chain
 ```
 
+You can also run chaind using the example docker-compose file, it setups the Postgres database automatically a container.
+
 ### Beacon node
 `chaind` supports Teku and Lighthouse beacon nodes.  The current state of obtaining data from beacon nodes is as follows:
 
@@ -95,6 +97,12 @@ Once Teku has finished syncing, run:
 ```sh
 chaind --eth2client-address=http://localhost:5051/
 ```
+
+Or if you prefer using docker-compose:
+```sh
+CHAIND_ETH2CLIENT_ADDRESS=http://localhost:5051/ docker-compose up -d
+```
+You can modify the configuration in chaind.config.docker-compose.yml file. The postgres server is exposed at 127.0.0.1:5432.
 
 ### Managing the database size
 Two tables take up the majority of the database size.  These are:
