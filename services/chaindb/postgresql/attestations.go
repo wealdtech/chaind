@@ -16,6 +16,9 @@ package postgresql
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/jackc/pgx/v4"
@@ -618,4 +621,194 @@ func (s *Service) IndeterminateAttestationSlots(ctx context.Context, minSlot pha
 	}
 
 	return slots, nil
+}
+
+// Attestations provides attestations according to the filter.
+//
+//nolint:gocyclo,maintidx
+func (s *Service) Attestations(ctx context.Context, filter *chaindb.AttestationFilter) ([]*chaindb.Attestation, error) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "Attestations")
+	defer span.End()
+
+	tx := s.tx(ctx)
+	if tx == nil {
+		ctx, err := s.BeginROTx(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to begin transaction")
+		}
+		defer s.CommitROTx(ctx)
+		tx = s.tx(ctx)
+	}
+
+	// Build the query.
+	queryBuilder := strings.Builder{}
+	queryVals := make([]interface{}, 0)
+
+	queryBuilder.WriteString(`
+SELECT f_inclusion_slot
+      ,f_inclusion_block_root
+      ,f_inclusion_index
+      ,f_slot
+      ,f_committee_index
+      ,f_aggregation_bits
+      ,f_aggregation_indices
+      ,f_beacon_block_root
+      ,f_source_epoch
+      ,f_source_root
+      ,f_target_epoch
+      ,f_target_root
+      ,f_canonical
+      ,f_target_correct
+      ,f_head_correct
+FROM t_attestations`)
+
+	conditions := make([]string, 0)
+
+	if filter.ScheduledFrom != nil {
+		queryVals = append(queryVals, *filter.ScheduledFrom)
+		conditions = append(conditions, fmt.Sprintf("f_slot >= $%d", len(queryVals)))
+	}
+
+	if filter.ScheduledTo != nil {
+		queryVals = append(queryVals, *filter.ScheduledTo)
+		conditions = append(conditions, fmt.Sprintf("f_slot <= $%d", len(queryVals)))
+	}
+
+	if filter.From != nil {
+		queryVals = append(queryVals, *filter.From)
+		conditions = append(conditions, fmt.Sprintf("f_inclusion_slot >= $%d", len(queryVals)))
+	}
+
+	if filter.To != nil {
+		queryVals = append(queryVals, *filter.To)
+		conditions = append(conditions, fmt.Sprintf("f_inclusion_slot <= $%d", len(queryVals)))
+	}
+
+	if len(filter.ValidatorIndices) > 0 {
+		queryVals = append(queryVals, filter.ValidatorIndices)
+		conditions = append(conditions, fmt.Sprintf("f_aggregation_indices && $%d", len(queryVals)))
+	}
+
+	if filter.Canonical != nil {
+		queryVals = append(queryVals, *filter.Canonical)
+		conditions = append(conditions, fmt.Sprintf("f_canonical = $%d", len(queryVals)))
+	}
+
+	if filter.HeadCorrect != nil {
+		queryVals = append(queryVals, *filter.HeadCorrect)
+		conditions = append(conditions, fmt.Sprintf("f_head_correct = $%d", len(queryVals)))
+	}
+
+	if len(conditions) > 0 {
+		queryBuilder.WriteString("\nWHERE ")
+		queryBuilder.WriteString(strings.Join(conditions, "\n  AND "))
+	}
+
+	switch filter.Order {
+	case chaindb.OrderEarliest:
+		queryBuilder.WriteString(`
+ORDER BY f_inclusion_slot, f_inclusion_index`)
+	case chaindb.OrderLatest:
+		queryBuilder.WriteString(`
+ORDER BY f_inclusion_slot DESC,f_inclusion_index DESC`)
+	default:
+		return nil, errors.New("no order specified")
+	}
+
+	if filter.Limit > 0 {
+		queryVals = append(queryVals, filter.Limit)
+		queryBuilder.WriteString(fmt.Sprintf(`
+LIMIT $%d`, len(queryVals)))
+	}
+
+	if e := log.Trace(); e.Enabled() {
+		params := make([]string, len(queryVals))
+		for i := range queryVals {
+			params[i] = fmt.Sprintf("%v", queryVals[i])
+		}
+		e.Str("query", strings.ReplaceAll(queryBuilder.String(), "\n", " ")).Strs("params", params).Msg("SQL query")
+	}
+
+	rows, err := tx.Query(ctx,
+		queryBuilder.String(),
+		queryVals...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	attestations := make([]*chaindb.Attestation, 0)
+
+	boolTrue := true
+	boolFalse := false
+
+	inclusionBlockRoot := make([]byte, phase0.RootLength)
+	aggregationIndices := make([]uint64, 0)
+	beaconBlockRoot := make([]byte, phase0.RootLength)
+	sourceRoot := make([]byte, phase0.RootLength)
+	targetRoot := make([]byte, phase0.RootLength)
+	canonical := sql.NullBool{}
+	targetCorrect := sql.NullBool{}
+	headCorrect := sql.NullBool{}
+	for rows.Next() {
+		attestation := &chaindb.Attestation{}
+		err := rows.Scan(
+			&attestation.InclusionSlot,
+			&inclusionBlockRoot,
+			&attestation.InclusionIndex,
+			&attestation.Slot,
+			&attestation.CommitteeIndex,
+			&attestation.AggregationBits,
+			&aggregationIndices,
+			&beaconBlockRoot,
+			&attestation.SourceEpoch,
+			&sourceRoot,
+			&attestation.TargetEpoch,
+			&targetRoot,
+			&canonical,
+			&targetCorrect,
+			&headCorrect,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to scan row")
+		}
+		copy(attestation.InclusionBlockRoot[:], inclusionBlockRoot)
+		attestation.AggregationIndices = make([]phase0.ValidatorIndex, len(aggregationIndices))
+		for i := range aggregationIndices {
+			attestation.AggregationIndices[i] = phase0.ValidatorIndex(aggregationIndices[i])
+		}
+		copy(attestation.BeaconBlockRoot[:], beaconBlockRoot)
+		copy(attestation.SourceRoot[:], sourceRoot)
+		copy(attestation.TargetRoot[:], targetRoot)
+		if canonical.Valid && canonical.Bool {
+			attestation.Canonical = &boolTrue
+		}
+		if canonical.Valid && !canonical.Bool {
+			attestation.Canonical = &boolFalse
+		}
+		if targetCorrect.Valid && targetCorrect.Bool {
+			attestation.TargetCorrect = &boolTrue
+		}
+		if targetCorrect.Valid && !targetCorrect.Bool {
+			attestation.TargetCorrect = &boolFalse
+		}
+		if headCorrect.Valid && headCorrect.Bool {
+			attestation.HeadCorrect = &boolTrue
+		}
+		if headCorrect.Valid && !headCorrect.Bool {
+			attestation.HeadCorrect = &boolFalse
+		}
+		attestations = append(attestations, attestation)
+	}
+
+	// Always return order of inclusion slot then inclusion index.
+	sort.Slice(attestations, func(i int, j int) bool {
+		if attestations[i].InclusionSlot != attestations[j].InclusionSlot {
+			return attestations[i].InclusionSlot < attestations[j].InclusionSlot
+		}
+		return attestations[i].InclusionIndex < attestations[j].InclusionIndex
+	})
+
+	return attestations, nil
 }

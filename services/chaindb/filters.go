@@ -151,6 +151,52 @@ type BeaconCommitteeFilter struct {
 	CommitteeIndices []phase0.CommitteeIndex
 }
 
+// AttestationFilter defines a filter for fetching attestations.
+// Filter elements are ANDed together.
+// Results are always returned in ascending (slot, committee index) order.
+type AttestationFilter struct {
+	// Limit is the maximum number of items to return.
+	Limit uint32
+
+	// Order is either OrderEarliest, in which case the earliest results
+	// that match the filter are returned, or OrderLatest, in which case the
+	// latest results that match the filter are returned.
+	// The default is OrderEarliest.
+	Order Order
+
+	// From is the earliest slot from which to fetch items.
+	// This relates to the attestation slot.
+	// If nil then there is no earliest slot.
+	ScheduledFrom *phase0.Slot
+
+	// To is the latest slot to which to fetch items.
+	// This relates to the attestation slot.
+	// If nil then there is no latest slot.
+	ScheduledTo *phase0.Slot
+
+	// From is the earliest slot from which to fetch items.
+	// This relates to the inclusion slot.
+	// If nil then there is no earliest slot.
+	From *phase0.Slot
+
+	// To is the latest slot to which to fetch items.
+	// This relates to the inclusion slot.
+	// If nil then there is no latest slot.
+	To *phase0.Slot
+
+	// ValidatorIndices are the indices of the validators for which to fetch items.
+	// If nil then there is no index filter.
+	ValidatorIndices []phase0.ValidatorIndex
+
+	// HeadCorrect must match the head correct flag.
+	// If nil then no filter is applied
+	HeadCorrect *bool
+
+	// Canonical must match the canonical flag.
+	// If nil then no filter is applied
+	Canonical *bool
+}
+
 // SyncAggregateFilter defines a filter for fetching sync aggregates.
 // Filter elements are ANDed together.
 // Results are always returned in ascending slot order.
@@ -201,6 +247,38 @@ type BLSToExecutionChangeFilter struct {
 	// ValidatorIndices is the list of validator indices for which to obtain items.
 	// If nil then no filter is applied
 	ValidatorIndices []phase0.ValidatorIndex
+}
+
+// BlobSidecarFilter defines a filter for fetching blob sidecars.
+// Filter elements are ANDed together.
+// Results are always returned in ascending (slot,index) order.
+type BlobSidecarFilter struct {
+	// Limit is the maximum number of items to return.
+	Limit uint32
+
+	// Order is either OrderEarliest, in which case the earliest results
+	// that match the filter are returned, or OrderLatest, in which case the
+	// latest results that match the filter are returned.
+	// The default is OrderEarliest.
+	Order Order
+
+	// From is the earliest slot from which to fetch items.
+	// This relates to the inclusion slot.
+	// If nil then there is no earliest slot.
+	From *phase0.Slot
+
+	// To is the latest slot to which to fetch items.
+	// This relates to the inclusion slot.
+	// If nil then there is no latest slot.
+	To *phase0.Slot
+
+	// BlockRoots are the block roots for which to fetch items.
+	// If nil then there no filter is applied.
+	BlockRoots []phase0.Root
+
+	// Indices are the indices of the items.
+	// If nil then there no filter is applied.
+	Indices []uint64
 }
 
 // BlockFilter defines a filter for fetching blocks.

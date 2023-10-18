@@ -22,6 +22,9 @@ import (
 
 // AttestationsProvider defines functions to access attestations.
 type AttestationsProvider interface {
+	// Attestations obtains attestations matching the supplied filter.
+	Attestations(ctx context.Context, filter *AttestationFilter) ([]*Attestation, error)
+
 	// AttestationsForBlock fetches all attestations made for the given block.
 	AttestationsForBlock(ctx context.Context, blockRoot phase0.Root) ([]*Attestation, error)
 

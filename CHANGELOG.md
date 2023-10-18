@@ -1,3 +1,6 @@
+dev:
+  - add attestations provider
+
 0.7.6:
   - Fix error in the Blocks() provider
 
