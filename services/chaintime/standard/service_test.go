@@ -18,35 +18,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/attestantio/go-eth2-client/mock"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/wealdtech/chaind/services/chaintime"
 	"github.com/wealdtech/chaind/services/chaintime/standard"
-	"github.com/wealdtech/chaind/testing/mock"
 )
 
 func TestService(t *testing.T) {
+	ctx := context.Background()
 	genesisTime := time.Now()
-	slotDuration := 12 * time.Second
-	slotsPerEpoch := uint64(32)
-	epochsPerSyncCommitteePeriod := uint64(256)
-	forkSchedule := []*phase0.Fork{
-		{
-			PreviousVersion: phase0.Version{0x01, 0x02, 0x03, 0x04},
-			CurrentVersion:  phase0.Version{0x01, 0x02, 0x03, 0x04},
-			Epoch:           0,
-		},
-		{
-			PreviousVersion: phase0.Version{0x01, 0x02, 0x03, 0x04},
-			CurrentVersion:  phase0.Version{0x05, 0x06, 0x07, 0x08},
-			Epoch:           10,
-		},
-	}
-
-	mockGenesisProvider := mock.NewGenesisProvider(genesisTime)
-	mockSpecProvider := mock.NewSpecProvider(slotDuration, slotsPerEpoch, epochsPerSyncCommitteePeriod)
-	mockForkScheduleProvider := mock.NewForkScheduleProvider(forkSchedule)
+	mockConsensusClient, err := mock.New(ctx,
+		mock.WithGenesisTime(genesisTime),
+	)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name   string
@@ -57,8 +43,8 @@ func TestService(t *testing.T) {
 			name: "GenesisProviderMissing",
 			params: []standard.Parameter{
 				standard.WithLogLevel(zerolog.Disabled),
-				standard.WithSpecProvider(mockSpecProvider),
-				standard.WithForkScheduleProvider(mockForkScheduleProvider),
+				standard.WithSpecProvider(mockConsensusClient),
+				standard.WithForkScheduleProvider(mockConsensusClient),
 			},
 			err: "problem with parameters: no genesis provider specified",
 		},
@@ -66,8 +52,8 @@ func TestService(t *testing.T) {
 			name: "SpecProviderMissing",
 			params: []standard.Parameter{
 				standard.WithLogLevel(zerolog.Disabled),
-				standard.WithGenesisProvider(mockGenesisProvider),
-				standard.WithForkScheduleProvider(mockForkScheduleProvider),
+				standard.WithGenesisProvider(mockConsensusClient),
+				standard.WithForkScheduleProvider(mockConsensusClient),
 			},
 			err: "problem with parameters: no spec provider specified",
 		},
@@ -75,8 +61,8 @@ func TestService(t *testing.T) {
 			name: "ForkScheduleProviderMissing",
 			params: []standard.Parameter{
 				standard.WithLogLevel(zerolog.Disabled),
-				standard.WithGenesisProvider(mockGenesisProvider),
-				standard.WithSpecProvider(mockSpecProvider),
+				standard.WithGenesisProvider(mockConsensusClient),
+				standard.WithSpecProvider(mockConsensusClient),
 			},
 			err: "problem with parameters: no fork schedule provider specified",
 		},
@@ -84,9 +70,9 @@ func TestService(t *testing.T) {
 			name: "Good",
 			params: []standard.Parameter{
 				standard.WithLogLevel(zerolog.Disabled),
-				standard.WithGenesisProvider(mockGenesisProvider),
-				standard.WithSpecProvider(mockSpecProvider),
-				standard.WithForkScheduleProvider(mockForkScheduleProvider),
+				standard.WithGenesisProvider(mockConsensusClient),
+				standard.WithSpecProvider(mockConsensusClient),
+				standard.WithForkScheduleProvider(mockConsensusClient),
 			},
 		},
 	}
@@ -104,37 +90,28 @@ func TestService(t *testing.T) {
 }
 
 // createService is a helper that creates a mock chaintime service.
-func createService(genesisTime time.Time) (chaintime.Service, time.Duration, uint64, uint64, []*phase0.Fork, error) {
-	slotDuration := 12 * time.Second
-	slotsPerEpoch := uint64(32)
-	epochsPerSyncCommitteePeriod := uint64(256)
-	forkSchedule := []*phase0.Fork{
-		{
-			PreviousVersion: phase0.Version{0x01, 0x02, 0x03, 0x04},
-			CurrentVersion:  phase0.Version{0x01, 0x02, 0x03, 0x04},
-			Epoch:           0,
-		},
-		{
-			PreviousVersion: phase0.Version{0x01, 0x02, 0x03, 0x04},
-			CurrentVersion:  phase0.Version{0x05, 0x06, 0x07, 0x08},
-			Epoch:           10,
-		},
+func createService(genesisTime time.Time) (chaintime.Service, error) {
+	ctx := context.Background()
+
+	mockConsensusClient, err := mock.New(ctx,
+		mock.WithGenesisTime(genesisTime),
+	)
+
+	s, err := standard.New(ctx,
+		standard.WithGenesisProvider(mockConsensusClient),
+		standard.WithSpecProvider(mockConsensusClient),
+		standard.WithForkScheduleProvider(mockConsensusClient),
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	mockGenesisProvider := mock.NewGenesisProvider(genesisTime)
-	mockSpecProvider := mock.NewSpecProvider(slotDuration, slotsPerEpoch, epochsPerSyncCommitteePeriod)
-	mockForkScheduleProvider := mock.NewForkScheduleProvider(forkSchedule)
-	s, err := standard.New(context.Background(),
-		standard.WithGenesisProvider(mockGenesisProvider),
-		standard.WithSpecProvider(mockSpecProvider),
-		standard.WithForkScheduleProvider(mockForkScheduleProvider),
-	)
-	return s, slotDuration, slotsPerEpoch, epochsPerSyncCommitteePeriod, forkSchedule, err
+	return s, nil
 }
 
 func TestGenesisTime(t *testing.T) {
 	genesisTime := time.Now()
-	s, _, _, _, _, err := createService(genesisTime)
+	s, err := createService(genesisTime)
 	require.NoError(t, err)
 
 	require.Equal(t, genesisTime, s.GenesisTime())
@@ -142,8 +119,10 @@ func TestGenesisTime(t *testing.T) {
 
 func TestStartOfSlot(t *testing.T) {
 	genesisTime := time.Now()
-	s, slotDuration, _, _, _, err := createService(genesisTime)
+	s, err := createService(genesisTime)
 	require.NoError(t, err)
+
+	slotDuration := 12 * time.Second
 
 	require.Equal(t, genesisTime, s.StartOfSlot(0))
 	require.Equal(t, genesisTime.Add(1000*slotDuration), s.StartOfSlot(1000))
@@ -151,8 +130,11 @@ func TestStartOfSlot(t *testing.T) {
 
 func TestStartOfEpoch(t *testing.T) {
 	genesisTime := time.Now()
-	s, slotDuration, slotsPerEpoch, _, _, err := createService(genesisTime)
+	s, err := createService(genesisTime)
 	require.NoError(t, err)
+
+	slotDuration := 12 * time.Second
+	slotsPerEpoch := 32
 
 	require.Equal(t, genesisTime, s.StartOfEpoch(0))
 	require.Equal(t, genesisTime.Add(time.Duration(1000*slotsPerEpoch)*slotDuration), s.StartOfEpoch(1000))
@@ -160,7 +142,7 @@ func TestStartOfEpoch(t *testing.T) {
 
 func TestCurrentSlot(t *testing.T) {
 	genesisTime := time.Now().Add(-60 * time.Second)
-	s, _, _, _, _, err := createService(genesisTime)
+	s, err := createService(genesisTime)
 	require.NoError(t, err)
 
 	require.Equal(t, phase0.Slot(5), s.CurrentSlot())
@@ -168,7 +150,7 @@ func TestCurrentSlot(t *testing.T) {
 
 func TestCurrentEpoch(t *testing.T) {
 	genesisTime := time.Now().Add(-1000 * time.Second)
-	s, _, _, _, _, err := createService(genesisTime)
+	s, err := createService(genesisTime)
 	require.NoError(t, err)
 
 	require.Equal(t, phase0.Epoch(2), s.CurrentEpoch())
@@ -176,7 +158,7 @@ func TestCurrentEpoch(t *testing.T) {
 
 func TestTimestampToSlot(t *testing.T) {
 	genesisTime := time.Now()
-	s, _, _, _, _, err := createService(genesisTime)
+	s, err := createService(genesisTime)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -215,7 +197,7 @@ func TestTimestampToSlot(t *testing.T) {
 
 func TestTimestampToEpoch(t *testing.T) {
 	genesisTime := time.Now()
-	s, _, _, _, _, err := createService(genesisTime)
+	s, err := createService(genesisTime)
 	require.NoError(t, err)
 
 	tests := []struct {
