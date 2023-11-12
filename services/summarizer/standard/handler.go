@@ -46,30 +46,31 @@ func (s *Service) OnFinalityUpdated(
 	summaryEpoch := finalizedEpoch - 1
 
 	if err := s.summarizeEpochs(ctx, summaryEpoch); err != nil {
-		log.Warn().Err(err).Msg("Failed to update epochs")
+		log.Warn().Err(err).Msg("Failed to update epochs; finished handling finality checkpoint")
 		return
 	}
 	if err := s.summarizeBlocks(ctx, summaryEpoch); err != nil {
-		log.Warn().Err(err).Msg("Failed to update blocks")
+		log.Warn().Err(err).Msg("Failed to update blocks; finished handling finality checkpoint")
 		return
 	}
 	if err := s.summarizeValidators(ctx, summaryEpoch); err != nil {
-		log.Warn().Err(err).Msg("Failed to update validators")
+		log.Warn().Err(err).Msg("Failed to update validators; finished handling finality checkpoint")
 		return
 	}
 
 	md, err := s.getMetadata(ctx)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to obtain metadata for day summarizer")
+		log.Error().Err(err).Msg("Failed to obtain metadata for day summarizer; finished handling finality checkpoint")
+		return
 	}
 	if md.PeriodicValidatorRollups {
 		if err := s.summarizeValidatorDays(ctx); err != nil {
-			log.Warn().Err(err).Msg("Failed to update validator days")
+			log.Warn().Err(err).Msg("Failed to update validator days; finished handling finality checkpoint")
 			return
 		}
 
 		if err := s.prune(ctx, summaryEpoch); err != nil {
-			log.Warn().Err(err).Msg("Failed to prune summaries")
+			log.Warn().Err(err).Msg("Failed to prune summaries; finished handling finality checkpoint")
 			return
 		}
 	}
@@ -107,7 +108,7 @@ func (s *Service) summarizeEpochs(ctx context.Context, summaryEpoch phase0.Epoch
 			return errors.Wrapf(err, "failed to update summary for epoch %d", epoch)
 		}
 		if !updated {
-			log.Debug().Uint64("epoch", uint64(epoch)).Msg("not enough data to update summary")
+			log.Debug().Uint64("epoch", uint64(epoch)).Msg("Not enough data to update summary")
 			return nil
 		}
 	}

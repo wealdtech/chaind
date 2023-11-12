@@ -17,9 +17,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/api"
 	apiv1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/jackc/pgx/v4"
@@ -135,12 +137,14 @@ func (s *Service) buildFinalityStack(ctx context.Context,
 			break
 		}
 
-		finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, fmt.Sprintf("%d", slot))
+		finalityResponse, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, &api.FinalityOpts{
+			State: fmt.Sprintf("%d", slot),
+		})
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to obtain finality for state")
 		}
-		log.Trace().Uint64("slot", uint64(slot)).Uint64("justified_epoch", uint64(finality.Justified.Epoch)).Msg("Obtained finality")
-		item = finality.Justified
+		log.Trace().Uint64("slot", uint64(slot)).Uint64("justified_epoch", uint64(finalityResponse.Data.Justified.Epoch)).Msg("Obtained finality")
+		item = finalityResponse.Data.Justified
 	}
 
 	return stack, nil
@@ -189,9 +193,7 @@ func (s *Service) updateCanonicalBlocks(ctx context.Context, root phase0.Root) e
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain block")
 	}
-	if block == nil {
-		return errors.New("missing canonical block")
-	}
+
 	log.Trace().Uint64("slot", uint64(block.Slot)).Msg("Canonicalizing up to slot")
 
 	if err := s.canonicalizeBlocks(ctx, root, phase0.Slot(md.LatestCanonicalSlot)); err != nil {
@@ -509,14 +511,21 @@ func (s *Service) fetchBlock(ctx context.Context, root phase0.Root) (*chaindb.Bl
 			return nil, errors.Wrap(err, "failed to obtain block from provider")
 		}
 		// Not found in the database, try fetching it from the chain.
-		log.Debug().Str("block_root", fmt.Sprintf("%#x", root)).Msg("Failed to obtain block from provider; fetching from chain")
-		signedBlock, err := s.eth2Client.(eth2client.SignedBeaconBlockProvider).SignedBeaconBlock(ctx, fmt.Sprintf("%#x", root))
+		log.Debug().Stringer("block_root", root).Msg("Failed to obtain block from provider; fetching from chain")
+		signedBlockResponse, err := s.eth2Client.(eth2client.SignedBeaconBlockProvider).SignedBeaconBlock(ctx, &api.SignedBeaconBlockOpts{
+			Block: root.String(),
+		})
 		if err != nil {
+			var apiErr *api.Error
+			if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+				// Possible that this is a missed slot, don't error.
+				log.Debug().Msg("No beacon block obtained for slot")
+				return nil, nil
+			}
+
 			return nil, errors.Wrap(err, "failed to obtain block from chain")
 		}
-		if signedBlock == nil {
-			return nil, nil
-		}
+		signedBlock := signedBlockResponse.Data
 
 		// We need to ensure the finalizer is not running ahead of the blocks service.  To do so, we compare the slot of the block
 		// we fetched with the highest known slot in the database.  If our block is higher than that already stored it means that

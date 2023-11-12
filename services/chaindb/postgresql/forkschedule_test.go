@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/api"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/wealdtech/chaind/services/chaindb"
@@ -41,8 +42,9 @@ func TestForkSchedule(t *testing.T) {
 	require.True(t, isProvider)
 
 	// Ensure the value.
-	schedule, err := s.(eth2client.ForkScheduleProvider).ForkSchedule(ctx)
+	scheduleResponse, err := s.(eth2client.ForkScheduleProvider).ForkSchedule(ctx, &api.ForkScheduleOpts{})
 	require.NoError(t, err)
+	schedule := scheduleResponse.Data
 
 	require.True(t, len(schedule) > 0)
 }

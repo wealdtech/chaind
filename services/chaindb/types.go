@@ -297,6 +297,7 @@ type ExecutionPayload struct {
 	BlockHash     [32]byte
 	// No transactions, they are stored in execd.
 	Withdrawals   []*Withdrawal
+	BlobGasUsed   uint64
 	ExcessDataGas uint64
 }
 

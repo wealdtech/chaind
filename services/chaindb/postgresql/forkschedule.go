@@ -16,6 +16,7 @@ package postgresql
 import (
 	"context"
 
+	"github.com/attestantio/go-eth2-client/api"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
@@ -60,7 +61,7 @@ VALUES($1,$2,$3)
 }
 
 // ForkSchedule provides details of past and future changes in the chain's fork version.
-func (s *Service) ForkSchedule(ctx context.Context) ([]*phase0.Fork, error) {
+func (s *Service) ForkSchedule(ctx context.Context, _ *api.ForkScheduleOpts) (*api.Response[[]*phase0.Fork], error) {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ForkSchedule")
 	defer span.End()
 
@@ -104,5 +105,8 @@ ORDER BY f_epoch
 		schedule = append(schedule, fork)
 	}
 
-	return schedule, nil
+	return &api.Response[[]*phase0.Fork]{
+		Data:     schedule,
+		Metadata: make(map[string]any),
+	}, nil
 }

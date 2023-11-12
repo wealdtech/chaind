@@ -30,6 +30,7 @@ import (
 	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/api"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	zerologger "github.com/rs/zerolog/log"
@@ -60,7 +61,7 @@ import (
 )
 
 // ReleaseVersion is the release version for the code.
-var ReleaseVersion = "0.7.6"
+var ReleaseVersion = "0.7.7-dev"
 
 func main() {
 	os.Exit(main2())
@@ -301,7 +302,7 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 	log.Trace().Msg("Starting chain time service")
 	chainTime, err := standardchaintime.New(ctx,
 		standardchaintime.WithLogLevel(util.LogLevel("chaintime")),
-		standardchaintime.WithGenesisTimeProvider(eth2Client.(eth2client.GenesisTimeProvider)),
+		standardchaintime.WithGenesisProvider(eth2Client.(eth2client.GenesisProvider)),
 		standardchaintime.WithSpecProvider(eth2Client.(eth2client.SpecProvider)),
 		standardchaintime.WithForkScheduleProvider(eth2Client.(eth2client.ForkScheduleProvider)),
 	)
@@ -393,12 +394,14 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 
 func waitForNodeSync(ctx context.Context, eth2Client eth2client.Service) {
 	for {
-		syncState, err := eth2Client.(eth2client.NodeSyncingProvider).NodeSyncing(ctx)
+		syncStateResponse, err := eth2Client.(eth2client.NodeSyncingProvider).NodeSyncing(ctx, &api.NodeSyncingOpts{})
 		if err != nil {
 			log.Debug().Err(err).Msg("Failed to obtain node sync state; will re-test in 1 minute")
 			time.Sleep(time.Minute)
 			continue
 		}
+		syncState := syncStateResponse.Data
+
 		if syncState == nil {
 			log.Debug().Msg("No node sync state; will re-test in 1 minute")
 			time.Sleep(time.Minute)
@@ -743,7 +746,7 @@ func startSyncCommittees(
 		standardsynccommittees.WithETH2Client(eth2Client),
 		standardsynccommittees.WithChainTime(chainTime),
 		standardsynccommittees.WithChainDB(chainDB),
-		standardsynccommittees.WithSpecProvider(chainDB.(eth2client.SpecProvider)),
+		standardsynccommittees.WithSpecProvider(chainDB.(chaindb.ChainSpecProvider)),
 		standardsynccommittees.WithStartPeriod(viper.GetInt64("sync-committees.start-period")),
 	)
 	if err != nil {

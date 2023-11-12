@@ -29,7 +29,7 @@ type parameters struct {
 	eth2Client   eth2client.Service
 	chainDB      chaindb.Service
 	chainTime    chaintime.Service
-	specProvider eth2client.SpecProvider
+	specProvider chaindb.ChainSpecProvider
 	startPeriod  int64
 }
 
@@ -80,7 +80,7 @@ func WithChainTime(chainTime chaintime.Service) Parameter {
 }
 
 // WithSpecProvider sets the spec provider for this module.
-func WithSpecProvider(provider eth2client.SpecProvider) Parameter {
+func WithSpecProvider(provider chaindb.ChainSpecProvider) Parameter {
 	return parameterFunc(func(p *parameters) {
 		p.specProvider = provider
 	})

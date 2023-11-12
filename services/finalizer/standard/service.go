@@ -1,4 +1,4 @@
-// Copyright © 2021, 2022 Weald Technology Trading.
+// Copyright © 2021 - 2023 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,7 +18,8 @@ import (
 	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
-	api "github.com/attestantio/go-eth2-client/api/v1"
+	"github.com/attestantio/go-eth2-client/api"
+	apiv1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -81,21 +82,24 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}
 
 	// Set up the handler for new finality checkpoint updates.
-	if err := s.eth2Client.(eth2client.EventsProvider).Events(ctx, []string{"finalized_checkpoint"}, func(event *api.Event) {
+	if err := s.eth2Client.(eth2client.EventsProvider).Events(ctx, []string{"finalized_checkpoint"}, func(event *apiv1.Event) {
 		if event.Data == nil {
 			// Happens when the channel shuts down, nothing to worry about.
 			return
 		}
-		eventData := event.Data.(*api.FinalizedCheckpointEvent)
+		eventData := event.Data.(*apiv1.FinalizedCheckpointEvent)
 		log.Trace().Str("event", eventData.String()).Msg("Received event")
 
 		// The finalizer event commonly occurs at the same time as the head event.  Because they cannot both run at the same
 		// time, we sleep for a bit here to allow that to process first.
 		time.Sleep(4 * time.Second)
-		finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, "head")
+		finalityResponse, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, &api.FinalityOpts{
+			State: "head",
+		})
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to obtain finality data")
 		}
+		finality := finalityResponse.Data
 
 		s.OnFinalityCheckpointReceived(ctx, finality)
 	}); err != nil {

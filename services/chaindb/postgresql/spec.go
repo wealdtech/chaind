@@ -15,9 +15,24 @@ package postgresql
 
 import (
 	"context"
+
+	"github.com/attestantio/go-eth2-client/api"
 )
 
 // Spec provides the spec information of the chain.
-func (s *Service) Spec(ctx context.Context) (map[string]interface{}, error) {
-	return s.ChainSpec(ctx)
+func (s *Service) Spec(ctx context.Context,
+	_ *api.SpecOpts,
+) (
+	*api.Response[map[string]any],
+	error,
+) {
+	res, err := s.ChainSpec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.Response[map[string]any]{
+		Data:     res,
+		Metadata: make(map[string]any),
+	}, nil
 }

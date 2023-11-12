@@ -48,6 +48,7 @@ func (s *Service) getMetadata(ctx context.Context) (*metadata, error) {
 	if err := json.Unmarshal(mdJSON, md); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal metadata")
 	}
+
 	return md, nil
 }
 

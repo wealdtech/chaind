@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/api"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
@@ -86,10 +87,13 @@ func (s *Service) onEpochTransitionValidators(ctx context.Context,
 	defer span.End()
 
 	// We always fetch the latest validator information regardless of epoch.
-	validators, err := s.eth2Client.(eth2client.ValidatorsProvider).Validators(ctx, "head", nil)
+	validatorsResponse, err := s.eth2Client.(eth2client.ValidatorsProvider).Validators(ctx, &api.ValidatorsOpts{
+		State: "head",
+	})
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain validators")
 	}
+	validators := validatorsResponse.Data
 
 	// Fetch our current validators from the database.
 	dbVs, err := s.validatorsSetter.(chaindb.ValidatorsProvider).Validators(ctx)
@@ -179,10 +183,14 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	stateID := fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(epoch))
 	log.Trace().Uint64("slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch))).Msg("Fetching validators")
-	validators, err := s.eth2Client.(eth2client.ValidatorsProvider).Validators(ctx, stateID, nil)
+	validatorsResponse, err := s.eth2Client.(eth2client.ValidatorsProvider).Validators(ctx, &api.ValidatorsOpts{
+		State: stateID,
+	})
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain validators for validator balances")
 	}
+	validators := validatorsResponse.Data
+
 	span.AddEvent("Obtained validators", trace.WithAttributes(
 		attribute.Int("slot", int(s.chainTime.FirstSlotOfEpoch(epoch))),
 	))

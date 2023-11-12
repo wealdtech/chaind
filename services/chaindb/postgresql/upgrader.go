@@ -1145,6 +1145,7 @@ CREATE TABLE t_validator_day_summaries (
  ,f_attestations_inclusion_delay     FLOAT(4) NOT NULL
  ,f_sync_committee_messages          INTEGER NOT NULL
  ,f_sync_committee_messages_included INTEGER NOT NULL
+ ,f_withdrawals                      BIGINT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS i_validator_day_summaries_1 ON t_validator_day_summaries(f_validator_index, f_start_timestamp);
 CREATE INDEX IF NOT EXISTS i_validator_day_summaries_2 ON t_validator_day_summaries(f_start_timestamp);

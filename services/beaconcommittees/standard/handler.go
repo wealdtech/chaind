@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/api"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
@@ -124,10 +125,13 @@ func (s *Service) updateBeaconCommitteesForEpoch(ctx context.Context, epoch phas
 	defer span.End()
 	log.Trace().Uint64("epoch", uint64(epoch)).Msg("Updating beacon committees")
 
-	beaconCommittees, err := s.eth2Client.(eth2client.BeaconCommitteesProvider).BeaconCommittees(ctx, fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(epoch)))
+	beaconCommitteesResponse, err := s.eth2Client.(eth2client.BeaconCommitteesProvider).BeaconCommittees(ctx, &api.BeaconCommitteesOpts{
+		State: fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(epoch)),
+	})
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch beacon committees")
 	}
+	beaconCommittees := beaconCommitteesResponse.Data
 
 	for _, beaconCommittee := range beaconCommittees {
 		dbBeaconCommittee := &chaindb.BeaconCommittee{

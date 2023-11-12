@@ -17,13 +17,14 @@ import (
 	"context"
 	"time"
 
-	api "github.com/attestantio/go-eth2-client/api/v1"
+	"github.com/attestantio/go-eth2-client/api"
+	apiv1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 )
 
 // SetGenesis sets the genesis information.
-func (s *Service) SetGenesis(ctx context.Context, genesis *api.Genesis) error {
+func (s *Service) SetGenesis(ctx context.Context, genesis *apiv1.Genesis) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetGenesis")
 	defer span.End()
 
@@ -51,7 +52,12 @@ func (s *Service) SetGenesis(ctx context.Context, genesis *api.Genesis) error {
 }
 
 // Genesis fetches genesis values.
-func (s *Service) Genesis(ctx context.Context) (*api.Genesis, error) {
+func (s *Service) Genesis(ctx context.Context,
+	_ *api.GenesisOpts,
+) (
+	*api.Response[*apiv1.Genesis],
+	error,
+) {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "Genesis")
 	defer span.End()
 
@@ -65,7 +71,7 @@ func (s *Service) Genesis(ctx context.Context) (*api.Genesis, error) {
 		tx = s.tx(ctx)
 	}
 
-	genesis := &api.Genesis{}
+	genesis := &apiv1.Genesis{}
 	var genesisValidatorsRoot []byte
 	var genesisForkVersion []byte
 	err := tx.QueryRow(ctx, `
@@ -84,7 +90,10 @@ func (s *Service) Genesis(ctx context.Context) (*api.Genesis, error) {
 	copy(genesis.GenesisValidatorsRoot[:], genesisValidatorsRoot)
 	copy(genesis.GenesisForkVersion[:], genesisForkVersion)
 
-	return genesis, nil
+	return &api.Response[*apiv1.Genesis]{
+		Data:     genesis,
+		Metadata: make(map[string]any),
+	}, nil
 }
 
 // GenesisTime provides the genesis time of the chain.
@@ -92,9 +101,9 @@ func (s *Service) GenesisTime(ctx context.Context) (time.Time, error) {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "GenesisTime")
 	defer span.End()
 
-	genesis, err := s.Genesis(ctx)
+	genesisResponse, err := s.Genesis(ctx, &api.GenesisOpts{})
 	if err != nil {
 		return time.Time{}, errors.Wrap(err, "failed to obtain genesis")
 	}
-	return genesis.GenesisTime, nil
+	return genesisResponse.Data.GenesisTime, nil
 }

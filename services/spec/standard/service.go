@@ -18,6 +18,7 @@ import (
 	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/api"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
@@ -125,10 +126,11 @@ func (s *Service) updateSpec(ctx context.Context) {
 
 func (s *Service) updateChainSpec(ctx context.Context) error {
 	// Fetch the chain spec.
-	spec, err := s.eth2Client.(eth2client.SpecProvider).Spec(ctx)
+	specResponse, err := s.eth2Client.(eth2client.SpecProvider).Spec(ctx, &api.SpecOpts{})
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain chain spec")
 	}
+	spec := specResponse.Data
 
 	// Update the database.
 	for k, v := range spec {
@@ -141,10 +143,11 @@ func (s *Service) updateChainSpec(ctx context.Context) error {
 
 func (s *Service) updateGenesis(ctx context.Context) error {
 	// Fetch genesis parameters.
-	genesis, err := s.eth2Client.(eth2client.GenesisProvider).Genesis(ctx)
+	genesisResponse, err := s.eth2Client.(eth2client.GenesisProvider).Genesis(ctx, &api.GenesisOpts{})
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain genesis")
 	}
+	genesis := genesisResponse.Data
 
 	// Update the database.
 	if err := s.genesisSetter.SetGenesis(ctx, genesis); err != nil {
@@ -156,10 +159,11 @@ func (s *Service) updateGenesis(ctx context.Context) error {
 
 func (s *Service) updateForkSchedule(ctx context.Context) error {
 	// Fetch fork schedule.
-	schedule, err := s.eth2Client.(eth2client.ForkScheduleProvider).ForkSchedule(ctx)
+	scheduleResponse, err := s.eth2Client.(eth2client.ForkScheduleProvider).ForkSchedule(ctx, &api.ForkScheduleOpts{})
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain fork schedule")
 	}
+	schedule := scheduleResponse.Data
 
 	// Update the database.
 	if err := s.forkScheduleSetter.SetForkSchedule(ctx, schedule); err != nil {

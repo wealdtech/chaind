@@ -18,6 +18,7 @@ import (
 	"math"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/api"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -111,10 +112,11 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		return nil, errors.New("chain DB does not provide proposer slashings")
 	}
 
-	spec, err := parameters.eth2Client.(eth2client.SpecProvider).Spec(ctx)
+	specResponse, err := parameters.eth2Client.(eth2client.SpecProvider).Spec(ctx, &api.SpecOpts{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain spec")
 	}
+	spec := specResponse.Data
 
 	tmp, exists := spec["MIN_ATTESTATION_INCLUSION_DELAY"]
 	if !exists {
@@ -191,10 +193,18 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 }
 
 func (s *Service) catchup(ctx context.Context) {
-	finality, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, "head")
+	// Only allow 1 handler to be active.
+	acquired := s.activitySem.TryAcquire(1)
+	if !acquired {
+		log.Debug().Msg("Another handler running")
+		return
+	}
+	defer s.activitySem.Release(1)
+
+	finalityResponse, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, &api.FinalityOpts{State: "head"})
 	// If we receive an error it could be because the chain hasn't yet started.
 	// Even if not, the handler will kick the process off again.
-	if err != nil || finality.Finalized.Epoch <= 2 {
+	if err != nil || finalityResponse.Data.Finalized.Epoch <= 2 {
 		return
 	}
 

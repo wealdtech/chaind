@@ -63,7 +63,7 @@ func (s *Service) pruneBalances(ctx context.Context, summaryEpoch phase0.Epoch) 
 	}
 
 	pruneEpoch := s.chainTime.TimestampToEpoch(pruneTime)
-	log.Trace().Stringer("retention", s.validatorEpochRetention).Time("summary_time", summaryTime).Time("summarized_time", summarizedTime).Time("prune_time", pruneTime).Uint64("prune_epoch", uint64(pruneEpoch)).Msg("Prune parameters for balances")
+	log.Trace().Stringer("retention", s.validatorBalanceRetention).Time("summary_time", summaryTime).Time("summarized_time", summarizedTime).Time("prune_time", pruneTime).Uint64("prune_epoch", uint64(pruneEpoch)).Msg("Prune parameters for balances")
 
 	ctx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {

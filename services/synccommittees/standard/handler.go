@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/attestantio/go-eth2-client/api"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
@@ -65,10 +66,13 @@ func (s *Service) updateSyncCommitteeForPeriod(ctx context.Context, period uint6
 		log.Trace().Uint64("period", period).Msg("period before Altair; nothing to do")
 	}
 
-	syncCommittee, err := s.syncCommitteesProvider.SyncCommittee(ctx, fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(s.chainTime.FirstEpochOfSyncPeriod(period))))
+	syncCommitteeResponse, err := s.syncCommitteesProvider.SyncCommittee(ctx, &api.SyncCommitteeOpts{
+		State: fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(s.chainTime.FirstEpochOfSyncPeriod(period))),
+	})
 	if err != nil {
 		return errors.Wrap(err, "failed to fetch sync committee")
 	}
+	syncCommittee := syncCommitteeResponse.Data
 
 	dbSyncCommittee := &chaindb.SyncCommittee{
 		Period:    period,

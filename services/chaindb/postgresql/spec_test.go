@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/api"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/wealdtech/chaind/services/chaindb"
@@ -41,8 +42,8 @@ func TestSpec(t *testing.T) {
 	require.True(t, isProvider)
 
 	// Ensure the value.
-	spec, err := s.(eth2client.SpecProvider).Spec(ctx)
+	specResponse, err := s.(eth2client.SpecProvider).Spec(ctx, &api.SpecOpts{})
 	require.NoError(t, err)
 	// This is hard-coded to the documented value; may fail on non-standard chains.
-	require.Equal(t, uint64(32), spec["SLOTS_PER_EPOCH"])
+	require.Equal(t, uint64(32), specResponse.Data["SLOTS_PER_EPOCH"])
 }

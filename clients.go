@@ -59,8 +59,8 @@ func fetchClient(ctx context.Context, address string) (eth2client.Service, error
 }
 
 func confirmClientInterfaces(client eth2client.Service) error {
-	if _, isProvider := client.(eth2client.GenesisTimeProvider); !isProvider {
-		return errors.New("client is not a GenesisTimeProvider")
+	if _, isProvider := client.(eth2client.GenesisProvider); !isProvider {
+		return errors.New("client is not a GenesisProvider")
 	}
 	if _, isProvider := client.(eth2client.SpecProvider); !isProvider {
 		return errors.New("client is not a SpecProvider")

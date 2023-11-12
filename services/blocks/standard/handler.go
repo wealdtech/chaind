@@ -18,8 +18,10 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/api"
 	"github.com/attestantio/go-eth2-client/spec"
 	"github.com/attestantio/go-eth2-client/spec/altair"
 	"github.com/attestantio/go-eth2-client/spec/bellatrix"
@@ -145,17 +147,22 @@ func (s *Service) updateBlockForSlot(ctx context.Context, slot phase0.Slot) erro
 	span.AddEvent("Checked for block")
 
 	log.Trace().Msg("Updating block for slot")
-	signedBlock, err := s.eth2Client.(eth2client.SignedBeaconBlockProvider).SignedBeaconBlock(ctx, fmt.Sprintf("%d", slot))
+	signedBlockResponse, err := s.eth2Client.(eth2client.SignedBeaconBlockProvider).SignedBeaconBlock(ctx, &api.SignedBeaconBlockOpts{
+		Block: fmt.Sprintf("%d", slot),
+	})
 	if err != nil {
+		var apiErr *api.Error
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+			// Possible that this is a missed slot, don't error.
+			log.Debug().Msg("No beacon block obtained for slot")
+			return nil
+		}
+
 		return errors.Wrap(err, "failed to obtain beacon block for slot")
-	}
-	if signedBlock == nil {
-		log.Debug().Msg("No beacon block obtained for slot")
-		return nil
 	}
 	span.AddEvent("Obtained block")
 
-	return s.OnBlock(ctx, signedBlock)
+	return s.OnBlock(ctx, signedBlockResponse.Data)
 }
 
 // OnBlock handles a block.
@@ -857,7 +864,8 @@ func (*Service) dbBlockDeneb(
 			BaseFeePerGas: block.Body.ExecutionPayload.BaseFeePerGas.ToBig(),
 			BlockHash:     block.Body.ExecutionPayload.BlockHash,
 			Withdrawals:   withdrawals,
-			ExcessDataGas: block.Body.ExecutionPayload.ExcessDataGas,
+			BlobGasUsed:   block.Body.ExecutionPayload.BlobGasUsed,
+			ExcessDataGas: block.Body.ExecutionPayload.ExcessBlobGas,
 		},
 		BLSToExecutionChanges: blsToExecutionChanges,
 	}
@@ -1109,10 +1117,13 @@ func (s *Service) beaconCommittee(ctx context.Context,
 		return beaconCommittee, nil
 	}
 	// Try to fetch from the chain.
-	chainBeaconCommittees, err := s.eth2Client.(eth2client.BeaconCommitteesProvider).BeaconCommittees(ctx, fmt.Sprintf("%d", slot))
+	chainBeaconCommitteesResponse, err := s.eth2Client.(eth2client.BeaconCommitteesProvider).BeaconCommittees(ctx, &api.BeaconCommitteesOpts{
+		State: fmt.Sprintf("%d", slot),
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch beacon committees")
 	}
+	chainBeaconCommittees := chainBeaconCommitteesResponse.Data
 	log.Debug().Uint64("slot", uint64(slot)).Msg("Obtained beacon committees from API")
 
 	for _, chainBeaconCommittee := range chainBeaconCommittees {

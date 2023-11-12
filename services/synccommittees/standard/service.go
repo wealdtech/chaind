@@ -17,7 +17,7 @@ import (
 	"context"
 
 	eth2client "github.com/attestantio/go-eth2-client"
-	api "github.com/attestantio/go-eth2-client/api/v1"
+	apiv1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
@@ -54,10 +54,11 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		return nil, errors.New("failed to register metrics")
 	}
 
-	spec, err := parameters.specProvider.Spec(ctx)
+	spec, err := parameters.specProvider.ChainSpec(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain spec")
 	}
+
 	var epochsPerSyncCommitteePeriod uint64
 	if tmp, exists := spec["EPOCHS_PER_SYNC_COMMITTEE_PERIOD"]; exists {
 		tmp2, ok := tmp.(uint64)
@@ -113,8 +114,8 @@ func (s *Service) updateAfterRestart(ctx context.Context, startPeriod int64) {
 	log.Info().Msg("Caught up")
 
 	// Set up the handler for new chain head updates.
-	if err := s.eventsProvider.Events(ctx, []string{"head"}, func(event *api.Event) {
-		eventData := event.Data.(*api.HeadEvent)
+	if err := s.eventsProvider.Events(ctx, []string{"head"}, func(event *apiv1.Event) {
+		eventData := event.Data.(*apiv1.HeadEvent)
 		s.OnBeaconChainHeadUpdated(ctx, eventData.Slot)
 	}); err != nil {
 		log.Fatal().Err(err).Msg("Failed to add sync chain head updated handler")

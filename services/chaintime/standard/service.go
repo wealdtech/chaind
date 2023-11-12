@@ -18,6 +18,7 @@ import (
 	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/api"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -33,6 +34,7 @@ type Service struct {
 	altairForkEpoch              phase0.Epoch
 	bellatrixForkEpoch           phase0.Epoch
 	capellaForkEpoch             phase0.Epoch
+	denebForkEpoch               phase0.Epoch
 }
 
 // module-wide log.
@@ -48,16 +50,18 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	// Set logging.
 	log = zerologger.With().Str("service", "chaintime").Str("impl", "standard").Logger().Level(parameters.logLevel)
 
-	genesisTime, err := parameters.genesisTimeProvider.GenesisTime(ctx)
+	genesisResponse, err := parameters.genesisProvider.Genesis(ctx, &api.GenesisOpts{})
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to obtain genesis time")
+		return nil, errors.Wrap(err, "failed to obtain genesis")
 	}
+	genesisTime := genesisResponse.Data.GenesisTime
 	log.Trace().Time("genesis_time", genesisTime).Msg("Obtained genesis time")
 
-	spec, err := parameters.specProvider.Spec(ctx)
+	specResponse, err := parameters.specProvider.Spec(ctx, &api.SpecOpts{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain spec")
 	}
+	spec := specResponse.Data
 
 	tmp, exists := spec["SECONDS_PER_SLOT"]
 	if !exists {
@@ -92,18 +96,27 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		altairForkEpoch = 0xffffffffffffffff
 	}
 	log.Trace().Uint64("epoch", uint64(altairForkEpoch)).Msg("Obtained Altair fork epoch")
+
 	bellatrixForkEpoch, err := fetchBellatrixForkEpoch(ctx, parameters.specProvider)
 	if err != nil {
 		// Set to far future epoch.
 		bellatrixForkEpoch = 0xffffffffffffffff
 	}
 	log.Trace().Uint64("epoch", uint64(bellatrixForkEpoch)).Msg("Obtained Bellatrix fork epoch")
+
 	capellaForkEpoch, err := fetchCapellaForkEpoch(ctx, parameters.specProvider)
 	if err != nil {
 		// Set to far future epoch.
 		capellaForkEpoch = 0xffffffffffffffff
 	}
 	log.Trace().Uint64("epoch", uint64(capellaForkEpoch)).Msg("Obtained Capella fork epoch")
+
+	denebForkEpoch, err := fetchDenebForkEpoch(ctx, parameters.specProvider)
+	if err != nil {
+		// Set to far future epoch.
+		denebForkEpoch = 0xffffffffffffffff
+	}
+	log.Trace().Uint64("epoch", uint64(denebForkEpoch)).Msg("Obtained Deneb fork epoch")
 
 	s := &Service{
 		genesisTime:                  genesisTime,
@@ -113,6 +126,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		altairForkEpoch:              altairForkEpoch,
 		bellatrixForkEpoch:           bellatrixForkEpoch,
 		capellaForkEpoch:             capellaForkEpoch,
+		denebForkEpoch:               denebForkEpoch,
 	}
 
 	return s, nil
@@ -231,10 +245,12 @@ func fetchAltairForkEpoch(ctx context.Context,
 	error,
 ) {
 	// Fetch the fork version.
-	spec, err := specProvider.Spec(ctx)
+	specResponse, err := specProvider.Spec(ctx, &api.SpecOpts{})
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to obtain spec")
 	}
+	spec := specResponse.Data
+
 	tmp, exists := spec["ALTAIR_FORK_EPOCH"]
 	if !exists {
 		return 0, errors.New("altair fork version not known by chain")
@@ -260,10 +276,12 @@ func fetchBellatrixForkEpoch(ctx context.Context,
 	error,
 ) {
 	// Fetch the fork version.
-	spec, err := specProvider.Spec(ctx)
+	specResponse, err := specProvider.Spec(ctx, &api.SpecOpts{})
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to obtain spec")
 	}
+	spec := specResponse.Data
+
 	tmp, exists := spec["BELLATRIX_FORK_EPOCH"]
 	if !exists {
 		return 0, errors.New("bellatrix fork version not known by chain")
@@ -289,10 +307,12 @@ func fetchCapellaForkEpoch(ctx context.Context,
 	error,
 ) {
 	// Fetch the fork version.
-	spec, err := specProvider.Spec(ctx)
+	specResponse, err := specProvider.Spec(ctx, &api.SpecOpts{})
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to obtain spec")
 	}
+	spec := specResponse.Data
+
 	tmp, exists := spec["CAPELLA_FORK_EPOCH"]
 	if !exists {
 		return 0, errors.New("capella fork version not known by chain")
@@ -301,6 +321,37 @@ func fetchCapellaForkEpoch(ctx context.Context,
 	if !isEpoch {
 		//nolint:revive
 		return 0, errors.New("CAPELLA_FORK_EPOCH is not a uint64!")
+	}
+
+	return phase0.Epoch(epoch), nil
+}
+
+// DenebInitialEpoch provides the epoch at which the Deneb hard fork takes place.
+func (s *Service) DenebInitialEpoch() phase0.Epoch {
+	return s.denebForkEpoch
+}
+
+func fetchDenebForkEpoch(ctx context.Context,
+	specProvider eth2client.SpecProvider,
+) (
+	phase0.Epoch,
+	error,
+) {
+	// Fetch the fork version.
+	specResponse, err := specProvider.Spec(ctx, &api.SpecOpts{})
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to obtain spec")
+	}
+	spec := specResponse.Data
+
+	tmp, exists := spec["DENEB_FORK_EPOCH"]
+	if !exists {
+		return 0, errors.New("deneb fork version not known by chain")
+	}
+	epoch, isEpoch := tmp.(uint64)
+	if !isEpoch {
+		//nolint:revive
+		return 0, errors.New("DENEB_FORK_EPOCH is not a uint64!")
 	}
 
 	return phase0.Epoch(epoch), nil

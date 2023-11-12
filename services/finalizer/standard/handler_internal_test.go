@@ -37,7 +37,7 @@ func TestUpdateAttestationHeadCorrect(t *testing.T) {
 	require.NoError(t, err)
 
 	chainTime, err := standardchaintime.New(ctx,
-		standardchaintime.WithGenesisTimeProvider(chainDB),
+		standardchaintime.WithGenesisProvider(chainDB),
 		standardchaintime.WithSpecProvider(chainDB),
 		standardchaintime.WithForkScheduleProvider(chainDB),
 	)

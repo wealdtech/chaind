@@ -147,6 +147,7 @@ linters:
     - golint
     - gomnd
     - ifshort
+    - inamedparam
     - interfacer
     - ireturn
     - lll
@@ -156,9 +157,11 @@ linters:
     - nilnil
     - nlreturn
     - nosnakecase
+    - perfsprint
     - scopelint
     - structcheck
     - varcheck
     - varnamelen
     - wrapcheck
     - wsl
+    - zerologlint
