@@ -147,7 +147,6 @@ linters:
     - golint
     - gomnd
     - ifshort
-    - inamedparam
     - interfacer
     - ireturn
     - lll
