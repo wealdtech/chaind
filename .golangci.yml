@@ -163,4 +163,3 @@ linters:
     - varnamelen
     - wrapcheck
     - wsl
-    - zerologlint
