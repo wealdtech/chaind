@@ -21,6 +21,9 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // summarizeEpoch updates the summary for a given epoch.
@@ -32,6 +35,12 @@ func (s *Service) summarizeEpoch(ctx context.Context,
 	bool,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "summarizeEpoch",
+		trace.WithAttributes(
+			attribute.Int64("epoch", int64(epoch)),
+		))
+	defer span.End()
+
 	started := time.Now()
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	if !s.epochSummaries {

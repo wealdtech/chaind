@@ -32,7 +32,7 @@ func (s *Service) summarizeValidatorsInDay(ctx context.Context,
 ) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "summarizeValidatorsInDay",
 		trace.WithAttributes(
-			attribute.Int64("star time", startTime.Unix()),
+			attribute.Int64("start time", startTime.Unix()),
 		))
 	defer span.End()
 

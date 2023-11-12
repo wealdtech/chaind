@@ -20,6 +20,9 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // summarizeBlocksInEpoch summarizes all blocks in the given epoch.
@@ -27,6 +30,12 @@ func (s *Service) summarizeBlocksInEpoch(ctx context.Context,
 	md *metadata,
 	epoch phase0.Epoch,
 ) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "summarizeBlocksInEpoch",
+		trace.WithAttributes(
+			attribute.Int64("epoch", int64(epoch)),
+		))
+	defer span.End()
+
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	if !s.blockSummaries {
 		log.Trace().Msg("Block epoch summaries not enabled")
@@ -62,6 +71,12 @@ func (s *Service) summarizeBlocksInEpoch(ctx context.Context,
 
 // summarizeBlock summarizes the block at the given slot.
 func (s *Service) summarizeBlock(ctx context.Context, slot phase0.Slot) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "summarizeBlock",
+		trace.WithAttributes(
+			attribute.Int64("slot", int64(slot)),
+		))
+	defer span.End()
+
 	summary := &chaindb.BlockSummary{
 		Slot: slot,
 	}

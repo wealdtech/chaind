@@ -20,6 +20,9 @@ import (
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // OnFinalityUpdated is called when finality has been updated in the database.
@@ -28,6 +31,12 @@ func (s *Service) OnFinalityUpdated(
 	ctx context.Context,
 	finalizedEpoch phase0.Epoch,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "OnFinaltyUpdated",
+		trace.WithAttributes(
+			attribute.Int64("finalized epoch", int64(finalizedEpoch)),
+		))
+	defer span.End()
+
 	log := log.With().Uint64("finalized_epoch", uint64(finalizedEpoch)).Logger()
 	log.Trace().Msg("Handler called")
 
@@ -80,6 +89,12 @@ func (s *Service) OnFinalityUpdated(
 }
 
 func (s *Service) summarizeEpochs(ctx context.Context, summaryEpoch phase0.Epoch) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "summarizeEpochs",
+		trace.WithAttributes(
+			attribute.Int64("target epoch", int64(summaryEpoch)),
+		))
+	defer span.End()
+
 	if !s.epochSummaries {
 		return nil
 	}
@@ -119,6 +134,12 @@ func (s *Service) summarizeEpochs(ctx context.Context, summaryEpoch phase0.Epoch
 func (s *Service) summarizeBlocks(ctx context.Context,
 	summaryEpoch phase0.Epoch,
 ) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "summarizeBlocks",
+		trace.WithAttributes(
+			attribute.Int64("target epoch", int64(summaryEpoch)),
+		))
+	defer span.End()
+
 	if !s.blockSummaries {
 		return nil
 	}
@@ -153,6 +174,12 @@ func (s *Service) summarizeBlocks(ctx context.Context,
 }
 
 func (s *Service) summarizeValidators(ctx context.Context, summaryEpoch phase0.Epoch) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "summarizeValidators",
+		trace.WithAttributes(
+			attribute.Int64("target epoch", int64(summaryEpoch)),
+		))
+	defer span.End()
+
 	if !s.validatorSummaries {
 		return nil
 	}
@@ -162,7 +189,7 @@ func (s *Service) summarizeValidators(ctx context.Context, summaryEpoch phase0.E
 		return errors.Wrap(err, "failed to obtain metadata for validator summarizer")
 	}
 
-	// The last epoch updated in the meadata tells us how far we can summarize,
+	// The last epoch updated in the metadata tells us how far we can summarize,
 	// as it checks for the component data.  As such, if the finalized epoch
 	// is beyond our summarized epoch we truncate to the summarized value.
 	// However, if we don't have validator balances the summarizer won't run at all
@@ -193,6 +220,9 @@ func (s *Service) summarizeValidators(ctx context.Context, summaryEpoch phase0.E
 }
 
 func (s *Service) summarizeValidatorDays(ctx context.Context) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "summarizeValidatorDays")
+	defer span.End()
+
 	md, err := s.getMetadata(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain metadata for validator day summarizer")

@@ -20,6 +20,9 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // summarizeValidatorsInEpoch updates the validator summaries in a given epoch.
@@ -27,6 +30,12 @@ func (s *Service) summarizeValidatorsInEpoch(ctx context.Context,
 	md *metadata,
 	epoch phase0.Epoch,
 ) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "summarizeValidatorsInEpoch",
+		trace.WithAttributes(
+			attribute.Int64("epoch", int64(epoch)),
+		))
+	defer span.End()
+
 	started := time.Now()
 
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
@@ -117,6 +126,12 @@ func (s *Service) validatorProposerDutiesForEpoch(ctx context.Context,
 	map[phase0.ValidatorIndex]int,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "validatorProposerDutiesForEpoch",
+		trace.WithAttributes(
+			attribute.Int64("epoch", int64(epoch)),
+		))
+	defer span.End()
+
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
 	maxSlot := s.chainTime.LastSlotOfEpoch(epoch)
 	// Fetch the proposer duties for the epoch.
@@ -193,6 +208,12 @@ func (s *Service) attestationsForEpoch(ctx context.Context,
 	map[phase0.ValidatorIndex]bool,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "attestationsForEpoch",
+		trace.WithAttributes(
+			attribute.Int64("epoch", int64(epoch)),
+		))
+	defer span.End()
+
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
 	maxSlot := s.chainTime.LastSlotOfEpoch(epoch)
 	// Fetch all attestations for the epoch.
