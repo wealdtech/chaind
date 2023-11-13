@@ -70,7 +70,7 @@ func TestJob(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
@@ -88,7 +88,7 @@ func TestJobExists(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
@@ -109,7 +109,7 @@ func TestCancelJob(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
@@ -138,7 +138,7 @@ func TestCancelJobs(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
@@ -161,7 +161,7 @@ func TestCancelJobIfExists(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
@@ -183,7 +183,7 @@ func TestCancelParentContext(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
@@ -203,7 +203,7 @@ func TestRunJob(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
@@ -223,7 +223,7 @@ func TestRunJobIfExists(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
@@ -252,11 +252,11 @@ func TestPeriodicJob(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
-	runtimeFunc := func(ctx context.Context, data interface{}) (time.Time, error) {
+	runtimeFunc := func(ctx context.Context, data any) (time.Time, error) {
 		return time.Now().Add(100 * time.Millisecond), nil
 	}
 
@@ -283,11 +283,11 @@ func TestCancelPeriodicJob(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
-	runtimeFunc := func(ctx context.Context, data interface{}) (time.Time, error) {
+	runtimeFunc := func(ctx context.Context, data any) (time.Time, error) {
 		return time.Now().Add(100 * time.Millisecond), nil
 	}
 
@@ -307,11 +307,11 @@ func TestCancelPeriodicParentContext(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
-	runtimeFunc := func(ctx context.Context, data interface{}) (time.Time, error) {
+	runtimeFunc := func(ctx context.Context, data any) (time.Time, error) {
 		return time.Now().Add(100 * time.Millisecond), nil
 	}
 
@@ -331,11 +331,11 @@ func TestLimitedPeriodicJob(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
-	runtimeFunc := func(ctx context.Context, data interface{}) (time.Time, error) {
+	runtimeFunc := func(ctx context.Context, data any) (time.Time, error) {
 		if run == 3 {
 			return time.Now(), scheduler.ErrNoMoreInstances
 		}
@@ -357,11 +357,11 @@ func TestBadPeriodicJob(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
-	runtimeFunc := func(ctx context.Context, data interface{}) (time.Time, error) {
+	runtimeFunc := func(ctx context.Context, data any) (time.Time, error) {
 		if run == 3 {
 			return time.Now(), errors.New("Bad")
 		}
@@ -383,11 +383,11 @@ func TestDuplicateJobName(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
-	runtimeFunc := func(ctx context.Context, data interface{}) (time.Time, error) {
+	runtimeFunc := func(ctx context.Context, data any) (time.Time, error) {
 		return time.Now().Add(100 * time.Millisecond), nil
 	}
 
@@ -414,11 +414,11 @@ func TestBadJobs(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
-	runtimeFunc := func(ctx context.Context, data interface{}) (time.Time, error) {
+	runtimeFunc := func(ctx context.Context, data any) (time.Time, error) {
 		return time.Now().Add(100 * time.Millisecond), nil
 	}
 
@@ -442,7 +442,7 @@ func TestManyJobs(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := uint32(0)
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		atomic.AddUint32(&run, 1)
 	}
 
@@ -477,7 +477,7 @@ func TestListJobs(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		run++
 	}
 
@@ -512,13 +512,13 @@ func TestLongRunningPeriodicJob(t *testing.T) {
 
 	// Job takes 100 ms.
 	run := uint32(0)
-	jobFunc := func(ctx context.Context, data interface{}) {
+	jobFunc := func(ctx context.Context, data any) {
 		time.Sleep(100 * time.Millisecond)
 		atomic.AddUint32(&run, 1)
 	}
 
 	// Job runs every 50 ms.
-	runtimeFunc := func(ctx context.Context, data interface{}) (time.Time, error) {
+	runtimeFunc := func(ctx context.Context, data any) (time.Time, error) {
 		return time.Now().Add(50 * time.Millisecond), nil
 	}
 
@@ -543,7 +543,7 @@ func TestOverlappingJobs(t *testing.T) {
 
 	// Job takes 200ms.
 	run := uint32(0)
-	jobFunc := func(ctx context.Context, data interface{}) {
+	jobFunc := func(ctx context.Context, data any) {
 		time.Sleep(200 * time.Millisecond)
 		atomic.AddUint32(&run, 1)
 	}
@@ -569,7 +569,7 @@ func TestMulti(t *testing.T) {
 
 	// Create a job for the future.
 	run := uint32(0)
-	jobFunc := func(ctx context.Context, data interface{}) {
+	jobFunc := func(ctx context.Context, data any) {
 		atomic.AddUint32(&run, 1)
 	}
 	require.NoError(t, s.ScheduleJob(ctx, "Test", "Test job", time.Now().Add(10*time.Second), jobFunc, nil))
@@ -578,7 +578,7 @@ func TestMulti(t *testing.T) {
 	// Create a number of runners that will try to start the job simultaneously.
 	var runWG sync.WaitGroup
 	var setupWG sync.WaitGroup
-	starter := make(chan interface{})
+	starter := make(chan any)
 	for i := 0; i < 32; i++ {
 		setupWG.Add(1)
 		runWG.Add(1)
@@ -610,12 +610,12 @@ func TestCancelWhilstRunning(t *testing.T) {
 	require.NotNil(t, s)
 
 	run := 0
-	runFunc := func(ctx context.Context, data interface{}) {
+	runFunc := func(ctx context.Context, data any) {
 		time.Sleep(50 * time.Millisecond)
 		run++
 	}
 
-	runtimeFunc := func(ctx context.Context, data interface{}) (time.Time, error) {
+	runtimeFunc := func(ctx context.Context, data any) (time.Time, error) {
 		return time.Now().Add(50 * time.Millisecond), nil
 	}
 

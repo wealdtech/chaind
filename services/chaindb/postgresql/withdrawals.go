@@ -104,7 +104,7 @@ func (s *Service) Withdrawals(ctx context.Context, filter *chaindb.WithdrawalFil
 
 	// Build the query.
 	queryBuilder := strings.Builder{}
-	queryVals := make([]interface{}, 0)
+	queryVals := make([]any, 0)
 
 	queryBuilder.WriteString(`
 SELECT f_block_root

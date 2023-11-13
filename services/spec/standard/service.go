@@ -78,11 +78,11 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	s.updateSpec(ctx)
 
 	// Set up a periodic refresh of the spec information.
-	runtimeFunc := func(ctx context.Context, data interface{}) (time.Time, error) {
+	runtimeFunc := func(ctx context.Context, data any) (time.Time, error) {
 		// Run daily.
 		return time.Now().AddDate(0, 0, 1), nil
 	}
-	jobFunc := func(ctx context.Context, data interface{}) {
+	jobFunc := func(ctx context.Context, data any) {
 		log.Trace().Msg("Updating spec")
 		s := data.(*Service)
 		s.updateSpec(ctx)

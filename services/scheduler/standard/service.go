@@ -77,7 +77,7 @@ func (s *Service) ScheduleJob(ctx context.Context,
 	name string,
 	runtime time.Time,
 	jobFunc scheduler.JobFunc,
-	data interface{},
+	data any,
 ) error {
 	if name == "" {
 		return scheduler.ErrNoJobName
@@ -155,9 +155,9 @@ func (s *Service) SchedulePeriodicJob(ctx context.Context,
 	class string,
 	name string,
 	runtimeFunc scheduler.RuntimeFunc,
-	runtimeData interface{},
+	runtimeData any,
 	jobFunc scheduler.JobFunc,
-	jobData interface{},
+	jobData any,
 ) error {
 	if name == "" {
 		return scheduler.ErrNoJobName

@@ -198,13 +198,13 @@ func (s *service) SetBlock(_ context.Context, _ *chaindb.Block) error {
 }
 
 // Spec provides the spec information of the chain.
-func (s *service) Spec(ctx context.Context) (map[string]interface{}, error) {
+func (s *service) Spec(ctx context.Context) (map[string]any, error) {
 	return s.ChainSpec(ctx)
 }
 
 // ChainSpec fetches all chain specification values.
-func (s *service) ChainSpec(_ context.Context) (map[string]interface{}, error) {
-	return map[string]interface{}{
+func (s *service) ChainSpec(_ context.Context) (map[string]any, error) {
+	return map[string]any{
 		"ALTAIR_FORK_EPOCH":                        uint64(74240),
 		"ALTAIR_FORK_VERSION":                      phase0.Version{0x01, 0x00, 0x00, 0x00},
 		"BASE_REWARD_FACTOR":                       uint64(64),
@@ -306,12 +306,12 @@ func (s *service) ChainSpec(_ context.Context) (map[string]interface{}, error) {
 }
 
 // ChainSpecValue fetches a chain specification value given its key.
-func (s *service) ChainSpecValue(_ context.Context, _ string) (interface{}, error) {
+func (s *service) ChainSpecValue(_ context.Context, _ string) (any, error) {
 	return nil, nil
 }
 
 // SetChainSpecValue sets the value of the provided key.
-func (s *service) SetChainSpecValue(_ context.Context, _ string, _ interface{}) error {
+func (s *service) SetChainSpecValue(_ context.Context, _ string, _ any) error {
 	return nil
 }
 

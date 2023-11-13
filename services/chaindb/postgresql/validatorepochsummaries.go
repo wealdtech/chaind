@@ -58,8 +58,8 @@ func (s *Service) SetValidatorEpochSummaries(ctx context.Context, summaries []*c
 			"f_attestation_target_timely",
 			"f_attestation_head_timely",
 		},
-		pgx.CopyFromSlice(len(summaries), func(i int) ([]interface{}, error) {
-			return []interface{}{
+		pgx.CopyFromSlice(len(summaries), func(i int) ([]any, error) {
+			return []any{
 				summaries[i].Index,
 				summaries[i].Epoch,
 				summaries[i].ProposerDuties,
@@ -198,7 +198,7 @@ func (s *Service) ValidatorSummaries(ctx context.Context, filter *chaindb.Valida
 
 	// Build the query.
 	queryBuilder := strings.Builder{}
-	queryVals := make([]interface{}, 0)
+	queryVals := make([]any, 0)
 
 	queryBuilder.WriteString(`
 SELECT f_validator_index
@@ -529,7 +529,7 @@ func (s *Service) PruneValidatorEpochSummaries(ctx context.Context, to phase0.Ep
 
 	// Build the query.
 	queryBuilder := strings.Builder{}
-	queryVals := make([]interface{}, 0)
+	queryVals := make([]any, 0)
 
 	queryBuilder.WriteString(`
 DELETE FROM t_validator_epoch_summaries

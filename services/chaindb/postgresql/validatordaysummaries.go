@@ -65,8 +65,8 @@ func (s *Service) SetValidatorDaySummaries(ctx context.Context, summaries []*cha
 			"f_sync_committee_messages",
 			"f_sync_committee_messages_included",
 		},
-		pgx.CopyFromSlice(len(summaries), func(i int) ([]interface{}, error) {
-			return []interface{}{
+		pgx.CopyFromSlice(len(summaries), func(i int) ([]any, error) {
+			return []any{
 				summaries[i].Index,
 				summaries[i].StartTimestamp,
 				summaries[i].StartBalance,
@@ -209,7 +209,7 @@ func (s *Service) ValidatorDaySummaries(ctx context.Context, filter *chaindb.Val
 
 	// Build the query.
 	queryBuilder := strings.Builder{}
-	queryVals := make([]interface{}, 0)
+	queryVals := make([]any, 0)
 
 	queryBuilder.WriteString(`
 SELECT f_validator_index

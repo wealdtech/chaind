@@ -137,16 +137,16 @@ type BlocksSetter interface {
 // ChainSpecProvider defines functions to access chain specification.
 type ChainSpecProvider interface {
 	// ChainSpec fetches all chain specification values.
-	ChainSpec(ctx context.Context) (map[string]interface{}, error)
+	ChainSpec(ctx context.Context) (map[string]any, error)
 
 	// ChainSpecValue fetches a chain specification value given its key.
-	ChainSpecValue(ctx context.Context, key string) (interface{}, error)
+	ChainSpecValue(ctx context.Context, key string) (any, error)
 }
 
 // ChainSpecSetter defines functions to create and update chain specification.
 type ChainSpecSetter interface {
 	// SetChainSpecValue sets the value of the provided key.
-	SetChainSpecValue(ctx context.Context, key string, value interface{}) error
+	SetChainSpecValue(ctx context.Context, key string, value any) error
 }
 
 // ForkScheduleProvider defines functions to access fork schedule information.

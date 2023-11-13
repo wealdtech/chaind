@@ -123,7 +123,7 @@ func (s *Service) EpochSummaries(ctx context.Context, filter *chaindb.EpochSumma
 
 	// Build the query.
 	queryBuilder := strings.Builder{}
-	queryVals := make([]interface{}, 0)
+	queryVals := make([]any, 0)
 
 	queryBuilder.WriteString(`
 SELECT f_epoch

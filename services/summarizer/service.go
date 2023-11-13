@@ -14,4 +14,4 @@
 package summarizer
 
 // Service is a summarizer service.
-type Service interface{}
+type Service any

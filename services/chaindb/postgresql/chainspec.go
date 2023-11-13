@@ -27,7 +27,7 @@ import (
 )
 
 // SetChainSpecValue sets the value of the provided key.
-func (s *Service) SetChainSpecValue(ctx context.Context, key string, value interface{}) error {
+func (s *Service) SetChainSpecValue(ctx context.Context, key string, value any) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "SetChainSpecValue")
 	defer span.End()
 
@@ -65,7 +65,7 @@ func (s *Service) SetChainSpecValue(ctx context.Context, key string, value inter
 }
 
 // ChainSpec fetches all chain specification values.
-func (s *Service) ChainSpec(ctx context.Context) (map[string]interface{}, error) {
+func (s *Service) ChainSpec(ctx context.Context) (map[string]any, error) {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ChainSpec")
 	defer span.End()
 
@@ -81,7 +81,7 @@ func (s *Service) ChainSpec(ctx context.Context) (map[string]interface{}, error)
 		defer s.CommitROTx(ctx)
 	}
 
-	spec := make(map[string]interface{})
+	spec := make(map[string]any)
 	rows, err := tx.Query(ctx, `
       SELECT f_key
             ,f_value
@@ -110,7 +110,7 @@ func (s *Service) ChainSpec(ctx context.Context) (map[string]interface{}, error)
 }
 
 // ChainSpecValue fetches a chain specification value given its key.
-func (s *Service) ChainSpecValue(ctx context.Context, key string) (interface{}, error) {
+func (s *Service) ChainSpecValue(ctx context.Context, key string) (any, error) {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "ChainSpecValue")
 	defer span.End()
 
@@ -138,7 +138,7 @@ func (s *Service) ChainSpecValue(ctx context.Context, key string) (interface{}, 
 }
 
 // dbValToSpec turns a database value in to a spec value.
-func dbValToSpec(_ context.Context, key string, val string) interface{} {
+func dbValToSpec(_ context.Context, key string, val string) any {
 	// Handle domains.
 	if strings.HasPrefix(key, "DOMAIN_") {
 		byteVal, err := hex.DecodeString(strings.TrimPrefix(val, "0x"))

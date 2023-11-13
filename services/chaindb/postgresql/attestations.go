@@ -134,7 +134,7 @@ func (s *Service) SetAttestations(ctx context.Context, attestations []*chaindb.A
 			"f_target_correct",
 			"f_head_correct",
 		},
-		pgx.CopyFromSlice(len(attestations), func(i int) ([]interface{}, error) {
+		pgx.CopyFromSlice(len(attestations), func(i int) ([]any, error) {
 			var canonical sql.NullBool
 			if attestations[i].Canonical != nil {
 				canonical.Valid = true
@@ -150,7 +150,7 @@ func (s *Service) SetAttestations(ctx context.Context, attestations []*chaindb.A
 				headCorrect.Valid = true
 				headCorrect.Bool = *attestations[i].HeadCorrect
 			}
-			return []interface{}{
+			return []any{
 				attestations[i].InclusionSlot,
 				attestations[i].InclusionBlockRoot[:],
 				attestations[i].InclusionIndex,
@@ -642,7 +642,7 @@ func (s *Service) Attestations(ctx context.Context, filter *chaindb.AttestationF
 
 	// Build the query.
 	queryBuilder := strings.Builder{}
-	queryVals := make([]interface{}, 0)
+	queryVals := make([]any, 0)
 
 	queryBuilder.WriteString(`
 SELECT f_inclusion_slot

@@ -74,7 +74,7 @@ func (s *Service) BlockSummaries(ctx context.Context, filter *chaindb.BlockSumma
 
 	// Build the query.
 	queryBuilder := strings.Builder{}
-	queryVals := make([]interface{}, 0)
+	queryVals := make([]any, 0)
 
 	queryBuilder.WriteString(`
 SELECT f_slot

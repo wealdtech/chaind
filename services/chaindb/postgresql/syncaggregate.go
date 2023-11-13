@@ -73,7 +73,7 @@ func (s *Service) SyncAggregates(ctx context.Context, filter *chaindb.SyncAggreg
 
 	// Build the query.
 	queryBuilder := strings.Builder{}
-	queryVals := make([]interface{}, 0)
+	queryVals := make([]any, 0)
 
 	queryBuilder.WriteString(`
 SELECT f_inclusion_slot

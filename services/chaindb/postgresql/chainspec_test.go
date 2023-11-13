@@ -62,7 +62,7 @@ func TestChainSpec(t *testing.T) {
 	tests := []struct {
 		name string
 		key  string
-		val  interface{}
+		val  any
 	}{
 		{
 			name: "Duration",

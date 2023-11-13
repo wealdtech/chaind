@@ -145,8 +145,8 @@ func (s *Service) SetValidatorBalances(ctx context.Context, balances []*chaindb.
 			"f_balance",
 			"f_effective_balance",
 		},
-		pgx.CopyFromSlice(len(balances), func(i int) ([]interface{}, error) {
-			return []interface{}{
+		pgx.CopyFromSlice(len(balances), func(i int) ([]any, error) {
+			return []any{
 				balances[i].Index,
 				balances[i].Epoch,
 				balances[i].Balance,
@@ -727,7 +727,7 @@ func (s *Service) PruneValidatorBalances(ctx context.Context, to phase0.Epoch, r
 
 	// Build the query.
 	queryBuilder := strings.Builder{}
-	queryVals := make([]interface{}, 0)
+	queryVals := make([]any, 0)
 
 	queryBuilder.WriteString(`
 DELETE FROM t_validator_balances
