@@ -1,5 +1,6 @@
 dev:
   - add attestations provider
+  - do not attempt to summarize ahead of finalized epoch
 
 0.7.6:
   - Fix error in the Blocks() provider

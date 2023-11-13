@@ -104,20 +104,24 @@ func (s *Service) summarizeEpochs(ctx context.Context, summaryEpoch phase0.Epoch
 		return errors.Wrap(err, "failed to obtain metadata for epoch summarizer")
 	}
 
-	lastEpoch := md.LastEpoch
-	if lastEpoch != 0 {
-		lastEpoch++
+	firstEpoch := md.LastEpoch
+	if firstEpoch != 0 {
+		firstEpoch++
 	}
 
 	// Limit the number of epochs summarised per pass, if we are also pruning.
+	targetEpoch := summaryEpoch
 	maxEpochsPerRun := phase0.Epoch(s.maxDaysPerRun) * s.epochsPerDay()
-	if s.validatorEpochRetention != nil && maxEpochsPerRun > 0 && summaryEpoch-lastEpoch > maxEpochsPerRun {
-		summaryEpoch = lastEpoch + maxEpochsPerRun
+	if s.validatorEpochRetention != nil && maxEpochsPerRun > 0 && summaryEpoch-firstEpoch > maxEpochsPerRun {
+		targetEpoch = firstEpoch + maxEpochsPerRun
+		if targetEpoch > summaryEpoch {
+			targetEpoch = summaryEpoch
+		}
 	}
 
-	log.Trace().Uint64("last_epoch", uint64(lastEpoch)).Uint64("summary_epoch", uint64(summaryEpoch)).Msg("Epochs catchup bounds")
+	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("target_epoch", uint64(targetEpoch)).Msg("Epochs catchup bounds")
 
-	for epoch := lastEpoch; epoch <= summaryEpoch; epoch++ {
+	for epoch := firstEpoch; epoch <= targetEpoch; epoch++ {
 		updated, err := s.summarizeEpoch(ctx, md, epoch)
 		if err != nil {
 			return errors.Wrapf(err, "failed to update summary for epoch %d", epoch)
@@ -149,22 +153,23 @@ func (s *Service) summarizeBlocks(ctx context.Context,
 		return errors.Wrap(err, "failed to obtain metadata for block finality")
 	}
 
-	lastBlockEpoch := md.LastBlockEpoch
-	if lastBlockEpoch != 0 {
-		lastBlockEpoch++
+	targetEpoch := summaryEpoch
+	firstEpoch := md.LastBlockEpoch
+	if firstEpoch != 0 {
+		firstEpoch++
 	}
-	log.Trace().Uint64("last_epoch", uint64(lastBlockEpoch)).Uint64("summary_epoch", uint64(summaryEpoch)).Msg("Blocks catchup bounds")
+	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("target_epoch", uint64(targetEpoch)).Msg("Blocks catchup bounds")
 
 	// The last epoch updated in the metadata tells us how far we can summarize,
 	// as it checks for the component data.  As such, if the finalized epoch
 	// is beyond our summarized epoch we truncate to the summarized value.
 	// However, if we don't have validator balances the summarizer won't run at all
 	// for epochs, so if the last epoch is 0 we continue.
-	if summaryEpoch > md.LastEpoch && md.LastEpoch != 0 {
-		summaryEpoch = md.LastEpoch
+	if targetEpoch > md.LastEpoch && md.LastEpoch != 0 {
+		targetEpoch = md.LastEpoch
 	}
 
-	for epoch := lastBlockEpoch; epoch <= summaryEpoch; epoch++ {
+	for epoch := firstEpoch; epoch <= targetEpoch; epoch++ {
 		if err := s.summarizeBlocksInEpoch(ctx, md, epoch); err != nil {
 			return errors.Wrap(err, "failed to update block summaries for epoch")
 		}
@@ -198,19 +203,23 @@ func (s *Service) summarizeValidators(ctx context.Context, summaryEpoch phase0.E
 		summaryEpoch = md.LastEpoch
 	}
 
-	lastValidatorEpoch := md.LastValidatorEpoch
-	if lastValidatorEpoch != 0 {
-		lastValidatorEpoch++
+	firstEpoch := md.LastValidatorEpoch
+	if firstEpoch != 0 {
+		firstEpoch++
 	}
 
 	// Limit the number of epochs summarised per pass, if we are also pruning.
 	maxEpochsPerRun := phase0.Epoch(s.maxDaysPerRun) * s.epochsPerDay()
-	if s.validatorEpochRetention != nil && maxEpochsPerRun > 0 && summaryEpoch-lastValidatorEpoch > maxEpochsPerRun {
-		summaryEpoch = lastValidatorEpoch + maxEpochsPerRun
+	targetEpoch := summaryEpoch
+	if s.validatorEpochRetention != nil && maxEpochsPerRun > 0 && targetEpoch-firstEpoch > maxEpochsPerRun {
+		targetEpoch = firstEpoch + maxEpochsPerRun
+		if targetEpoch > summaryEpoch {
+			targetEpoch = summaryEpoch
+		}
 	}
-	log.Trace().Uint64("last_epoch", uint64(lastValidatorEpoch)).Uint64("summary_epoch", uint64(summaryEpoch)).Msg("Validators catchup bounds")
+	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("target_epoch", uint64(targetEpoch)).Msg("Validators catchup bounds")
 
-	for epoch := lastValidatorEpoch; epoch <= summaryEpoch; epoch++ {
+	for epoch := firstEpoch; epoch <= targetEpoch; epoch++ {
 		if err := s.summarizeValidatorsInEpoch(ctx, md, epoch); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("failed to update validator summaries in epoch %d", epoch))
 		}
