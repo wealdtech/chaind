@@ -18,7 +18,7 @@ import (
 	"os"
 	"testing"
 
-	autoeth2client "github.com/attestantio/go-eth2-client/auto"
+	"github.com/attestantio/go-eth2-client/http"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	mockblocks "github.com/wealdtech/chaind/services/blocks/mock"
@@ -45,8 +45,8 @@ func TestService(t *testing.T) {
 
 	blocks := mockblocks.New()
 
-	eth2Client, err := autoeth2client.New(ctx,
-		autoeth2client.WithAddress(os.Getenv("ETH2CLIENT_ADDRESS")),
+	consensusClient, err := http.New(ctx,
+		http.WithAddress(os.Getenv("ETH2CLIENT_ADDRESS")),
 	)
 	require.NoError(t, err)
 
@@ -60,7 +60,7 @@ func TestService(t *testing.T) {
 			params: []standard.Parameter{
 				standard.WithLogLevel(zerolog.Disabled),
 				standard.WithChainTime(chainTime),
-				standard.WithETH2Client(eth2Client),
+				standard.WithETH2Client(consensusClient),
 				standard.WithBlocks(blocks),
 			},
 			err: "problem with parameters: no chain database specified",
@@ -70,7 +70,7 @@ func TestService(t *testing.T) {
 			params: []standard.Parameter{
 				standard.WithLogLevel(zerolog.Disabled),
 				standard.WithChainDB(chainDB),
-				standard.WithETH2Client(eth2Client),
+				standard.WithETH2Client(consensusClient),
 				standard.WithBlocks(blocks),
 			},
 			err: "problem with parameters: no chain time specified",
@@ -91,7 +91,7 @@ func TestService(t *testing.T) {
 				standard.WithLogLevel(zerolog.Disabled),
 				standard.WithChainDB(chainDB),
 				standard.WithChainTime(chainTime),
-				standard.WithETH2Client(eth2Client),
+				standard.WithETH2Client(consensusClient),
 			},
 			err: "problem with parameters: no blocks specified",
 		},
@@ -101,7 +101,7 @@ func TestService(t *testing.T) {
 				standard.WithLogLevel(zerolog.Disabled),
 				standard.WithChainDB(chainDB),
 				standard.WithChainTime(chainTime),
-				standard.WithETH2Client(eth2Client),
+				standard.WithETH2Client(consensusClient),
 				standard.WithBlocks(blocks),
 			},
 		},

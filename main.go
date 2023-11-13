@@ -400,14 +400,7 @@ func waitForNodeSync(ctx context.Context, eth2Client eth2client.Service) {
 			time.Sleep(time.Minute)
 			continue
 		}
-		syncState := syncStateResponse.Data
-
-		if syncState == nil {
-			log.Debug().Msg("No node sync state; will re-test in 1 minute")
-			time.Sleep(time.Minute)
-			continue
-		}
-		if syncState.IsSyncing {
+		if syncStateResponse.Data.IsSyncing {
 			log.Debug().Msg("Node syncing; will re-test in 1 minute")
 			time.Sleep(time.Minute)
 			continue

@@ -18,7 +18,7 @@ import (
 	"os"
 	"testing"
 
-	autoeth2client "github.com/attestantio/go-eth2-client/auto"
+	"github.com/attestantio/go-eth2-client/http"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
@@ -43,22 +43,22 @@ func TestUpdateAttestationHeadCorrect(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	eth2Client, err := autoeth2client.New(ctx,
-		autoeth2client.WithAddress(os.Getenv("ETH2CLIENT_ADDRESS")),
+	consensusClient, err := http.New(ctx,
+		http.WithAddress(os.Getenv("ETH2CLIENT_ADDRESS")),
 	)
 	require.NoError(t, err)
 
 	blocks, err := standardblocks.New(ctx,
 		standardblocks.WithChainDB(chainDB),
 		standardblocks.WithChainTime(chainTime),
-		standardblocks.WithETH2Client(eth2Client),
+		standardblocks.WithETH2Client(consensusClient),
 	)
 	require.NoError(t, err)
 
 	s, err := New(ctx,
 		WithChainDB(chainDB),
 		WithChainTime(chainTime),
-		WithETH2Client(eth2Client),
+		WithETH2Client(consensusClient),
 		WithBlocks(blocks),
 		WithLogLevel(zerolog.TraceLevel),
 	)

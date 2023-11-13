@@ -563,5 +563,6 @@ func (s *Service) fetchBlock(ctx context.Context, root phase0.Root) (*chaindb.Bl
 			return nil, errors.Wrap(err, "failed to obtain block from provider after fetching it from chain")
 		}
 	}
+
 	return block, nil
 }

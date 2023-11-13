@@ -172,6 +172,12 @@ func (s *Service) validatorProposalsForEpoch(ctx context.Context,
 	map[phase0.ValidatorIndex]int,
 	error,
 ) {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "validatorProposalsForEpoch",
+		trace.WithAttributes(
+			attribute.Int64("epoch", int64(epoch)),
+		))
+	defer span.End()
+
 	minSlot := s.chainTime.FirstSlotOfEpoch(epoch)
 	maxSlot := s.chainTime.LastSlotOfEpoch(epoch)
 	// Fetch the block presence for the epoch.
