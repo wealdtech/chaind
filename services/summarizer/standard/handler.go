@@ -31,7 +31,7 @@ func (s *Service) OnFinalityUpdated(
 	ctx context.Context,
 	finalizedEpoch phase0.Epoch,
 ) {
-	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "OnFinaltyUpdated",
+	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "OnFinalityUpdated",
 		trace.WithAttributes(
 			attribute.Int64("finalized epoch", int64(finalizedEpoch)),
 		))
