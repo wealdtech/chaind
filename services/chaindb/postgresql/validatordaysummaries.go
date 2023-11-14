@@ -19,7 +19,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"go.opentelemetry.io/otel"

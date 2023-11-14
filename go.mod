@@ -4,9 +4,10 @@ go 1.20
 
 require (
 	github.com/attestantio/go-eth2-client v0.19.5
-	github.com/aws/aws-sdk-go v1.47.9
-	github.com/jackc/pgtype v1.14.0
-	github.com/jackc/pgx/v4 v4.18.1
+	github.com/aws/aws-sdk-go v1.47.10
+	github.com/jackc/pgx-shopspring-decimal v0.0.0-20220624020537-1d36b5a1853e
+	github.com/jackc/pgx-zerolog v0.0.0-20230315001418-f978528409eb
+	github.com/jackc/pgx/v5 v5.5.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
@@ -52,13 +53,9 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/holiman/uint256 v1.2.2 // indirect
 	github.com/huandu/go-clone v1.6.0 // indirect
-	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
-	github.com/jackc/pgconn v1.14.0 // indirect
-	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.3.2 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
-	github.com/jackc/puddle v1.3.0 // indirect
+	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect

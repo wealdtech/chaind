@@ -1,6 +1,7 @@
 dev:
   - add attestations provider
   - do not attempt to summarize ahead of finalized epoch
+  - update PGX to version 5
 
 0.7.6:
   - Fix error in the Blocks() provider

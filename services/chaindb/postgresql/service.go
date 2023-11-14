@@ -20,10 +20,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackc/pgtype"
-	shopspring "github.com/jackc/pgtype/ext/shopspring-numeric"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	pgxdecimal "github.com/jackc/pgx-shopspring-decimal"
+	zerologadapter "github.com/jackc/pgx-zerolog"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
@@ -49,9 +50,9 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 
 	var pool *pgxpool.Pool
 	if parameters.connectionURL != "" {
-		pool, err = newFromURL(ctx, parameters)
+		pool, err = newFromURL(ctx, parameters, log)
 	} else {
-		pool, err = newFromComponents(ctx, parameters)
+		pool, err = newFromComponents(ctx, parameters, log)
 	}
 	if err != nil {
 		return nil, err
@@ -71,7 +72,9 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 }
 
 func newFromURL(ctx context.Context,
-	parameters *parameters) (
+	parameters *parameters,
+	log zerolog.Logger,
+) (
 	*pgxpool.Pool,
 	error,
 ) {
@@ -80,8 +83,12 @@ func newFromURL(ctx context.Context,
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid connection URL")
 	}
+
+	config.AfterConnect = registerCustomTypes
 	config.MaxConns = int32(parameters.maxConnections)
-	pool, err := pgxpool.ConnectConfig(ctx, config)
+	config.ConnConfig.Tracer = &tracelog.TraceLog{Logger: zerologadapter.NewLogger(log)}
+
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to database")
 	}
@@ -90,7 +97,9 @@ func newFromURL(ctx context.Context,
 }
 
 func newFromComponents(ctx context.Context,
-	parameters *parameters) (
+	parameters *parameters,
+	log zerolog.Logger,
+) (
 	*pgxpool.Pool,
 	error,
 ) {
@@ -135,10 +144,12 @@ func newFromComponents(ctx context.Context,
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate pgx config")
 	}
+
 	config.AfterConnect = registerCustomTypes
 	config.ConnConfig.TLSConfig = tlsConfig
+	config.ConnConfig.Tracer = &tracelog.TraceLog{Logger: zerologadapter.NewLogger(log)}
 
-	pool, err := pgxpool.ConnectConfig(ctx, config)
+	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to database")
 	}
@@ -148,10 +159,7 @@ func newFromComponents(ctx context.Context,
 
 // skipcq: RVV-B0012
 func registerCustomTypes(_ context.Context, conn *pgx.Conn) error {
-	conn.ConnInfo().RegisterDataType(pgtype.DataType{
-		Value: &shopspring.Numeric{},
-		Name:  "numeric",
-		OID:   pgtype.NumericOID,
-	})
+	pgxdecimal.Register(conn.TypeMap())
+
 	return nil
 }
