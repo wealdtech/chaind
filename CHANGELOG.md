@@ -1,4 +1,4 @@
-dev:
+0.7.7:
   - add attestations provider
   - do not attempt to summarize ahead of finalized epoch
   - update PGX to version 5
