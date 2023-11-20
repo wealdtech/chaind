@@ -70,7 +70,6 @@ func (s *Service) Metadata(ctx context.Context, key string) ([]byte, error) {
 		key).Scan(
 		&res,
 	)
-
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil

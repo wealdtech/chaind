@@ -1,4 +1,4 @@
-// Copyright © 2020 - 2022 Weald Technology Trading.
+// Copyright © 2020 - 2023 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -16,7 +16,8 @@ package chaindb
 import (
 	"context"
 
-	api "github.com/attestantio/go-eth2-client/api/v1"
+	"github.com/attestantio/go-eth2-client/api"
+	apiv1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
@@ -152,7 +153,7 @@ type ChainSpecSetter interface {
 // ForkScheduleProvider defines functions to access fork schedule information.
 type ForkScheduleProvider interface {
 	// ForkSchedule provides details of past and future changes in the chain's fork version.
-	ForkSchedule(ctx context.Context) ([]*phase0.Fork, error)
+	ForkSchedule(ctx context.Context, opts *api.ForkScheduleOpts) (*api.Response[[]*phase0.Fork], error)
 }
 
 // ForkScheduleSetter defines functions to create and update fork schedule information.
@@ -164,13 +165,13 @@ type ForkScheduleSetter interface {
 // GenesisProvider defines functions to access genesis information.
 type GenesisProvider interface {
 	// Genesis fetches genesis values.
-	Genesis(ctx context.Context) (*api.Genesis, error)
+	Genesis(ctx context.Context, opts *api.GenesisOpts) (*api.Response[*apiv1.Genesis], error)
 }
 
 // GenesisSetter defines functions to create and update genesis information.
 type GenesisSetter interface {
 	// SetGenesis sets the genesis information.
-	SetGenesis(ctx context.Context, genesis *api.Genesis) error
+	SetGenesis(ctx context.Context, genesis *apiv1.Genesis) error
 }
 
 // ETH1DepositsProvider defines functions to access Ethereum 1 deposits.
