@@ -69,9 +69,10 @@ INSERT INTO t_block_execution_payloads(f_block_root
                                       ,f_base_fee_per_gas
                                       ,f_timestamp
                                       ,f_extra_data
-                                      ,f_excess_data_gas
+                                      ,f_blob_gas_used
+                                      ,f_excess_blob_gas
                                       )
-VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
 ON CONFLICT (f_block_root) DO
 UPDATE
 SET f_block_number = excluded.f_block_number
@@ -87,7 +88,8 @@ SET f_block_number = excluded.f_block_number
    ,f_base_fee_per_gas = excluded.f_base_fee_per_gas
    ,f_timestamp = excluded.f_timestamp
    ,f_extra_data = excluded.f_extra_data
-   ,f_excess_data_gas = excluded.f_excess_data_gas
+   ,f_blob_gas_used = excluded.f_blob_gas_used
+   ,f_excess_blob_gas = excluded.f_excess_blob_gas
 `,
 		block.Root[:],
 		block.ExecutionPayload.BlockNumber,
@@ -103,7 +105,8 @@ SET f_block_number = excluded.f_block_number
 		decimal.NewFromBigInt(block.ExecutionPayload.BaseFeePerGas, 0),
 		block.ExecutionPayload.Timestamp,
 		extraData,
-		block.ExecutionPayload.ExcessDataGas,
+		block.ExecutionPayload.BlobGasUsed,
+		block.ExecutionPayload.ExcessBlobGas,
 	)
 	if err != nil {
 		return err
@@ -151,7 +154,8 @@ SELECT f_block_number
       ,f_base_fee_per_gas
       ,f_timestamp
       ,f_extra_data
-      ,f_excess_data_gas
+      ,f_blob_gas_used
+      ,f_excess_blob_gas
 FROM t_block_execution_payloads
 WHERE f_block_root = $1`,
 		root[:],
@@ -169,7 +173,8 @@ WHERE f_block_root = $1`,
 		&baseFeePerGas,
 		&payload.Timestamp,
 		&payload.ExtraData,
-		&payload.ExcessDataGas,
+		&payload.BlobGasUsed,
+		&payload.ExcessBlobGas,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -221,7 +226,8 @@ SELECT f_block_root
       ,f_base_fee_per_gas
       ,f_timestamp
       ,f_extra_data
-      ,f_excess_data_gas
+      ,f_blob_gas_used
+      ,f_excess_blob_gas
 FROM t_block_execution_payloads
 WHERE f_block_root = ANY($1)`,
 		broots,
@@ -257,7 +263,8 @@ WHERE f_block_root = ANY($1)`,
 			&baseFeePerGas,
 			&payload.Timestamp,
 			&payload.ExtraData,
-			&payload.ExcessDataGas,
+			&payload.BlobGasUsed,
+			&payload.ExcessBlobGas,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")

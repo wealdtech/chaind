@@ -37,8 +37,8 @@ func TestSpec(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Ensure this meets the eth2client interface requirement.
-	_, isProvider := s.(eth2client.SpecProvider)
+	// Ensure this meets the chaindb interface requirement.
+	_, isProvider := s.(chaindb.ChainSpecProvider)
 	require.True(t, isProvider)
 
 	// Ensure the value.

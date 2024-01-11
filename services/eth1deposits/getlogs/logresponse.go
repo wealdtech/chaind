@@ -133,11 +133,11 @@ func (l *logResponse) MarshalJSON() ([]byte, error) {
 		Address:          fmt.Sprintf("%#x", l.Address),
 		Topics:           topics,
 		Data:             fmt.Sprintf("%#x", l.Data),
-		BlockNumber:      fmt.Sprintf("%d", l.BlockNumber),
+		BlockNumber:      strconv.FormatUint(l.BlockNumber, 10),
 		TransactionHash:  fmt.Sprintf("%#x", l.TransactionHash),
-		TransactionIndex: fmt.Sprintf("%d", l.TransactionIndex),
+		TransactionIndex: strconv.FormatUint(l.TransactionIndex, 10),
 		BlockHash:        fmt.Sprintf("%#x", l.BlockHash),
-		LogIndex:         fmt.Sprintf("%d", l.LogIndex),
+		LogIndex:         strconv.FormatUint(l.LogIndex, 10),
 		Removed:          l.Removed,
 	})
 }

@@ -1,4 +1,4 @@
-// Copyright © 2020 - 2022 Weald Technology Trading.
+// Copyright © 2020 - 2023 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/attestantio/go-eth2-client/spec/deneb"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
@@ -35,6 +36,14 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 	tx := s.tx(ctx)
 	if tx == nil {
 		return ErrNoTransaction
+	}
+
+	var blobKZGCommitments [][]byte
+	if len(block.BlobKZGCommitments) > 0 {
+		blobKZGCommitments = make([][]byte, len(block.BlobKZGCommitments))
+		for i := range block.BlobKZGCommitments {
+			blobKZGCommitments[i] = block.BlobKZGCommitments[i][:]
+		}
 	}
 
 	var canonical sql.NullBool
@@ -55,8 +64,9 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
                           ,f_eth1_block_hash
                           ,f_eth1_deposit_count
                           ,f_eth1_deposit_root
+                          ,f_blob_kzg_commitments
 						  )
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       ON CONFLICT (f_root) DO
       UPDATE
       SET f_slot = excluded.f_slot
@@ -70,6 +80,7 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
          ,f_eth1_block_hash = excluded.f_eth1_block_hash
          ,f_eth1_deposit_count = excluded.f_eth1_deposit_count
          ,f_eth1_deposit_root = excluded.f_eth1_deposit_root
+         ,f_blob_kzg_commitments = excluded.f_blob_kzg_commitments
 	  `,
 		block.Slot,
 		block.ProposerIndex,
@@ -83,6 +94,7 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 		block.ETH1BlockHash,
 		block.ETH1DepositCount,
 		block.ETH1DepositRoot[:],
+		blobKZGCommitments,
 	); err != nil {
 		return err
 	}
@@ -100,7 +112,7 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 	return nil
 }
 
-// Blocks provides withdrawals according to the filter.
+// Blocks provides blocks according to the filter.
 func (s *Service) Blocks(ctx context.Context, filter *chaindb.BlockFilter) ([]*chaindb.Block, error) {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "Blocks")
 	defer span.End()
@@ -132,6 +144,7 @@ SELECT f_slot
       ,f_eth1_block_hash
       ,f_eth1_deposit_count
       ,f_eth1_deposit_root
+      ,f_blob_kzg_commitments
 FROM t_blocks`)
 
 	wherestr := "WHERE"
@@ -199,6 +212,7 @@ LIMIT $%d`, len(queryVals)))
 		var stateRoot []byte
 		var canonical sql.NullBool
 		var eth1DepositRoot []byte
+		var blobKZGCommitments [][]byte
 		err := rows.Scan(
 			&block.Slot,
 			&block.ProposerIndex,
@@ -212,6 +226,7 @@ LIMIT $%d`, len(queryVals)))
 			&block.ETH1BlockHash,
 			&block.ETH1DepositCount,
 			&eth1DepositRoot,
+			&blobKZGCommitments,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
@@ -226,6 +241,12 @@ LIMIT $%d`, len(queryVals)))
 			block.Canonical = &val
 		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+		if len(blobKZGCommitments) > 0 {
+			block.BlobKZGCommitments = make([]deneb.KZGCommitment, len(blobKZGCommitments))
+			for i := range blobKZGCommitments {
+				copy(block.BlobKZGCommitments[i][:], blobKZGCommitments[i])
+			}
+		}
 		blocks = append(blocks, block)
 	}
 
@@ -285,6 +306,7 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*chaind
             ,f_eth1_block_hash
             ,f_eth1_deposit_count
             ,f_eth1_deposit_root
+            ,f_blob_kzg_commitments
       FROM t_blocks
       WHERE f_slot = $1`,
 		slot,
@@ -305,6 +327,7 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*chaind
 		var stateRoot []byte
 		var canonical sql.NullBool
 		var eth1DepositRoot []byte
+		var blobKZGCommitments [][]byte
 		err := rows.Scan(
 			&block.Slot,
 			&block.ProposerIndex,
@@ -318,6 +341,7 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*chaind
 			&block.ETH1BlockHash,
 			&block.ETH1DepositCount,
 			&eth1DepositRoot,
+			&blobKZGCommitments,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
@@ -332,6 +356,12 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*chaind
 			block.Canonical = &val
 		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+		if len(blobKZGCommitments) > 0 {
+			block.BlobKZGCommitments = make([]deneb.KZGCommitment, len(blobKZGCommitments))
+			for i := range blobKZGCommitments {
+				copy(block.BlobKZGCommitments[i][:], blobKZGCommitments[i])
+			}
+		}
 		blocks = append(blocks, block)
 	}
 
@@ -378,6 +408,7 @@ func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot,
             ,f_eth1_block_hash
             ,f_eth1_deposit_count
             ,f_eth1_deposit_root
+            ,f_blob_kzg_commitments
       FROM t_blocks
       WHERE f_slot >= $1
         AND f_slot < $2
@@ -400,6 +431,7 @@ func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot,
 		var stateRoot []byte
 		var canonical sql.NullBool
 		var eth1DepositRoot []byte
+		var blobKZGCommitments [][]byte
 		err := rows.Scan(
 			&block.Slot,
 			&block.ProposerIndex,
@@ -413,6 +445,7 @@ func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot,
 			&block.ETH1BlockHash,
 			&block.ETH1DepositCount,
 			&eth1DepositRoot,
+			&blobKZGCommitments,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
@@ -427,6 +460,12 @@ func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot,
 			block.Canonical = &val
 		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+		if len(blobKZGCommitments) > 0 {
+			block.BlobKZGCommitments = make([]deneb.KZGCommitment, len(blobKZGCommitments))
+			for i := range blobKZGCommitments {
+				copy(block.BlobKZGCommitments[i][:], blobKZGCommitments[i])
+			}
+		}
 		blocks = append(blocks, block)
 	}
 
@@ -466,6 +505,7 @@ func (s *Service) BlockByRoot(ctx context.Context, root phase0.Root) (*chaindb.B
 	var stateRoot []byte
 	var canonical sql.NullBool
 	var eth1DepositRoot []byte
+	var blobKZGCommitments [][]byte
 
 	err = tx.QueryRow(ctx, `
       SELECT f_slot
@@ -480,6 +520,7 @@ func (s *Service) BlockByRoot(ctx context.Context, root phase0.Root) (*chaindb.B
             ,f_eth1_block_hash
             ,f_eth1_deposit_count
             ,f_eth1_deposit_root
+            ,f_blob_kzg_commitments
       FROM t_blocks
       WHERE f_root = $1`,
 		root[:],
@@ -496,6 +537,7 @@ func (s *Service) BlockByRoot(ctx context.Context, root phase0.Root) (*chaindb.B
 		&block.ETH1BlockHash,
 		&block.ETH1DepositCount,
 		&eth1DepositRoot,
+		&blobKZGCommitments,
 	)
 	if err != nil {
 		return nil, err
@@ -510,6 +552,12 @@ func (s *Service) BlockByRoot(ctx context.Context, root phase0.Root) (*chaindb.B
 		block.Canonical = &val
 	}
 	copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+	if len(blobKZGCommitments) > 0 {
+		block.BlobKZGCommitments = make([]deneb.KZGCommitment, len(blobKZGCommitments))
+		for i := range blobKZGCommitments {
+			copy(block.BlobKZGCommitments[i][:], blobKZGCommitments[i])
+		}
+	}
 
 	// Add execution payload to the block if available.
 	block.ExecutionPayload, err = s.executionPayload(ctx, tx, block.Root)
@@ -600,6 +648,7 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot phase0.Root
             ,f_eth1_block_hash
             ,f_eth1_deposit_count
             ,f_eth1_deposit_root
+            ,f_blob_kzg_commitments
       FROM t_blocks
       WHERE f_parent_root = $1`,
 		parentRoot[:],
@@ -619,6 +668,7 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot phase0.Root
 		var stateRoot []byte
 		var canonical sql.NullBool
 		var eth1DepositRoot []byte
+		var blobKZGCommitments [][]byte
 		err := rows.Scan(
 			&block.Slot,
 			&block.ProposerIndex,
@@ -632,6 +682,7 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot phase0.Root
 			&block.ETH1BlockHash,
 			&block.ETH1DepositCount,
 			&eth1DepositRoot,
+			&blobKZGCommitments,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
@@ -646,6 +697,12 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot phase0.Root
 			block.Canonical = &val
 		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+		if len(blobKZGCommitments) > 0 {
+			block.BlobKZGCommitments = make([]deneb.KZGCommitment, len(blobKZGCommitments))
+			for i := range blobKZGCommitments {
+				copy(block.BlobKZGCommitments[i][:], blobKZGCommitments[i])
+			}
+		}
 		blocks = append(blocks, block)
 	}
 
@@ -781,6 +838,7 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
             ,f_eth1_block_hash
             ,f_eth1_deposit_count
             ,f_eth1_deposit_root
+            ,f_blob_kzg_commitments
       FROM t_blocks
       WHERE f_slot = (SELECT MAX(f_slot) FROM t_blocks)`)
 	if err != nil {
@@ -799,6 +857,7 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
 		var stateRoot []byte
 		var canonical sql.NullBool
 		var eth1DepositRoot []byte
+		var blobKZGCommitments [][]byte
 		err := rows.Scan(
 			&block.Slot,
 			&block.ProposerIndex,
@@ -812,6 +871,7 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
 			&block.ETH1BlockHash,
 			&block.ETH1DepositCount,
 			&eth1DepositRoot,
+			&blobKZGCommitments,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
@@ -826,6 +886,12 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
 			block.Canonical = &val
 		}
 		copy(block.ETH1DepositRoot[:], eth1DepositRoot)
+		if len(blobKZGCommitments) > 0 {
+			block.BlobKZGCommitments = make([]deneb.KZGCommitment, len(blobKZGCommitments))
+			for i := range blobKZGCommitments {
+				copy(block.BlobKZGCommitments[i][:], blobKZGCommitments[i])
+			}
+		}
 		if err != nil {
 			return nil, err
 		}

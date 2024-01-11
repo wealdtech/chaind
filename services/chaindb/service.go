@@ -135,6 +135,21 @@ type BlocksSetter interface {
 	SetBlock(ctx context.Context, block *Block) error
 }
 
+// BlobSidecarsProvider defines functions to obtain blob sidecars.
+type BlobSidecarsProvider interface {
+	// BlobSidecars provides blob sidecars according to the filter.
+	BlobSidecars(ctx context.Context, filter *BlobSidecarFilter) ([]*BlobSidecar, error)
+}
+
+// BlobSidecarsSetter defines functions to create and update blob sidecars.
+type BlobSidecarsSetter interface {
+	// SetBlobSidecars sets or updates blob sidecars.
+	SetBlobSidecars(ctx context.Context, blobSidecars []*BlobSidecar) error
+
+	// SetBlobSidecar sets or updates a blob sidecar.
+	SetBlobSidecar(ctx context.Context, blobSidecar *BlobSidecar) error
+}
+
 // ChainSpecProvider defines functions to access chain specification.
 type ChainSpecProvider interface {
 	// ChainSpec fetches all chain specification values.

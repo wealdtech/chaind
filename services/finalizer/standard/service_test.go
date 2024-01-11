@@ -36,6 +36,11 @@ func TestService(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	consensusClient, err := http.New(ctx,
+		http.WithAddress(os.Getenv("ETH2CLIENT_ADDRESS")),
+	)
+	require.NoError(t, err)
+
 	chainTime, err := standardchaintime.New(ctx,
 		standardchaintime.WithGenesisProvider(chainDB),
 		standardchaintime.WithSpecProvider(chainDB),
@@ -44,11 +49,6 @@ func TestService(t *testing.T) {
 	require.NoError(t, err)
 
 	blocks := mockblocks.New()
-
-	consensusClient, err := http.New(ctx,
-		http.WithAddress(os.Getenv("ETH2CLIENT_ADDRESS")),
-	)
-	require.NoError(t, err)
 
 	tests := []struct {
 		name   string

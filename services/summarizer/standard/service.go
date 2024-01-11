@@ -201,10 +201,16 @@ func (s *Service) catchup(ctx context.Context) {
 	}
 	defer s.activitySem.Release(1)
 
-	finalityResponse, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, &api.FinalityOpts{State: "head"})
+	response, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, &api.FinalityOpts{
+		State: "head",
+	})
 	// If we receive an error it could be because the chain hasn't yet started.
 	// Even if not, the handler will kick the process off again.
-	if err != nil || finalityResponse.Data.Finalized.Epoch <= 2 {
+	if err != nil {
+		return
+	}
+	finality := response.Data
+	if finality.Finalized.Epoch <= 2 {
 		return
 	}
 

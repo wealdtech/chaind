@@ -40,6 +40,7 @@ type Service struct {
 	voluntaryExitsSetter     chaindb.VoluntaryExitsSetter
 	beaconCommitteesProvider chaindb.BeaconCommitteesProvider
 	syncCommitteesProvider   chaindb.SyncCommitteesProvider
+	blobSidecarsSetter       chaindb.BlobSidecarsSetter
 	chainTime                chaintime.Service
 	refetch                  bool
 	lastHandledBlockRoot     phase0.Root
@@ -109,6 +110,11 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		return nil, errors.New("chain DB does not support sync committee providing")
 	}
 
+	blobSidecarsSetter, isBlobSidecarsSetter := parameters.chainDB.(chaindb.BlobSidecarsSetter)
+	if !isBlobSidecarsSetter {
+		return nil, errors.New("chain DB does not support blob sidecar setting")
+	}
+
 	s := &Service{
 		eth2Client:               parameters.eth2Client,
 		chainDB:                  parameters.chainDB,
@@ -121,6 +127,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		voluntaryExitsSetter:     voluntaryExitsSetter,
 		beaconCommitteesProvider: beaconCommitteesProvider,
 		syncCommitteesProvider:   syncCommitteesProvider,
+		blobSidecarsSetter:       blobSidecarsSetter,
 		chainTime:                parameters.chainTime,
 		refetch:                  parameters.refetch,
 		activitySem:              parameters.activitySem,
