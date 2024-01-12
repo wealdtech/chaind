@@ -564,7 +564,7 @@ func (s *Service) updateBlobSidecarsForBlock(ctx context.Context,
 
 	dbBlobSidecars := make([]*chaindb.BlobSidecar, len(response.Data))
 	for i := range response.Data {
-		dbBlobSidecars[i] = s.dbBlobSidecar(ctx, response.Data[i])
+		dbBlobSidecars[i] = s.dbBlobSidecar(ctx, blockRoot, response.Data[i])
 	}
 
 	if err := s.blobSidecarsSetter.SetBlobSidecars(ctx, dbBlobSidecars); err != nil {
@@ -1179,13 +1179,16 @@ func (s *Service) beaconCommittee(ctx context.Context,
 }
 
 func (s *Service) dbBlobSidecar(_ context.Context,
+	blockRoot phase0.Root,
 	blobSidecar *deneb.BlobSidecar,
 ) *chaindb.BlobSidecar {
-	// TODO fix up.
 	return &chaindb.BlobSidecar{
-		Index:         blobSidecar.Index,
-		Blob:          blobSidecar.Blob,
-		KZGCommitment: blobSidecar.KZGCommitment,
-		KZGProof:      blobSidecar.KZGProof,
+		InclusionBlockRoot:          blockRoot,
+		InclusionSlot:               blobSidecar.SignedBlockHeader.Message.Slot,
+		InclusionIndex:              blobSidecar.Index,
+		Blob:                        blobSidecar.Blob,
+		KZGCommitment:               blobSidecar.KZGCommitment,
+		KZGProof:                    blobSidecar.KZGProof,
+		KZGCommitmentInclusionProof: blobSidecar.KZGCommitmentInclusionProof,
 	}
 }

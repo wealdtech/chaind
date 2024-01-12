@@ -18,7 +18,7 @@ import (
 	"sync"
 
 	eth2client "github.com/attestantio/go-eth2-client"
-	autoclient "github.com/attestantio/go-eth2-client/auto"
+	"github.com/attestantio/go-eth2-client/http"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"github.com/wealdtech/chaind/util"
@@ -41,10 +41,10 @@ func fetchClient(ctx context.Context, address string) (eth2client.Service, error
 	var exists bool
 	if client, exists = clients[address]; !exists {
 		var err error
-		client, err = autoclient.New(ctx,
-			autoclient.WithLogLevel(util.LogLevel("eth2client")),
-			autoclient.WithTimeout(viper.GetDuration("eth2client.timeout")),
-			autoclient.WithAddress(address))
+		client, err = http.New(ctx,
+			http.WithLogLevel(util.LogLevel("eth2client")),
+			http.WithTimeout(viper.GetDuration("eth2client.timeout")),
+			http.WithAddress(address))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to initiate client")
 		}

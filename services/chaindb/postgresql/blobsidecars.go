@@ -50,13 +50,12 @@ func (s *Service) BlobSidecars(ctx context.Context,
 
 	queryBuilder.WriteString(`
 SELECT f_block_root
-      ,f_index
       ,f_slot
-      ,f_block_parent_root
-      ,f_proposer_index
+      ,f_index
       ,f_blob
       ,f_kzg_commitment
       ,f_kzg_proof
+      ,f_kzg_commitment_inclusion_proof
 FROM t_blob_sidecars`)
 
 	conditions := make([]string, 0)
@@ -124,36 +123,38 @@ LIMIT $%d`, len(queryVals)))
 	for rows.Next() {
 		blobSidecar := &chaindb.BlobSidecar{}
 		var blockRoot []byte
-		var blockParentRoot []byte
 		var blob []byte
 		var kzgCommitment []byte
 		var kzgProof []byte
+		var kzgCommitmentInclusionProof [][]byte
 		err := rows.Scan(
 			&blockRoot,
-			&blobSidecar.Index,
-			&blobSidecar.Slot,
-			&blockParentRoot,
+			&blobSidecar.InclusionSlot,
+			&blobSidecar.InclusionIndex,
 			&blob,
 			&kzgCommitment,
 			&kzgProof,
+			&kzgCommitmentInclusionProof,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to scan row")
 		}
-		copy(blobSidecar.BlockRoot[:], blockRoot)
-		copy(blobSidecar.BlockParentRoot[:], blockParentRoot)
+		copy(blobSidecar.InclusionBlockRoot[:], blockRoot)
 		copy(blobSidecar.Blob[:], blob)
 		copy(blobSidecar.KZGCommitment[:], kzgCommitment)
 		copy(blobSidecar.KZGProof[:], kzgProof)
+		for i := range kzgCommitmentInclusionProof {
+			copy(blobSidecar.KZGCommitmentInclusionProof[i][:], kzgCommitmentInclusionProof[i])
+		}
 		blobSidecars = append(blobSidecars, blobSidecar)
 	}
 
 	// Always return order of slot then index.
 	sort.Slice(blobSidecars, func(i int, j int) bool {
-		if blobSidecars[i].Slot != blobSidecars[j].Slot {
-			return blobSidecars[i].Slot < blobSidecars[j].Slot
+		if blobSidecars[i].InclusionSlot != blobSidecars[j].InclusionSlot {
+			return blobSidecars[i].InclusionSlot < blobSidecars[j].InclusionSlot
 		}
-		return blobSidecars[i].Index < blobSidecars[j].Index
+		return blobSidecars[i].InclusionIndex < blobSidecars[j].InclusionIndex
 	})
 
 	return blobSidecars, nil

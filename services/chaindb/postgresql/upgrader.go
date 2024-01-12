@@ -1187,6 +1187,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS i_block_withdrawals_1 ON t_block_withdrawals(f
 CREATE INDEX IF NOT EXISTS i_block_withdrawals_2 ON t_block_withdrawals(f_block_number);
 CREATE INDEX IF NOT EXISTS i_block_withdrawals_3 ON t_block_withdrawals(f_validator_index);
 CREATE INDEX IF NOT EXISTS i_block_withdrawals_4 ON t_block_withdrawals(f_address);
+
+CREATE TABLE t_blob_sidecars (
+  f_block_root                     BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_slot                           BIGINT NOT NULL
+ ,f_index                          INTEGER NOT NULL
+ ,f_blob                           BYTEA NOT NULL
+ ,f_kzg_commitment                 BYTEA NOT NULL
+ ,f_kzg_proof                      BYTEA NOT NULL
+ ,f_kzg_commitment_inclusion_proof BYTEA NOT NULL
+);
+CREATE UNIQUE INDEX i_blob_sidecars_1 ON t_blob_sidecars(f_block_root,f_index);
+CREATE INDEX i_blob_sidecars_2 ON t_blob_sidecars(f_slot);
 `); err != nil {
 		cancel()
 		return errors.Wrap(err, "failed to create initial tables")
@@ -1777,14 +1789,13 @@ func addBlobSidecars(ctx context.Context, s *Service) error {
 
 	if _, err := tx.Exec(ctx, `
 CREATE TABLE t_blob_sidecars (
-  f_block_root        BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
- ,f_index             INTEGER NOT NULL
- ,f_slot              BIGINT NOT NULL
- ,f_block_parent_root BYTEA NOT NULL
- ,f_proposer_index    BIGINT NOT NULL
- ,f_blob              BYTEA
- ,f_kzg_commitment    BYTEA NOT NULL
- ,f_kzg_proof         BYTEA NOT NULL
+  f_block_root                     BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_slot                           BIGINT NOT NULL
+ ,f_index                          INTEGER NOT NULL
+ ,f_blob                           BYTEA NOT NULL
+ ,f_kzg_commitment                 BYTEA NOT NULL
+ ,f_kzg_proof                      BYTEA NOT NULL
+ ,f_kzg_commitment_inclusion_proof BYTEA NOT NULL
 )
 `); err != nil {
 		return errors.Wrap(err, "failed to create t_blob_sidecars")

@@ -43,13 +43,12 @@ func (s *Service) SetBlobSidecars(ctx context.Context, blobSidecars []*chaindb.B
 		pgx.Identifier{"t_blob_sidecars"},
 		[]string{
 			"f_block_root",
-			"f_index",
 			"f_slot",
-			"f_block_parent_root",
-			"f_proposer_index",
+			"f_index",
 			"f_blob",
 			"f_kzg_commitment",
 			"f_kzg_proof",
+			"f_kzg_commitment_inclusion_proof",
 		},
 		pgx.CopyFromSlice(len(blobSidecars), func(i int) ([]interface{}, error) {
 			var blob *[]byte
@@ -59,15 +58,19 @@ func (s *Service) SetBlobSidecars(ctx context.Context, blobSidecars []*chaindb.B
 				blobBytes = bytes.TrimRight(blobBytes, string([]byte{0x00}))
 				blob = &blobBytes
 			}
+			kzgCommitmentInclusionProof := make([]byte, 0, 17*32)
+			for j := range blobSidecars[i].KZGCommitmentInclusionProof[:] {
+				kzgCommitmentInclusionProof = append(kzgCommitmentInclusionProof, blobSidecars[i].KZGCommitmentInclusionProof[j][:]...)
+			}
+
 			return []interface{}{
-				blobSidecars[i].BlockRoot[:],
-				blobSidecars[i].Index,
-				blobSidecars[i].Slot,
-				blobSidecars[i].BlockParentRoot[:],
-				blobSidecars[i].ProposerIndex,
+				blobSidecars[i].InclusionBlockRoot[:],
+				blobSidecars[i].InclusionSlot,
+				blobSidecars[i].InclusionIndex,
 				blob,
 				blobSidecars[i].KZGCommitment[:],
 				blobSidecars[i].KZGProof[:],
+				kzgCommitmentInclusionProof,
 			}, nil
 		}))
 

@@ -38,35 +38,36 @@ func (s *Service) SetBlobSidecar(ctx context.Context, blobSidecar *chaindb.BlobS
 		blobBytes = bytes.TrimRight(blobBytes, string([]byte{0x00}))
 		blob = &blobBytes
 	}
+	kzgCommitmentInclusionProof := make([]byte, 0, 17*32)
+	for i := range blobSidecar.KZGCommitmentInclusionProof[:] {
+		kzgCommitmentInclusionProof = append(kzgCommitmentInclusionProof, blobSidecar.KZGCommitmentInclusionProof[i][:]...)
+	}
 
 	if _, err := tx.Exec(ctx, `
 INSERT INTO t_blob_sidecars(f_block_root
-                           ,f_index
                            ,f_slot
-                           ,f_block_parent_root
-                           ,f_proposer_index
+                           ,f_index
                            ,f_blob
                            ,f_kzg_commitment
                            ,f_kzg_proof
+                           ,f_kzg_commitment_inclusion_proof
 						   )
-VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+VALUES($1,$2,$3,$4,$5,$6,$7)
 ON CONFLICT(f_block_root,f_index) DO
 UPDATE
 SET f_slot = excluded.f_slot
-   ,f_block_parent_root = excluded.f_block_parent_root
-   ,f_proposer_index = excluded.f_proposer_index
    ,f_blob = excluded.f_blob
    ,f_kzg_commitment = excluded.f_kzg_commitment
    ,f_kzg_proof = excluded.f_kzg_proof
+   ,f_kzg_commitment_inclusion_proof = excluded.f_kzg_commitment_inclusion_proof
 `,
-		blobSidecar.BlockRoot[:],
-		blobSidecar.Index,
-		blobSidecar.Slot,
-		blobSidecar.BlockParentRoot[:],
-		blobSidecar.ProposerIndex,
+		blobSidecar.InclusionBlockRoot[:],
+		blobSidecar.InclusionSlot,
+		blobSidecar.InclusionIndex,
 		blob,
 		blobSidecar.KZGCommitment[:],
 		blobSidecar.KZGProof[:],
+		kzgCommitmentInclusionProof,
 	); err != nil {
 		return err
 	}

@@ -199,8 +199,8 @@ func (s *Service) summarizeValidators(ctx context.Context, targetEpoch phase0.Ep
 	// is beyond our summarized epoch we truncate to the summarized value.
 	// However, if we don't have validator balances the summarizer won't run at all
 	// for epochs, so if the last epoch is 0 we continue.
-	if targetEpoch > firstEpoch && md.LastEpoch != 0 {
-		targetEpoch = firstEpoch
+	if targetEpoch > md.LastEpoch && md.LastEpoch > 0 {
+		targetEpoch = md.LastEpoch
 	}
 
 	// Limit the number of epochs summarised per pass, if we are also pruning.

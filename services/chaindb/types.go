@@ -327,12 +327,11 @@ type Withdrawal struct {
 
 // BlobSidecar holds information about a blob sidecar for a block.
 type BlobSidecar struct {
-	BlockRoot       phase0.Root
-	Index           deneb.BlobIndex
-	Slot            phase0.Slot
-	BlockParentRoot phase0.Root
-	ProposerIndex   phase0.ValidatorIndex
-	Blob            deneb.Blob
-	KZGCommitment   deneb.KZGCommitment
-	KZGProof        deneb.KZGProof
+	InclusionBlockRoot          phase0.Root
+	InclusionSlot               phase0.Slot
+	InclusionIndex              deneb.BlobIndex
+	Blob                        deneb.Blob
+	KZGCommitment               deneb.KZGCommitment
+	KZGProof                    deneb.KZGProof
+	KZGCommitmentInclusionProof deneb.KZGCommitmentInclusionProof
 }
