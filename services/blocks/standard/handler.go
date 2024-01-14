@@ -1178,7 +1178,7 @@ func (s *Service) beaconCommittee(ctx context.Context,
 	return nil, errors.Wrap(err, "failed to obtain beacon committees")
 }
 
-func (s *Service) dbBlobSidecar(_ context.Context,
+func (*Service) dbBlobSidecar(_ context.Context,
 	blockRoot phase0.Root,
 	blobSidecar *deneb.BlobSidecar,
 ) *chaindb.BlobSidecar {
