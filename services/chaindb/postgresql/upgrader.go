@@ -27,7 +27,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(13)
+var currentVersion = uint64(14)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -116,6 +116,14 @@ var upgrades = map[uint64]*upgrade{
 			addEpochWithdrawals,
 			addValidatorDayWithdrawals,
 			addExcessDataGas,
+		},
+	},
+	14: {
+		funcs: []func(context.Context, *Service) error{
+			renameExcessDataGas,
+			addBlobKzgCommitments,
+			addBlobSidecars,
+			addBlobGasUsed,
 		},
 	},
 }
@@ -890,6 +898,7 @@ CREATE TABLE t_blocks (
  ,f_eth1_block_hash    BYTEA NOT NULL
  ,f_eth1_deposit_count BIGINT NOT NULL
  ,f_eth1_deposit_root  BYTEA NOT NULL
+ ,f_blob_kzg_commitments BYTEA[]
 );
 CREATE UNIQUE INDEX i_blocks_1 ON t_blocks(f_slot,f_root);
 CREATE UNIQUE INDEX i_blocks_2 ON t_blocks(f_root);
@@ -911,7 +920,8 @@ CREATE TABLE t_block_execution_payloads (
  ,f_base_fee_per_gas NUMERIC NOT NULL
  ,f_extra_data       BYTEA
  ,f_timestamp        BIGINT NOT NULL
- ,f_excess_data_gas  BIGINT NOT NULL DEFAULT 0
+ ,f_blob_gas_used    BIGINT NOT NULL DEFAULT 0
+ ,f_excess_blob_gas  BIGINT NOT NULL DEFAULT 0
 );
 
 -- t_beacon_committees contains all beacon committees.
@@ -1177,6 +1187,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS i_block_withdrawals_1 ON t_block_withdrawals(f
 CREATE INDEX IF NOT EXISTS i_block_withdrawals_2 ON t_block_withdrawals(f_block_number);
 CREATE INDEX IF NOT EXISTS i_block_withdrawals_3 ON t_block_withdrawals(f_validator_index);
 CREATE INDEX IF NOT EXISTS i_block_withdrawals_4 ON t_block_withdrawals(f_address);
+
+CREATE TABLE t_blob_sidecars (
+  f_block_root                     BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_slot                           BIGINT NOT NULL
+ ,f_index                          INTEGER NOT NULL
+ ,f_blob                           BYTEA NOT NULL
+ ,f_kzg_commitment                 BYTEA NOT NULL
+ ,f_kzg_proof                      BYTEA NOT NULL
+ ,f_kzg_commitment_inclusion_proof BYTEA NOT NULL
+);
+CREATE UNIQUE INDEX i_blob_sidecars_1 ON t_blob_sidecars(f_block_root,f_index);
+CREATE INDEX i_blob_sidecars_2 ON t_blob_sidecars(f_slot);
 `); err != nil {
 		cancel()
 		return errors.Wrap(err, "failed to create initial tables")
@@ -1722,6 +1744,89 @@ ALTER TABLE t_block_execution_payloads
 ADD COLUMN f_excess_data_gas BIGINT NOT NULL DEFAULT 0
 `); err != nil {
 		return errors.Wrap(err, "failed to add f_excess_data_gas to t_block_execution_payloads")
+	}
+
+	return nil
+}
+
+func renameExcessDataGas(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_block_execution_payloads
+RENAME f_excess_data_gas TO f_excess_blob_gas
+`); err != nil {
+		return errors.Wrap(err, "failed to rename f_excess_data_gas to f_excess_blob_gas")
+	}
+
+	return nil
+}
+
+func addBlobKzgCommitments(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_blocks
+ADD COLUMN f_blob_kzg_commitments BYTEA[]
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_blob_kzg_commitments to t_blocks")
+	}
+
+	return nil
+}
+
+func addBlobSidecars(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE t_blob_sidecars (
+  f_block_root                     BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_slot                           BIGINT NOT NULL
+ ,f_index                          INTEGER NOT NULL
+ ,f_blob                           BYTEA NOT NULL
+ ,f_kzg_commitment                 BYTEA NOT NULL
+ ,f_kzg_proof                      BYTEA NOT NULL
+ ,f_kzg_commitment_inclusion_proof BYTEA NOT NULL
+)
+`); err != nil {
+		return errors.Wrap(err, "failed to create t_blob_sidecars")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE UNIQUE INDEX i_blob_sidecars_1 ON t_blob_sidecars(f_block_root,f_index)
+`); err != nil {
+		return errors.Wrap(err, "failed to create i_blob_sidecars_1")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX i_blob_sidecars_2 ON t_blob_sidecars(f_slot)
+`); err != nil {
+		return errors.Wrap(err, "failed to create i_blob_sidecars_1")
+	}
+
+	return nil
+}
+
+func addBlobGasUsed(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_block_execution_payloads
+ADD COLUMN f_blob_gas_used BIGINT NOT NULL DEFAULT 0
+`); err != nil {
+		return errors.Wrap(err, "failed to add f_blob_gas_used to t_block_execution_payloads")
 	}
 
 	return nil

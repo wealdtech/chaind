@@ -111,7 +111,7 @@ func (t *transactionReceipt) UnmarshalJSON(input []byte) error {
 func (t *transactionReceipt) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&transactionReceiptJSON{
 		BlockHash:         fmt.Sprintf("%#x", t.BlockHash),
-		BlockNumber:       fmt.Sprintf("%d", t.BlockNumber),
+		BlockNumber:       strconv.FormatUint(t.BlockNumber, 10),
 		ContractAddress:   fmt.Sprintf("%#x", t.ContractAddress),
 		From:              fmt.Sprintf("%#x", t.From),
 		To:                fmt.Sprintf("%#x", t.To),

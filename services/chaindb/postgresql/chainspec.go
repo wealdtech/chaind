@@ -43,9 +43,9 @@ func (s *Service) SetChainSpecValue(ctx context.Context, key string, value any) 
 	case phase0.Root, phase0.Version, phase0.DomainType, phase0.ForkDigest, phase0.Domain, phase0.BLSPubKey, phase0.BLSSignature, []byte:
 		dbVal = fmt.Sprintf("%#x", v)
 	case time.Duration:
-		dbVal = fmt.Sprintf("%d", int(v.Seconds()))
+		dbVal = strconv.Itoa(int(v.Seconds()))
 	case time.Time:
-		dbVal = fmt.Sprintf("%d", v.Unix())
+		dbVal = strconv.FormatInt(v.Unix(), 10)
 	default:
 		dbVal = fmt.Sprintf("%v", v)
 	}

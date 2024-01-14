@@ -222,11 +222,6 @@ func (s *Service) canonicalizeBlocks(ctx context.Context, root phase0.Root, limi
 			return err
 		}
 
-		if block == nil {
-			log.Error().Str("block_root", fmt.Sprintf("%#x", root)).Msg("Block not found for root")
-			return errors.New("block not found for root")
-		}
-
 		if limit != 0 && block.Slot == limit {
 			break
 		}

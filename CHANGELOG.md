@@ -1,3 +1,10 @@
+0.8.0:
+  - support deneb
+  - add t_blob_sidecars for Deneb
+  - add f_blob_kzg_commitments to t_blocks for Deneb
+  - add f_blob_gas_used to t_block_execution_payloads for Deneb
+  - add f_excess_blob_gas to t_block_execution_payloads for Deneb
+
 0.7.7:
   - add attestations provider
   - do not attempt to summarize ahead of finalized epoch

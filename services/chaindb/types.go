@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/capella"
+	"github.com/attestantio/go-eth2-client/spec/deneb"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
@@ -39,6 +40,8 @@ type Block struct {
 	ExecutionPayload *ExecutionPayload
 	// Information only available from Capella onwards.
 	BLSToExecutionChanges []*BLSToExecutionChange
+	// Information only available from Deneb onwards.
+	BlobKZGCommitments []deneb.KZGCommitment
 }
 
 // Validator holds information about a validator.
@@ -298,7 +301,7 @@ type ExecutionPayload struct {
 	// No transactions, they are stored in execd.
 	Withdrawals   []*Withdrawal
 	BlobGasUsed   uint64
-	ExcessDataGas uint64
+	ExcessBlobGas uint64
 }
 
 // BLSToExecutionChange holds information about credentials change operations.
@@ -320,4 +323,15 @@ type Withdrawal struct {
 	ValidatorIndex     phase0.ValidatorIndex
 	Address            [20]byte
 	Amount             phase0.Gwei
+}
+
+// BlobSidecar holds information about a blob sidecar for a block.
+type BlobSidecar struct {
+	InclusionBlockRoot          phase0.Root
+	InclusionSlot               phase0.Slot
+	InclusionIndex              deneb.BlobIndex
+	Blob                        deneb.Blob
+	KZGCommitment               deneb.KZGCommitment
+	KZGProof                    deneb.KZGProof
+	KZGCommitmentInclusionProof deneb.KZGCommitmentInclusionProof
 }

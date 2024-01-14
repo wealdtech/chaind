@@ -52,17 +52,17 @@ func (s *Service) OnFinalityUpdated(
 		log.Debug().Msg("Not summarizing on epoch 0")
 		return
 	}
-	summaryEpoch := finalizedEpoch - 1
+	targetEpoch := finalizedEpoch - 1
 
-	if err := s.summarizeEpochs(ctx, summaryEpoch); err != nil {
+	if err := s.summarizeEpochs(ctx, targetEpoch); err != nil {
 		log.Warn().Err(err).Msg("Failed to update epochs; finished handling finality checkpoint")
 		return
 	}
-	if err := s.summarizeBlocks(ctx, summaryEpoch); err != nil {
+	if err := s.summarizeBlocks(ctx, targetEpoch); err != nil {
 		log.Warn().Err(err).Msg("Failed to update blocks; finished handling finality checkpoint")
 		return
 	}
-	if err := s.summarizeValidators(ctx, summaryEpoch); err != nil {
+	if err := s.summarizeValidators(ctx, targetEpoch); err != nil {
 		log.Warn().Err(err).Msg("Failed to update validators; finished handling finality checkpoint")
 		return
 	}
@@ -78,7 +78,7 @@ func (s *Service) OnFinalityUpdated(
 			return
 		}
 
-		if err := s.prune(ctx, summaryEpoch); err != nil {
+		if err := s.prune(ctx, targetEpoch); err != nil {
 			log.Warn().Err(err).Msg("Failed to prune summaries; finished handling finality checkpoint")
 			return
 		}
@@ -88,10 +88,10 @@ func (s *Service) OnFinalityUpdated(
 	log.Trace().Msg("Finished handling finality checkpoint")
 }
 
-func (s *Service) summarizeEpochs(ctx context.Context, summaryEpoch phase0.Epoch) error {
+func (s *Service) summarizeEpochs(ctx context.Context, targetEpoch phase0.Epoch) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "summarizeEpochs",
 		trace.WithAttributes(
-			attribute.Int64("target epoch", int64(summaryEpoch)),
+			attribute.Int64("target epoch", int64(targetEpoch)),
 		))
 	defer span.End()
 
@@ -110,15 +110,11 @@ func (s *Service) summarizeEpochs(ctx context.Context, summaryEpoch phase0.Epoch
 	}
 
 	// Limit the number of epochs summarised per pass, if we are also pruning.
-	targetEpoch := summaryEpoch
 	maxEpochsPerRun := phase0.Epoch(s.maxDaysPerRun) * s.epochsPerDay()
-	if s.validatorEpochRetention != nil && maxEpochsPerRun > 0 && summaryEpoch-firstEpoch > maxEpochsPerRun {
+	if s.validatorEpochRetention != nil && maxEpochsPerRun > 0 && targetEpoch-firstEpoch > maxEpochsPerRun {
+		log.Trace().Uint64("old_target_epoch", uint64(targetEpoch)).Uint64("new_target_epoch", uint64(firstEpoch+maxEpochsPerRun)).Msg("Reducing target epoch")
 		targetEpoch = firstEpoch + maxEpochsPerRun
-		if targetEpoch > summaryEpoch {
-			targetEpoch = summaryEpoch
-		}
 	}
-
 	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("target_epoch", uint64(targetEpoch)).Msg("Epochs catchup bounds")
 
 	for epoch := firstEpoch; epoch <= targetEpoch; epoch++ {
@@ -136,11 +132,11 @@ func (s *Service) summarizeEpochs(ctx context.Context, summaryEpoch phase0.Epoch
 }
 
 func (s *Service) summarizeBlocks(ctx context.Context,
-	summaryEpoch phase0.Epoch,
+	targetEpoch phase0.Epoch,
 ) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "summarizeBlocks",
 		trace.WithAttributes(
-			attribute.Int64("target epoch", int64(summaryEpoch)),
+			attribute.Int64("target epoch", int64(targetEpoch)),
 		))
 	defer span.End()
 
@@ -153,12 +149,10 @@ func (s *Service) summarizeBlocks(ctx context.Context,
 		return errors.Wrap(err, "failed to obtain metadata for block finality")
 	}
 
-	targetEpoch := summaryEpoch
 	firstEpoch := md.LastBlockEpoch
 	if firstEpoch != 0 {
 		firstEpoch++
 	}
-	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("target_epoch", uint64(targetEpoch)).Msg("Blocks catchup bounds")
 
 	// The last epoch updated in the metadata tells us how far we can summarize,
 	// as it checks for the component data.  As such, if the finalized epoch
@@ -168,6 +162,7 @@ func (s *Service) summarizeBlocks(ctx context.Context,
 	if targetEpoch > md.LastEpoch && md.LastEpoch != 0 {
 		targetEpoch = md.LastEpoch
 	}
+	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("target_epoch", uint64(targetEpoch)).Msg("Blocks catchup bounds")
 
 	for epoch := firstEpoch; epoch <= targetEpoch; epoch++ {
 		if err := s.summarizeBlocksInEpoch(ctx, md, epoch); err != nil {
@@ -178,10 +173,10 @@ func (s *Service) summarizeBlocks(ctx context.Context,
 	return nil
 }
 
-func (s *Service) summarizeValidators(ctx context.Context, summaryEpoch phase0.Epoch) error {
+func (s *Service) summarizeValidators(ctx context.Context, targetEpoch phase0.Epoch) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.summarizer.standard").Start(ctx, "summarizeValidators",
 		trace.WithAttributes(
-			attribute.Int64("target epoch", int64(summaryEpoch)),
+			attribute.Int64("target epoch", int64(targetEpoch)),
 		))
 	defer span.End()
 
@@ -194,32 +189,30 @@ func (s *Service) summarizeValidators(ctx context.Context, summaryEpoch phase0.E
 		return errors.Wrap(err, "failed to obtain metadata for validator summarizer")
 	}
 
-	// The last epoch updated in the metadata tells us how far we can summarize,
-	// as it checks for the component data.  As such, if the finalized epoch
-	// is beyond our summarized epoch we truncate to the summarized value.
-	// However, if we don't have validator balances the summarizer won't run at all
-	// for epochs, so if the last epoch is 0 we continue.
-	if summaryEpoch > md.LastEpoch && md.LastEpoch != 0 {
-		summaryEpoch = md.LastEpoch
-	}
-
 	firstEpoch := md.LastValidatorEpoch
 	if firstEpoch != 0 {
 		firstEpoch++
 	}
 
+	// The last epoch updated in the metadata tells us how far we can summarize,
+	// as it checks for the component data.  As such, if the finalized epoch
+	// is beyond our summarized epoch we truncate to the summarized value.
+	// However, if we don't have validator balances the summarizer won't run at all
+	// for epochs, so if the last epoch is 0 we continue.
+	if targetEpoch > md.LastEpoch && md.LastEpoch > 0 {
+		targetEpoch = md.LastEpoch
+	}
+
 	// Limit the number of epochs summarised per pass, if we are also pruning.
 	maxEpochsPerRun := phase0.Epoch(s.maxDaysPerRun) * s.epochsPerDay()
-	targetEpoch := summaryEpoch
-	if s.validatorEpochRetention != nil && maxEpochsPerRun > 0 && targetEpoch-firstEpoch > maxEpochsPerRun {
+	if s.validatorEpochRetention != nil && maxEpochsPerRun > 0 && firstEpoch-targetEpoch > maxEpochsPerRun {
+		log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("old_target_epoch", uint64(targetEpoch)).Uint64("new_target_epoch", uint64(firstEpoch+maxEpochsPerRun)).Msg("Reducing target epoch")
 		targetEpoch = firstEpoch + maxEpochsPerRun
-		if targetEpoch > summaryEpoch {
-			targetEpoch = summaryEpoch
-		}
 	}
 	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("target_epoch", uint64(targetEpoch)).Msg("Validators catchup bounds")
 
 	for epoch := firstEpoch; epoch <= targetEpoch; epoch++ {
+		log.Trace().Uint64("epoch", uint64(epoch)).Msg("Summarizing epoch")
 		if err := s.summarizeValidatorsInEpoch(ctx, md, epoch); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("failed to update validator summaries in epoch %d", epoch))
 		}

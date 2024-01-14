@@ -403,6 +403,11 @@ func (s *Service) onBlockDeneb(ctx context.Context, signedBlock *deneb.SignedBea
 		signedBlock.Message.Body.SyncAggregate); err != nil {
 		return errors.Wrap(err, "failed to update sync aggregate")
 	}
+	if len(signedBlock.Message.Body.BlobKZGCommitments) > 0 {
+		if err := s.updateBlobSidecarsForBlock(ctx, dbBlock.Root); err != nil {
+			return errors.Wrap(err, "failed to update blob sidecars")
+		}
+	}
 	return nil
 }
 
@@ -541,6 +546,31 @@ func (s *Service) updateSyncAggregateForBlock(ctx context.Context,
 	if err := s.syncAggregateSetter.SetSyncAggregate(ctx, dbSyncAggregate); err != nil {
 		return errors.Wrap(err, "failed to set sync aggregate")
 	}
+	return nil
+}
+
+func (s *Service) updateBlobSidecarsForBlock(ctx context.Context,
+	blockRoot phase0.Root,
+) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateBlobSidecarsForBlock")
+	defer span.End()
+
+	response, err := s.eth2Client.(eth2client.BlobSidecarsProvider).BlobSidecars(ctx, &api.BlobSidecarsOpts{
+		Block: blockRoot.String(),
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain beacon block blobs")
+	}
+
+	dbBlobSidecars := make([]*chaindb.BlobSidecar, len(response.Data))
+	for i := range response.Data {
+		dbBlobSidecars[i] = s.dbBlobSidecar(ctx, blockRoot, response.Data[i])
+	}
+
+	if err := s.blobSidecarsSetter.SetBlobSidecars(ctx, dbBlobSidecars); err != nil {
+		return errors.Wrap(err, "failed to set blob sidecars")
+	}
+
 	return nil
 }
 
@@ -865,9 +895,10 @@ func (*Service) dbBlockDeneb(
 			BlockHash:     block.Body.ExecutionPayload.BlockHash,
 			Withdrawals:   withdrawals,
 			BlobGasUsed:   block.Body.ExecutionPayload.BlobGasUsed,
-			ExcessDataGas: block.Body.ExecutionPayload.ExcessBlobGas,
+			ExcessBlobGas: block.Body.ExecutionPayload.ExcessBlobGas,
 		},
 		BLSToExecutionChanges: blsToExecutionChanges,
+		BlobKZGCommitments:    block.Body.BlobKZGCommitments,
 	}
 
 	return dbBlock, nil
@@ -1145,4 +1176,19 @@ func (s *Service) beaconCommittee(ctx context.Context,
 	}
 
 	return nil, errors.Wrap(err, "failed to obtain beacon committees")
+}
+
+func (*Service) dbBlobSidecar(_ context.Context,
+	blockRoot phase0.Root,
+	blobSidecar *deneb.BlobSidecar,
+) *chaindb.BlobSidecar {
+	return &chaindb.BlobSidecar{
+		InclusionBlockRoot:          blockRoot,
+		InclusionSlot:               blobSidecar.SignedBlockHeader.Message.Slot,
+		InclusionIndex:              blobSidecar.Index,
+		Blob:                        blobSidecar.Blob,
+		KZGCommitment:               blobSidecar.KZGCommitment,
+		KZGProof:                    blobSidecar.KZGProof,
+		KZGCommitmentInclusionProof: blobSidecar.KZGCommitmentInclusionProof,
+	}
 }

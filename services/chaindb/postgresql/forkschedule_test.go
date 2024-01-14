@@ -37,8 +37,8 @@ func TestForkSchedule(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Ensure this meets the eth2client interface requirement.
-	_, isProvider := s.(eth2client.ForkScheduleProvider)
+	// Ensure this meets the chaindb interface requirement.
+	_, isProvider := s.(chaindb.ForkScheduleProvider)
 	require.True(t, isProvider)
 
 	// Ensure the value.

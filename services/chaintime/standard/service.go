@@ -1,4 +1,4 @@
-// Copyright © 2020, 2021 Weald Technology Trading.
+// Copyright © 2020  2023 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -110,7 +110,6 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		capellaForkEpoch = 0xffffffffffffffff
 	}
 	log.Trace().Uint64("epoch", uint64(capellaForkEpoch)).Msg("Obtained Capella fork epoch")
-
 	denebForkEpoch, err := fetchDenebForkEpoch(ctx, parameters.specProvider)
 	if err != nil {
 		// Set to far future epoch.
