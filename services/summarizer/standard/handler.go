@@ -1,4 +1,4 @@
-// Copyright © 2021 - 2023 Weald Technology Limited.
+// Copyright © 2021 - 2024 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -109,10 +109,15 @@ func (s *Service) summarizeEpochs(ctx context.Context, targetEpoch phase0.Epoch)
 		firstEpoch++
 	}
 
+	if targetEpoch < firstEpoch {
+		log.Trace().Uint64("target_epoch", uint64(targetEpoch)).Uint64("first_epoch", uint64(firstEpoch)).Msg("Target epoch before first epoch; nothing to do")
+		return nil
+	}
+
 	// Limit the number of epochs summarised per pass, if we are also pruning.
 	maxEpochsPerRun := phase0.Epoch(s.maxDaysPerRun) * s.epochsPerDay()
 	if s.validatorEpochRetention != nil && maxEpochsPerRun > 0 && targetEpoch-firstEpoch > maxEpochsPerRun {
-		log.Trace().Uint64("old_target_epoch", uint64(targetEpoch)).Uint64("new_target_epoch", uint64(firstEpoch+maxEpochsPerRun)).Msg("Reducing target epoch")
+		log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("old_target_epoch", uint64(targetEpoch)).Uint64("max_epochs_per_run", uint64(maxEpochsPerRun)).Uint64("new_target_epoch", uint64(firstEpoch+maxEpochsPerRun)).Msg("Reducing target epoch")
 		targetEpoch = firstEpoch + maxEpochsPerRun
 	}
 	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("target_epoch", uint64(targetEpoch)).Msg("Epochs catchup bounds")
@@ -203,10 +208,15 @@ func (s *Service) summarizeValidators(ctx context.Context, targetEpoch phase0.Ep
 		targetEpoch = md.LastEpoch
 	}
 
+	if targetEpoch < firstEpoch {
+		log.Trace().Uint64("target_epoch", uint64(targetEpoch)).Uint64("first_epoch", uint64(firstEpoch)).Msg("Target epoch before first epoch; nothing to do")
+		return nil
+	}
+
 	// Limit the number of epochs summarised per pass, if we are also pruning.
 	maxEpochsPerRun := phase0.Epoch(s.maxDaysPerRun) * s.epochsPerDay()
-	if s.validatorEpochRetention != nil && maxEpochsPerRun > 0 && firstEpoch-targetEpoch > maxEpochsPerRun {
-		log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("old_target_epoch", uint64(targetEpoch)).Uint64("new_target_epoch", uint64(firstEpoch+maxEpochsPerRun)).Msg("Reducing target epoch")
+	if s.validatorEpochRetention != nil && maxEpochsPerRun > 0 && targetEpoch-firstEpoch > maxEpochsPerRun {
+		log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("old_target_epoch", uint64(targetEpoch)).Uint64("max_epochs_per_run", uint64(maxEpochsPerRun)).Uint64("new_target_epoch", uint64(firstEpoch+maxEpochsPerRun)).Msg("Reducing target validator epoch")
 		targetEpoch = firstEpoch + maxEpochsPerRun
 	}
 	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("target_epoch", uint64(targetEpoch)).Msg("Validators catchup bounds")

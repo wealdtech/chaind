@@ -1,3 +1,6 @@
+0.8.1:
+  - do not repeat summarization for epochs
+
 0.8.0:
   - support deneb
   - add t_blob_sidecars for Deneb
