@@ -722,7 +722,7 @@ func createForkSchedule(ctx context.Context, s *Service) error {
 	if _, err := tx.Exec(ctx, `
 CREATE TABLE t_fork_schedule (
   f_version BYTEA UNIQUE NOT NULL
- ,f_epoch   BIGINT NOT NULL
+ ,f_epoch   NUMERIC NOT NULL
  ,f_previous_version BYTEA NOT NULL
 )
 `); err != nil {
@@ -1125,7 +1125,7 @@ CREATE TABLE t_epoch_summaries (
 
 CREATE TABLE t_fork_schedule (
   f_version BYTEA UNIQUE NOT NULL
- ,f_epoch   BIGINT NOT NULL
+ ,f_epoch   NUMERIC NOT NULL
  ,f_previous_version BYTEA NOT NULL
 );
 
@@ -1566,7 +1566,7 @@ DROP TABLE t_fork_schedule
 	if _, err := tx.Exec(ctx, `
 CREATE TABLE t_fork_schedule (
   f_version BYTEA UNIQUE NOT NULL
- ,f_epoch   BIGINT NOT NULL
+ ,f_epoch   NUMERIC NOT NULL
  ,f_previous_version BYTEA NOT NULL
 )
 `); err != nil {
