@@ -19,6 +19,7 @@ import (
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/attestantio/go-eth2-client/api"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	zerologger "github.com/rs/zerolog/log"
@@ -165,8 +166,16 @@ func (s *Service) updateForkSchedule(ctx context.Context) error {
 	}
 	schedule := scheduleResponse.Data
 
+	// Remove any fork schedules that are in the far future.
+	realSchedule := make([]*phase0.Fork, 0, len(schedule))
+	for i := range schedule {
+		if schedule[i].Epoch != 0xffffffffffffffff {
+			realSchedule = append(realSchedule, schedule[i])
+		}
+	}
+
 	// Update the database.
-	if err := s.forkScheduleSetter.SetForkSchedule(ctx, schedule); err != nil {
+	if err := s.forkScheduleSetter.SetForkSchedule(ctx, realSchedule); err != nil {
 		return errors.Wrap(err, "failed to set fork schedule")
 	}
 
