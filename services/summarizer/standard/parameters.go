@@ -14,7 +14,10 @@
 package standard
 
 import (
+	"encoding/hex"
 	"errors"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
+	"strings"
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/rs/zerolog"
@@ -32,6 +35,7 @@ type parameters struct {
 	epochSummaries            bool
 	blockSummaries            bool
 	validatorSummaries        bool
+	validatorRetainPubkeys    []phase0.BLSPubKey
 	validatorEpochRetention   string
 	maxDaysPerRun             uint64
 	validatorBalanceRetention string
@@ -101,6 +105,25 @@ func WithBlockSummaries(enabled bool) Parameter {
 func WithValidatorSummaries(enabled bool) Parameter {
 	return parameterFunc(func(p *parameters) {
 		p.validatorSummaries = enabled
+	})
+}
+
+// WithvalidatorRetainPubkeys states if the module should retain balance and epoch summaries for a subset of validator.
+func WithvalidatorRetainPubkeys(validatorRetainPubkeys []string) Parameter {
+	return parameterFunc(func(p *parameters) {
+		var validatorRetainPubkeysTyped []phase0.BLSPubKey
+		for _, stringPubkey := range validatorRetainPubkeys {
+			stringPubkey = strings.TrimPrefix(stringPubkey, "0x")
+
+			bytes, _ := hex.DecodeString(stringPubkey)
+
+			var pubKey phase0.BLSPubKey
+			copy(pubKey[:], bytes)
+
+			validatorRetainPubkeysTyped = append(validatorRetainPubkeysTyped, pubKey)
+
+		}
+		p.validatorRetainPubkeys = validatorRetainPubkeysTyped
 	})
 }
 

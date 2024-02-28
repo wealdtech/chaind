@@ -578,6 +578,7 @@ func startSummarizer(
 		standardsummarizer.WithMaxDaysPerRun(viper.GetUint64("summarizer.max-days-per-run")),
 		standardsummarizer.WithValidatorEpochRetention(viper.GetString("summarizer.validators.epoch-retention")),
 		standardsummarizer.WithValidatorBalanceRetention(viper.GetString("summarizer.validators.balance-retention")),
+		standardsummarizer.WithvalidatorRetainPubkeys(viper.GetStringSlice("summarizer.validators.retain")),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create summarizer service")

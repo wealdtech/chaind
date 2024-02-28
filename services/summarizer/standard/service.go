@@ -50,6 +50,7 @@ type Service struct {
 	blockSummaries                  bool
 	validatorSummaries              bool
 	maxDaysPerRun                   uint64
+	validatorRetainPubkeys          []phase0.BLSPubKey
 	validatorEpochRetention         *util.CalendarDuration
 	validatorBalanceRetention       *util.CalendarDuration
 	activitySem                     *semaphore.Weighted
@@ -172,6 +173,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		blockSummaries:                  parameters.blockSummaries,
 		validatorSummaries:              parameters.validatorSummaries,
 		maxDaysPerRun:                   parameters.maxDaysPerRun,
+		validatorRetainPubkeys:          parameters.validatorRetainPubkeys,
 		validatorEpochRetention:         validatorEpochRetention,
 		validatorBalanceRetention:       validatorBalanceRetention,
 		activitySem:                     semaphore.NewWeighted(1),

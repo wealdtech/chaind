@@ -222,7 +222,7 @@ func (s *Service) summarizeValidators(ctx context.Context, targetEpoch phase0.Ep
 	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("target_epoch", uint64(targetEpoch)).Msg("Validators catchup bounds")
 
 	for epoch := firstEpoch; epoch <= targetEpoch; epoch++ {
-		log.Trace().Uint64("epoch", uint64(epoch)).Msg("Summarizing epoch")
+		log.Trace().Uint64("epoch", uint64(epoch)).Msg("Summarizing validators in epoch")
 		if err := s.summarizeValidatorsInEpoch(ctx, md, epoch); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("failed to update validator summaries in epoch %d", epoch))
 		}
