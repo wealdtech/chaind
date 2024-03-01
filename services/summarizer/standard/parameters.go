@@ -14,12 +14,9 @@
 package standard
 
 import (
-	"encoding/hex"
 	"errors"
-	"github.com/attestantio/go-eth2-client/spec/phase0"
-	"strings"
-
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
@@ -35,7 +32,7 @@ type parameters struct {
 	epochSummaries            bool
 	blockSummaries            bool
 	validatorSummaries        bool
-	validatorRetainPubkeys    []phase0.BLSPubKey
+	validatorRetain           []phase0.BLSPubKey
 	validatorEpochRetention   string
 	maxDaysPerRun             uint64
 	validatorBalanceRetention string
@@ -108,22 +105,10 @@ func WithValidatorSummaries(enabled bool) Parameter {
 	})
 }
 
-// WithvalidatorRetainPubkeys states if the module should retain balance and epoch summaries for a subset of validator.
-func WithvalidatorRetainPubkeys(validatorRetainPubkeys []string) Parameter {
+// WithValidatorRetain states if the module should retain balance and epoch summaries for a subset of validator.
+func WithValidatorRetain(validatorRetain []phase0.BLSPubKey) Parameter {
 	return parameterFunc(func(p *parameters) {
-		var validatorRetainPubkeysTyped []phase0.BLSPubKey
-		for _, stringPubkey := range validatorRetainPubkeys {
-			stringPubkey = strings.TrimPrefix(stringPubkey, "0x")
-
-			bytes, _ := hex.DecodeString(stringPubkey)
-
-			var pubKey phase0.BLSPubKey
-			copy(pubKey[:], bytes)
-
-			validatorRetainPubkeysTyped = append(validatorRetainPubkeysTyped, pubKey)
-
-		}
-		p.validatorRetainPubkeys = validatorRetainPubkeysTyped
+		p.validatorRetain = validatorRetain
 	})
 }
 

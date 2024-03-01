@@ -15,7 +15,9 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"net/http"
 
 	// #nosec G108
@@ -566,6 +568,26 @@ func startSummarizer(
 		return nil, nil
 	}
 
+	validatorRetainPubkeys := viper.GetStringSlice("summarizer.validators.retain")
+
+	var validatorRetain []phase0.BLSPubKey
+
+	for _, pubkey := range validatorRetainPubkeys {
+		pubkey = strings.TrimPrefix(pubkey, "0x")
+
+		bytes, err := hex.DecodeString(pubkey)
+
+		if err != nil {
+			return nil, errors.Wrap(err, fmt.Sprintf("failed to parse pubkey \"%s\"", pubkey))
+		}
+
+		var pubKey phase0.BLSPubKey
+		copy(pubKey[:], bytes)
+
+		validatorRetain = append(validatorRetain, pubKey)
+
+	}
+
 	standardSummarizer, err := standardsummarizer.New(ctx,
 		standardsummarizer.WithLogLevel(util.LogLevel("summarizer")),
 		standardsummarizer.WithMonitor(monitor),
@@ -578,7 +600,7 @@ func startSummarizer(
 		standardsummarizer.WithMaxDaysPerRun(viper.GetUint64("summarizer.max-days-per-run")),
 		standardsummarizer.WithValidatorEpochRetention(viper.GetString("summarizer.validators.epoch-retention")),
 		standardsummarizer.WithValidatorBalanceRetention(viper.GetString("summarizer.validators.balance-retention")),
-		standardsummarizer.WithvalidatorRetainPubkeys(viper.GetStringSlice("summarizer.validators.retain")),
+		standardsummarizer.WithValidatorRetain(validatorRetain),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create summarizer service")
