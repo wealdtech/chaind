@@ -746,7 +746,6 @@ AND NOT (t_validators.f_public_key = ANY($2))`)
 		}
 
 		queryVals = append(queryVals, pubkeysBytes)
-
 	} else {
 		queryBuilder.WriteString(`
 DELETE FROM t_validator_balances

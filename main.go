@@ -17,7 +17,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"net/http"
 
 	// #nosec G108
@@ -33,6 +32,7 @@ import (
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/attestantio/go-eth2-client/api"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	zerologger "github.com/rs/zerolog/log"
@@ -570,13 +570,12 @@ func startSummarizer(
 
 	validatorRetainPubkeys := viper.GetStringSlice("summarizer.validators.retain")
 
-	var validatorRetain []phase0.BLSPubKey
+	validatorRetain := make([]phase0.BLSPubKey, 0)
 
 	for _, pubkey := range validatorRetainPubkeys {
 		pubkey = strings.TrimPrefix(pubkey, "0x")
 
 		bytes, err := hex.DecodeString(pubkey)
-
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("failed to parse pubkey \"%s\"", pubkey))
 		}
@@ -585,7 +584,6 @@ func startSummarizer(
 		copy(pubKey[:], bytes)
 
 		validatorRetain = append(validatorRetain, pubKey)
-
 	}
 
 	standardSummarizer, err := standardsummarizer.New(ctx,

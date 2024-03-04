@@ -15,6 +15,7 @@ package standard
 
 import (
 	"errors"
+
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"

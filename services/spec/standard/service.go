@@ -79,7 +79,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	s.updateSpec(ctx)
 
 	// Set up a periodic refresh of the spec information.
-	runtimeFunc := func(ctx context.Context, data any) (time.Time, error) {
+	runtimeFunc := func(_ context.Context, _ any) (time.Time, error) {
 		// Run daily.
 		return time.Now().AddDate(0, 0, 1), nil
 	}
