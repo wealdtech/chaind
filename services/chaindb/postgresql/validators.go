@@ -729,35 +729,28 @@ func (s *Service) PruneValidatorBalances(ctx context.Context, to phase0.Epoch, r
 	queryBuilder := strings.Builder{}
 	queryVals := make([]any, 0)
 
-	queryBuilder.WriteString(`
-DELETE FROM t_validator_balances
-`)
-	if len(retain) > 0 {
-		queryBuilder.WriteString(`
-USING t_validators
-`)
-	}
-	queryBuilder.WriteString(`
-WHERE t_validator_balances.f_validator_index = t_validators.f_index
-AND f_epoch <= $1
-`)
 	queryVals = append(queryVals, to)
 
 	if len(retain) > 0 {
 		queryBuilder.WriteString(`
-AND NOT (t_validators.f_public_key = ANY($2))
-`)
+DELETE FROM t_validator_balances
+USING t_validators
+WHERE f_epoch <= $1
+AND t_validator_balances.f_validator_index = t_validators.f_index
+AND NOT (t_validators.f_public_key = ANY($2))`)
 
 		pubkeysBytes := make([][]byte, 0, len(retain))
 
-		for _, pubkey := range retain {
-			pubkeyBytes := make([]byte, len(pubkey))
-			copy(pubkeyBytes, pubkey[:])
-
-			pubkeysBytes = append(pubkeysBytes, pubkeyBytes)
+		for i := range retain {
+			pubkeysBytes = append(pubkeysBytes, retain[i][:])
 		}
 
 		queryVals = append(queryVals, pubkeysBytes)
+
+	} else {
+		queryBuilder.WriteString(`
+DELETE FROM t_validator_balances
+WHERE f_epoch <= $1`)
 	}
 
 	if e := log.Trace(); e.Enabled() {
