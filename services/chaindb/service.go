@@ -343,7 +343,7 @@ type AggregateValidatorBalancesProvider interface {
 // ValidatorBalancesPruner defines functions to prune validator balances.
 type ValidatorBalancesPruner interface {
 	// PruneValidatorBalances prunes validator balances up to (but not including) the given epoch.
-	PruneValidatorBalances(ctx context.Context, to phase0.Epoch, retain []phase0.ValidatorIndex) error
+	PruneValidatorBalances(ctx context.Context, to phase0.Epoch, retain []phase0.BLSPubKey) error
 }
 
 // ValidatorsSetter defines functions to create and update validator information.
@@ -410,7 +410,7 @@ type ValidatorEpochSummariesProvider interface {
 // ValidatorEpochSummariesPruner defines functions to prune validator epoch summaries.
 type ValidatorEpochSummariesPruner interface {
 	// PruneValidatorEpochSummaries prunes validator epoch summaries up to (but not including) the given point.
-	PruneValidatorEpochSummaries(ctx context.Context, to phase0.Epoch, retain []phase0.ValidatorIndex) error
+	PruneValidatorEpochSummaries(ctx context.Context, to phase0.Epoch, retain []phase0.BLSPubKey) error
 }
 
 // ValidatorEpochSummariesSetter defines functions to create and update validator epoch summaries.

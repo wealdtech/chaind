@@ -73,7 +73,6 @@ func (s *Service) SetBlobSidecars(ctx context.Context, blobSidecars []*chaindb.B
 				kzgCommitmentInclusionProof,
 			}, nil
 		}))
-
 	if err != nil {
 		if err := nestedTx.Rollback(ctx); err != nil {
 			return errors.Wrap(err, "failed to roll back nested transaction")

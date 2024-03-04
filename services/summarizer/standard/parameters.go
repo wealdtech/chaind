@@ -17,6 +17,7 @@ import (
 	"errors"
 
 	eth2client "github.com/attestantio/go-eth2-client"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/rs/zerolog"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
@@ -32,6 +33,7 @@ type parameters struct {
 	epochSummaries            bool
 	blockSummaries            bool
 	validatorSummaries        bool
+	validatorRetain           []phase0.BLSPubKey
 	validatorEpochRetention   string
 	maxDaysPerRun             uint64
 	validatorBalanceRetention string
@@ -101,6 +103,13 @@ func WithBlockSummaries(enabled bool) Parameter {
 func WithValidatorSummaries(enabled bool) Parameter {
 	return parameterFunc(func(p *parameters) {
 		p.validatorSummaries = enabled
+	})
+}
+
+// WithValidatorRetain states if the module should retain balance and epoch summaries for a subset of validator.
+func WithValidatorRetain(validatorRetain []phase0.BLSPubKey) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.validatorRetain = validatorRetain
 	})
 }
 

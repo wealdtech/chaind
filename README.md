@@ -114,11 +114,16 @@ These tables, along with their indices, take over 90% of the space required for 
 
 Pruning data removes data older than a certain age from the two database tables mentioned above.  Pruning is set for each table individually and so it is possible to prune either or both of the tables, and to have different retentions for each.  For example, the following configuration:
 
+It is also possible to retain data for specific validator pubkeys.
 ```yaml
 summarizer:
   validators:
     balance-retention: "P6M"
     epoch-retention: "P1Y"
+    retain:
+      - 0xab0bdda0f85f842f431beaccf1250bf1fd7ba51b4100fd64364b6401fda85bb0069b3e715b58819684e7fc0b10a72a34
+      - 0x876dd4705157eb66dc71bc2e07fb151ea53e1a62a0bb980a7ce72d15f58944a8a3752d754f52f4a60dbfc7b18169f268
+      - 0x9314c6de0386635e2799af798884c2ea09c63b9f079e572acc00b06a7faccce501ea4dfc0b1a23b8603680a5e3481327
 ```
 
 This will store 6 month's worth of balances, and 1 year's worth of epoch summaries.  Retention periods are [ISO 8601 durations](https://en.wikipedia.org/wiki/ISO_8601#Durations).  Note that if it is not desired to retain any balance or epoch summary data then the retention can be set to "PT0s".
@@ -204,6 +209,23 @@ eth1deposits:
   # keep track of this itself, however if you wish to start from a different block this
   # can be set.
   # start-block: 500
+summarizer:
+  enable: true
+  epochs:
+    enable: true
+  blocks:
+    enable: true
+  validators:
+    enable: false
+    # retention period for validator balances (ISO_8601 duration format)
+    # balance-retention: "P6M"
+    # retention period for validator epoch summaries (ISO_8601 duration format)
+    # epoch-retention: "P1Y"
+    # validator pubkeys for which to ignore above retention values (it won't prune validator balances and summaries)
+    # retain:
+    #   - 0xab0bdda0f85f842f431beaccf1250bf1fd7ba51b4100fd64364b6401fda85bb0069b3e715b58819684e7fc0b10a72a34
+    #   - 0x876dd4705157eb66dc71bc2e07fb151ea53e1a62a0bb980a7ce72d15f58944a8a3752d754f52f4a60dbfc7b18169f268
+    #   - 0x9314c6de0386635e2799af798884c2ea09c63b9f079e572acc00b06a7faccce501ea4dfc0b1a23b8603680a5e3481327
 ```
 
 ## Support

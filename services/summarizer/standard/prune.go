@@ -70,7 +70,7 @@ func (s *Service) pruneBalances(ctx context.Context, summaryEpoch phase0.Epoch) 
 		return errors.Wrap(err, "failed to begin transaction to prune validator balances")
 	}
 
-	if err := s.chainDB.(chaindb.ValidatorBalancesPruner).PruneValidatorBalances(ctx, pruneEpoch, nil); err != nil {
+	if err := s.chainDB.(chaindb.ValidatorBalancesPruner).PruneValidatorBalances(ctx, pruneEpoch, s.validatorRetain); err != nil {
 		cancel()
 		return errors.Wrap(err, "failed to prune validator balances")
 	}
@@ -114,7 +114,7 @@ func (s *Service) pruneEpochs(ctx context.Context, summaryEpoch phase0.Epoch) er
 		return errors.Wrap(err, "failed to begin transaction to prune validator epoch summaries")
 	}
 
-	if err := s.chainDB.(chaindb.ValidatorEpochSummariesPruner).PruneValidatorEpochSummaries(ctx, pruneEpoch, nil); err != nil {
+	if err := s.chainDB.(chaindb.ValidatorEpochSummariesPruner).PruneValidatorEpochSummaries(ctx, pruneEpoch, s.validatorRetain); err != nil {
 		cancel()
 		return errors.Wrap(err, "failed to prune validator epoch summaries")
 	}

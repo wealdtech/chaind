@@ -716,7 +716,7 @@ func validatorBalanceFromRow(rows pgx.Rows) (*chaindb.ValidatorBalance, error) {
 }
 
 // PruneValidatorBalances prunes validator balances up to (but not including) the given epoch.
-func (s *Service) PruneValidatorBalances(ctx context.Context, to phase0.Epoch, retain []phase0.ValidatorIndex) error {
+func (s *Service) PruneValidatorBalances(ctx context.Context, to phase0.Epoch, retain []phase0.BLSPubKey) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "PruneValidatorBalances")
 	defer span.End()
 
@@ -729,17 +729,27 @@ func (s *Service) PruneValidatorBalances(ctx context.Context, to phase0.Epoch, r
 	queryBuilder := strings.Builder{}
 	queryVals := make([]any, 0)
 
-	queryBuilder.WriteString(`
-DELETE FROM t_validator_balances
-WHERE f_epoch <= $1
-`)
 	queryVals = append(queryVals, to)
 
 	if len(retain) > 0 {
 		queryBuilder.WriteString(`
-AND  f_validator_index NOT IN($2)
-`)
-		queryVals = append(queryVals, retain)
+DELETE FROM t_validator_balances
+USING t_validators
+WHERE f_epoch <= $1
+AND t_validator_balances.f_validator_index = t_validators.f_index
+AND NOT (t_validators.f_public_key = ANY($2))`)
+
+		pubkeysBytes := make([][]byte, 0, len(retain))
+
+		for i := range retain {
+			pubkeysBytes = append(pubkeysBytes, retain[i][:])
+		}
+
+		queryVals = append(queryVals, pubkeysBytes)
+	} else {
+		queryBuilder.WriteString(`
+DELETE FROM t_validator_balances
+WHERE f_epoch <= $1`)
 	}
 
 	if e := log.Trace(); e.Enabled() {
