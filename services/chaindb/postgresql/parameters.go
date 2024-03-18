@@ -1,4 +1,4 @@
-// Copyright © 2020 Weald Technology Trading.
+// Copyright © 2020 - 2024 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -30,6 +30,7 @@ type parameters struct {
 	clientKey      []byte
 	caCert         []byte
 	maxConnections uint
+	partitioned    bool
 }
 
 // Parameter is the interface for service parameters.
@@ -111,6 +112,13 @@ func WithCACert(cert []byte) Parameter {
 func WithMaxConnections(maxConnections uint) Parameter {
 	return parameterFunc(func(p *parameters) {
 		p.maxConnections = maxConnections
+	})
+}
+
+// WithPartitioned is true if the database uses partitioned tables.
+func WithPartitioned(partitioned bool) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.partitioned = partitioned
 	})
 }
 

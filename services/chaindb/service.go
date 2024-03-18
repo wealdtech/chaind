@@ -426,6 +426,9 @@ type ValidatorEpochSummariesSetter interface {
 type BlockSummariesProvider interface {
 	// BlockSummaryForSlot obtains the summary of a block for a given slot.
 	BlockSummaryForSlot(ctx context.Context, slot phase0.Slot) (*BlockSummary, error)
+
+	// BlockSummaries provides summaries according to the filter.
+	BlockSummaries(ctx context.Context, filter *BlockSummaryFilter) ([]*BlockSummary, error)
 }
 
 // BlockSummariesSetter defines functions to create and update block summaries.

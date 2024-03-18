@@ -78,9 +78,11 @@ func (s *Service) OnFinalityUpdated(
 			return
 		}
 
-		if err := s.prune(ctx, targetEpoch); err != nil {
-			log.Warn().Err(err).Msg("Failed to prune summaries; finished handling finality checkpoint")
-			return
+		if s.validatorBalanceRetention != nil || s.validatorEpochRetention != nil {
+			if err := s.prune(ctx, targetEpoch); err != nil {
+				log.Warn().Err(err).Msg("Failed to prune summaries; finished handling finality checkpoint")
+				return
+			}
 		}
 	}
 

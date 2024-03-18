@@ -58,6 +58,7 @@ func (s *Service) SetBlockSummary(ctx context.Context, summary *chaindb.BlockSum
 	return err
 }
 
+// BlockSummaries provides summaries according to the filter.
 func (s *Service) BlockSummaries(ctx context.Context, filter *chaindb.BlockSummaryFilter) ([]*chaindb.BlockSummary, error) {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "BlockSummaries")
 	defer span.End()
