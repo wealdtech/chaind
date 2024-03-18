@@ -23,6 +23,7 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb"
 	"github.com/wealdtech/chaind/services/chaintime"
 	"github.com/wealdtech/chaind/services/metrics"
+	"github.com/wealdtech/chaind/services/scheduler"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -30,6 +31,7 @@ type parameters struct {
 	logLevel         zerolog.Level
 	monitor          metrics.Service
 	eth2Client       eth2client.Service
+	scheduler        scheduler.Service
 	chainDB          chaindb.Service
 	chainTime        chaintime.Service
 	blocks           blocks.Service
@@ -66,6 +68,13 @@ func WithMonitor(monitor metrics.Service) Parameter {
 func WithETH2Client(eth2Client eth2client.Service) Parameter {
 	return parameterFunc(func(p *parameters) {
 		p.eth2Client = eth2Client
+	})
+}
+
+// WithScheduler sets the scheduler for this module.
+func WithScheduler(scheduler scheduler.Service) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.scheduler = scheduler
 	})
 }
 
@@ -117,6 +126,9 @@ func parseAndCheckParameters(params ...Parameter) (*parameters, error) {
 
 	if parameters.eth2Client == nil {
 		return nil, errors.New("no Ethereum 2 client specified")
+	}
+	if parameters.scheduler == nil {
+		return nil, errors.New("no scheduler specified")
 	}
 	if parameters.chainDB == nil {
 		return nil, errors.New("no chain database specified")

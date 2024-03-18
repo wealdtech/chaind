@@ -1,4 +1,4 @@
-// Copyright © 2021, 2023 Weald Technology Limited.
+// Copyright © 2021 - 2024 Weald Technology Limited.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -29,29 +29,25 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
-// OnFinalityCheckpointReceived receives finality checkpoint notifications.
-func (s *Service) OnFinalityCheckpointReceived(
+// Finalize finalizes data in the database according to the given finality.
+func (s *Service) Finalize(
 	ctx context.Context,
 	finality *apiv1.Finality,
 ) {
-	log := log.With().Uint64("finalized_epoch", uint64(finality.Finalized.Epoch)).Logger()
+	log := s.log.With().Uint64("finalized_epoch", uint64(finality.Finalized.Epoch)).Logger()
 	log.Trace().
 		Stringer("finalized_block_root", finality.Finalized.Root).
 		Uint64("justified_epoch", uint64(finality.Justified.Epoch)).
 		Stringer("justified_bock_root", finality.Justified.Root).
-		Msg("Finality checkpoint received")
+		Msg("Finalizing for checkpoint")
 
-	// Only allow 1 handler to be active.
-	acquired := s.activitySem.TryAcquire(1)
-	if !acquired {
-		// If this semaphore is held by the blocks handler it will be free very soon, so
-		// wait for a bit and try again.
-		time.Sleep(2 * time.Second)
-		acquired = s.activitySem.TryAcquire(1)
-		if !acquired {
-			log.Debug().Msg("Another handler (either finalizer or blocks) running")
-			return
-		}
+	// Try to acquire the activity semaphore; allow up to 60 seconds, to let block processing complete.
+	semCtx, cancelFunc := context.WithDeadline(ctx, time.Now().Add(60*time.Second))
+	defer cancelFunc()
+	if err := s.activitySem.Acquire(semCtx, 1); err != nil {
+		log.Debug().Msg("Another handler (either finalizer or blocks) running")
+
+		return
 	}
 	defer s.activitySem.Release(1)
 
@@ -80,6 +76,7 @@ func (s *Service) OnFinalityCheckpointReceived(
 			log.Error().Err(err).Msg("Failed to run finality transaction")
 			return
 		}
+		log.Trace().Uint64("update_epoch", uint64(checkpoint.Epoch)).Int("remaining", len(stack)).Msg("Updated to epoch")
 		monitorEpochProcessed(checkpoint.Epoch)
 	}
 
@@ -143,7 +140,7 @@ func (s *Service) buildFinalityStack(ctx context.Context,
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to obtain finality for state")
 		}
-		log.Trace().Uint64("slot", uint64(slot)).Uint64("justified_epoch", uint64(finalityResponse.Data.Justified.Epoch)).Msg("Obtained finality")
+		s.log.Trace().Uint64("slot", uint64(slot)).Uint64("justified_epoch", uint64(finalityResponse.Data.Justified.Epoch)).Msg("Obtained finality")
 		item = finalityResponse.Data.Justified
 	}
 
@@ -159,7 +156,7 @@ func (s *Service) runFinalityTransaction(
 		return errors.Wrap(err, "Failed to start transaction on finality")
 	}
 
-	log.Trace().Uint64("epoch", uint64(checkpoint.Epoch)).Msg("Updating canonical blocks on finality")
+	s.log.Trace().Uint64("epoch", uint64(checkpoint.Epoch)).Msg("Updating canonical blocks on finality")
 	if err := s.updateCanonicalBlocks(ctx, checkpoint.Root); err != nil {
 		cancel()
 		return errors.Wrap(err, "Failed to update canonical blocks on finality")
@@ -170,7 +167,7 @@ func (s *Service) runFinalityTransaction(
 		// completed, in which case we will receive an error here (because the block is
 		// not marked as finalized).  As such we do not log this error as a problem; the
 		// block and related attestations will be finalized again next time around.
-		log.Debug().Err(err).Msg("Failed to update attestations on finality; will retry next finality update")
+		s.log.Debug().Err(err).Msg("Failed to update attestations on finality; will retry next finality update")
 	}
 
 	if err := s.chainDB.CommitTx(ctx); err != nil {
@@ -194,7 +191,7 @@ func (s *Service) updateCanonicalBlocks(ctx context.Context, root phase0.Root) e
 		return errors.Wrap(err, "failed to obtain block")
 	}
 
-	log.Trace().Uint64("slot", uint64(block.Slot)).Msg("Canonicalizing up to slot")
+	s.log.Trace().Uint64("slot", uint64(block.Slot)).Msg("Canonicalizing up to slot")
 
 	if err := s.canonicalizeBlocks(ctx, root, phase0.Slot(md.LatestCanonicalSlot)); err != nil {
 		return errors.Wrap(err, "failed to update canonical blocks from canonical root")
@@ -214,7 +211,7 @@ func (s *Service) updateCanonicalBlocks(ctx context.Context, root phase0.Root) e
 
 // canonicalizeBlocks marks the given block and all its parents as canonical.
 func (s *Service) canonicalizeBlocks(ctx context.Context, root phase0.Root, limit phase0.Slot) error {
-	log.Trace().Str("root", fmt.Sprintf("%#x", root)).Uint64("limit", uint64(limit)).Msg("Canonicalizing blocks")
+	s.log.Trace().Str("root", fmt.Sprintf("%#x", root)).Uint64("limit", uint64(limit)).Msg("Canonicalizing blocks")
 
 	for {
 		block, err := s.fetchBlock(ctx, root)
@@ -233,7 +230,7 @@ func (s *Service) canonicalizeBlocks(ctx context.Context, root phase0.Root, limi
 			if err := s.blocksSetter.SetBlock(ctx, block); err != nil {
 				return errors.Wrap(err, "failed to set block to canonical")
 			}
-			log.Trace().Uint64("slot", uint64(block.Slot)).Str("root", fmt.Sprintf("%#x", block.Root)).Msg("Block is canonical")
+			s.log.Trace().Uint64("slot", uint64(block.Slot)).Str("root", fmt.Sprintf("%#x", block.Root)).Msg("Block is canonical")
 		}
 
 		if block.Slot == 0 {
@@ -257,12 +254,12 @@ func (s *Service) updateIndeterminateBlocks(ctx context.Context, slot phase0.Slo
 	}
 
 	for _, nonCanonicalRoot := range nonCanonicalRoots {
-		log.Trace().Str("root", fmt.Sprintf("%#x", nonCanonicalRoot)).Msg("Fetching indeterminate block")
+		s.log.Trace().Str("root", fmt.Sprintf("%#x", nonCanonicalRoot)).Msg("Fetching indeterminate block")
 		nonCanonicalBlock, err := s.blocksProvider.BlockByRoot(ctx, nonCanonicalRoot)
 		if err != nil {
 			return err
 		}
-		log.Trace().Str("root", fmt.Sprintf("%#x", nonCanonicalRoot)).Uint64("slot", uint64(nonCanonicalBlock.Slot)).Msg("Fetched indeterminate block")
+		s.log.Trace().Str("root", fmt.Sprintf("%#x", nonCanonicalRoot)).Uint64("slot", uint64(nonCanonicalBlock.Slot)).Msg("Fetched indeterminate block")
 		childrenBlocks, err := s.blocksProvider.BlocksByParentRoot(ctx, nonCanonicalRoot)
 		if err != nil {
 			return err
@@ -277,7 +274,7 @@ func (s *Service) updateIndeterminateBlocks(ctx context.Context, slot phase0.Slo
 		if err := s.blocksSetter.SetBlock(ctx, nonCanonicalBlock); err != nil {
 			return err
 		}
-		log.Trace().Str("root", fmt.Sprintf("%#x", nonCanonicalRoot)).Uint64("slot", uint64(nonCanonicalBlock.Slot)).Bool("canonical", *nonCanonicalBlock.Canonical).Msg("Marking block")
+		s.log.Trace().Str("root", fmt.Sprintf("%#x", nonCanonicalRoot)).Uint64("slot", uint64(nonCanonicalBlock.Slot)).Bool("canonical", *nonCanonicalBlock.Canonical).Msg("Marking block")
 	}
 
 	return nil
@@ -299,7 +296,7 @@ func (s *Service) updateAttestations(ctx context.Context, epoch phase0.Epoch) er
 	}
 	if len(latestBlocks) == 0 {
 		// No blocks yet; bow out but no error.
-		log.Trace().Msg("No blocks in database")
+		s.log.Trace().Msg("No blocks in database")
 		return nil
 	}
 	earliestAllowableSlot := s.chainTime.FirstSlotOfEpoch(epoch)
@@ -310,13 +307,13 @@ func (s *Service) updateAttestations(ctx context.Context, epoch phase0.Epoch) er
 	}
 	if latestBlocks[0].Slot < earliestAllowableSlot {
 		// Bow out, but no error.
-		log.Trace().Msg("Not enough blocks in the database; not updating attestations")
+		s.log.Trace().Msg("Not enough blocks in the database; not updating attestations")
 		return nil
 	}
 
 	firstEpoch := phase0.Epoch(md.LastFinalizedEpoch + 1)
 
-	log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("latest_epoch", uint64(epoch)).Msg("Epochs over which to update attestations")
+	s.log.Trace().Uint64("first_epoch", uint64(firstEpoch)).Uint64("latest_epoch", uint64(epoch)).Msg("Epochs over which to update attestations")
 	for curEpoch := firstEpoch; curEpoch <= epoch; curEpoch++ {
 		if err := s.updateAttestationsInEpoch(ctx, curEpoch); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("failed to update attestations in epoch %d", epoch))
@@ -333,7 +330,7 @@ func (s *Service) updateAttestations(ctx context.Context, epoch phase0.Epoch) er
 
 // updateAttestationsInEpoch updates the attestations in the given epoch.
 func (s *Service) updateAttestationsInEpoch(ctx context.Context, epoch phase0.Epoch) error {
-	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
+	log := s.log.With().Uint64("epoch", uint64(epoch)).Logger()
 
 	fromSlot := phase0.Slot(0)
 	if epoch > 0 {
@@ -420,14 +417,14 @@ func (s *Service) updateAttestationTargetCorrect(ctx context.Context, attestatio
 		// Work backwards until we find a canonical block.
 		canonicalBlockFound := false
 		for slot := startSlot; !canonicalBlockFound; slot-- {
-			log.Trace().Uint64("slot", uint64(slot)).Msg("Fetching blocks at slot")
+			s.log.Trace().Uint64("slot", uint64(slot)).Msg("Fetching blocks at slot")
 			blocks, err := s.chainDB.(chaindb.BlocksProvider).BlocksBySlot(ctx, slot)
 			if err != nil {
 				return errors.Wrap(err, "failed to obtain block")
 			}
 			for _, block := range blocks {
 				if block.Canonical != nil && *block.Canonical {
-					log.Trace().Uint64("target_epoch", uint64(attestation.TargetEpoch)).Uint64("slot", uint64(block.Slot)).Msg("Found canonical block")
+					s.log.Trace().Uint64("target_epoch", uint64(attestation.TargetEpoch)).Uint64("slot", uint64(block.Slot)).Msg("Found canonical block")
 					canonicalBlockFound = true
 					epochRoots[attestation.TargetEpoch] = block.Root
 					targetCorrect = bytes.Equal(attestation.TargetRoot[:], block.Root[:])
@@ -464,22 +461,22 @@ func (s *Service) updateAttestationHeadCorrect(ctx context.Context,
 		return nil
 	}
 
-	log.Trace().Uint64("slot", uint64(attestation.Slot)).Msg("Checking attestation head vote")
+	s.log.Trace().Uint64("slot", uint64(attestation.Slot)).Msg("Checking attestation head vote")
 	// Start with slot of the attestation.
 	canonicalBlockFound := false
 	for slot := attestation.Slot; !canonicalBlockFound; slot-- {
-		log.Trace().Uint64("slot", uint64(slot)).Msg("Fetching blocks at slot")
+		s.log.Trace().Uint64("slot", uint64(slot)).Msg("Fetching blocks at slot")
 		blocks, err := s.chainDB.(chaindb.BlocksProvider).BlocksBySlot(ctx, slot)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain block")
 		}
 		for _, block := range blocks {
 			if block.Canonical != nil && *block.Canonical {
-				log.Trace().Uint64("slot", uint64(block.Slot)).Msg("Found canonical block")
+				s.log.Trace().Uint64("slot", uint64(block.Slot)).Msg("Found canonical block")
 				canonicalBlockFound = true
 				headRoots[attestation.Slot] = block.Root
 				headCorrect = bytes.Equal(attestation.BeaconBlockRoot[:], block.Root[:])
-				log.Trace().Str("attestation_root", fmt.Sprintf("%#x", attestation.BeaconBlockRoot)).Str("block_root", fmt.Sprintf("%#x", block.Root)).Msg("Found canonical block")
+				s.log.Trace().Str("attestation_root", fmt.Sprintf("%#x", attestation.BeaconBlockRoot)).Str("block_root", fmt.Sprintf("%#x", block.Root)).Msg("Found canonical block")
 				break
 			}
 		}
@@ -506,7 +503,7 @@ func (s *Service) fetchBlock(ctx context.Context, root phase0.Root) (*chaindb.Bl
 			return nil, errors.Wrap(err, "failed to obtain block from provider")
 		}
 		// Not found in the database, try fetching it from the chain.
-		log.Debug().Stringer("block_root", root).Msg("Failed to obtain block from provider; fetching from chain")
+		s.log.Debug().Stringer("block_root", root).Msg("Failed to obtain block from provider; fetching from chain")
 		signedBlockResponse, err := s.eth2Client.(eth2client.SignedBeaconBlockProvider).SignedBeaconBlock(ctx, &api.SignedBeaconBlockOpts{
 			Block: root.String(),
 		})
@@ -514,7 +511,7 @@ func (s *Service) fetchBlock(ctx context.Context, root phase0.Root) (*chaindb.Bl
 			var apiErr *api.Error
 			if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
 				// Possible that this is a missed slot, don't error.
-				log.Debug().Msg("No beacon block obtained for slot")
+				s.log.Debug().Msg("No beacon block obtained for slot")
 				return nil, nil
 			}
 
@@ -544,7 +541,7 @@ func (s *Service) fetchBlock(ctx context.Context, root phase0.Root) (*chaindb.Bl
 		}
 		if latestBlocks[0].Slot < earliestAllowableSlot {
 			// Bow out, but no error.
-			log.Trace().Msg("Not enough blocks in the database; not finalizing")
+			s.log.Trace().Msg("Not enough blocks in the database; not finalizing")
 			return nil, nil
 		}
 

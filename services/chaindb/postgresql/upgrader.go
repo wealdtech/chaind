@@ -1,4 +1,4 @@
-// Copyright © 2021 - 2023 Weald Technology Trading.
+// Copyright © 2021 - 2024 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -27,7 +27,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(14)
+var currentVersion = uint64(15)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -124,6 +124,12 @@ var upgrades = map[uint64]*upgrade{
 			addBlobKzgCommitments,
 			addBlobSidecars,
 			addBlobGasUsed,
+		},
+	},
+	15: {
+		funcs: []func(context.Context, *Service) error{
+			addValidatorEpochSummariesIndex2,
+			replaceValidatorDaySummariesIndex2,
 		},
 	},
 }
@@ -1089,6 +1095,7 @@ CREATE TABLE t_validator_epoch_summaries (
  ,f_attestation_inclusion_delay INTEGER
 );
 CREATE UNIQUE INDEX IF NOT EXISTS i_validator_epoch_summaries_1 ON t_validator_epoch_summaries(f_validator_index, f_epoch);
+CREATE INDEX IF NOT EXISTS i_validator_epoch_summaries_2 ON t_validator_epoch_summaries(f_epoch);
 
 CREATE TABLE t_block_summaries (
   f_slot                             BIGINT NOT NULL
@@ -1451,7 +1458,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS i_validator_day_summaries_1 ON t_validator_day
 	}
 
 	if _, err := tx.Exec(ctx, `
-CREATE INDEX IF NOT EXISTS i_validator_day_summaries_2 ON t_validator_day_summaries(f_start_timestamp)
+CREATE UNIQUE INDEX IF NOT EXISTS i_validator_day_summaries_2 ON t_validator_day_summaries(f_start_timestamp, f_validator_index)
 `); err != nil {
 		return errors.Wrap(err, "failed to create validator day summaries index 1")
 	}
@@ -1827,6 +1834,42 @@ ALTER TABLE t_block_execution_payloads
 ADD COLUMN f_blob_gas_used BIGINT NOT NULL DEFAULT 0
 `); err != nil {
 		return errors.Wrap(err, "failed to add f_blob_gas_used to t_block_execution_payloads")
+	}
+
+	return nil
+}
+
+func addValidatorEpochSummariesIndex2(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX IF NOT EXISTS i_validator_epoch_summaries_2 ON t_validator_epoch_summaries(f_epoch)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_validator_epoch_summaries_2 to t_validator_epoch_summaries")
+	}
+
+	return nil
+}
+
+func replaceValidatorDaySummariesIndex2(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+DROP INDEX IF EXISTS i_validator_day_summaries_2
+`); err != nil {
+		return errors.Wrap(err, "failed to deop i_validator_day_summaries_2")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE UNIQUE INDEX IF NOT EXISTS i_validator_day_summaries_2 ON t_validator_day_summaries(f_start_timestamp, f_validator_index)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_validator_epoch_summaries_2 to t_validator_epoch_summaries")
 	}
 
 	return nil
