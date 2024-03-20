@@ -102,7 +102,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	return s, nil
 }
 
-func (s *Service) scheduleFinalizer(_ context.Context, _ any) (time.Time, error) {
+func (*Service) scheduleFinalizer(_ context.Context, _ any) (time.Time, error) {
 	return time.Now().Add(time.Minute), nil
 }
 
