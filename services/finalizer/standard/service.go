@@ -1,4 +1,4 @@
-// Copyright © 2021 - 2023 Weald Technology Trading.
+// Copyright © 2021 - 2024 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,7 +19,6 @@ import (
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/attestantio/go-eth2-client/api"
-	apiv1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -33,6 +32,7 @@ import (
 
 // Service is a finalizer service.
 type Service struct {
+	log              zerolog.Logger
 	eth2Client       eth2client.Service
 	chainDB          chaindb.Service
 	blocksProvider   chaindb.BlocksProvider
@@ -43,9 +43,6 @@ type Service struct {
 	activitySem      *semaphore.Weighted
 }
 
-// module-wide log.
-var log zerolog.Logger
-
 // New creates a new service.
 func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	parameters, err := parseAndCheckParameters(params...)
@@ -54,7 +51,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}
 
 	// Set logging.
-	log = zerologger.With().Str("service", "finalizer").Str("impl", "standard").Logger().Level(parameters.logLevel)
+	log := zerologger.With().Str("service", "finalizer").Str("impl", "standard").Logger().Level(parameters.logLevel)
 
 	if err := registerMetrics(ctx, parameters.monitor); err != nil {
 		return nil, errors.New("failed to register metrics")
@@ -71,6 +68,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}
 
 	s := &Service{
+		log:              log,
 		eth2Client:       parameters.eth2Client,
 		chainDB:          parameters.chainDB,
 		blocksProvider:   blocksProvider,
@@ -81,29 +79,15 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		activitySem:      parameters.activitySem,
 	}
 
-	// Set up the handler for new finality checkpoint updates.
-	if err := s.eth2Client.(eth2client.EventsProvider).Events(ctx, []string{"finalized_checkpoint"}, func(event *apiv1.Event) {
-		if event.Data == nil {
-			// Happens when the channel shuts down, nothing to worry about.
-			return
-		}
-		eventData := event.Data.(*apiv1.FinalizedCheckpointEvent)
-		log.Trace().Str("event", eventData.String()).Msg("Received event")
-
-		// The finalizer event commonly occurs at the same time as the head event.  Because they cannot both run at the same
-		// time, we sleep for a bit here to allow that to process first.
-		time.Sleep(4 * time.Second)
-		finalityResponse, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, &api.FinalityOpts{
-			State: "head",
-		})
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to obtain finality data")
-		}
-		finality := finalityResponse.Data
-
-		s.OnFinalityCheckpointReceived(ctx, finality)
-	}); err != nil {
-		return nil, errors.Wrap(err, "failed to add finality checkpoint received handler")
+	if err := parameters.scheduler.SchedulePeriodicJob(ctx,
+		"Finalizer",
+		"Update finalization",
+		s.scheduleFinalizer,
+		nil,
+		s.runFinalizer,
+		nil,
+	); err != nil {
+		return nil, errors.Wrap(err, "failed to schedule finalizer")
 	}
 
 	// Note the current highest finalized epoch for the monitor.
@@ -116,4 +100,20 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}
 
 	return s, nil
+}
+
+func (*Service) scheduleFinalizer(_ context.Context, _ any) (time.Time, error) {
+	return time.Now().Add(time.Minute), nil
+}
+
+func (s *Service) runFinalizer(ctx context.Context, _ any) {
+	finalityResponse, err := s.eth2Client.(eth2client.FinalityProvider).Finality(ctx, &api.FinalityOpts{
+		State: "head",
+	})
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to obtain finality data")
+	}
+	finality := finalityResponse.Data
+
+	s.Finalize(ctx, finality)
 }

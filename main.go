@@ -52,6 +52,7 @@ import (
 	nullmetrics "github.com/wealdtech/chaind/services/metrics/null"
 	prometheusmetrics "github.com/wealdtech/chaind/services/metrics/prometheus"
 	standardproposerduties "github.com/wealdtech/chaind/services/proposerduties/standard"
+	"github.com/wealdtech/chaind/services/scheduler"
 	standardscheduler "github.com/wealdtech/chaind/services/scheduler/standard"
 	standardspec "github.com/wealdtech/chaind/services/spec/standard"
 	"github.com/wealdtech/chaind/services/summarizer"
@@ -63,7 +64,7 @@ import (
 )
 
 // ReleaseVersion is the release version for the code.
-var ReleaseVersion = "0.8.2"
+var ReleaseVersion = "0.8.3"
 
 func main() {
 	os.Exit(main2())
@@ -265,6 +266,7 @@ func startDatabase(ctx context.Context) (chaindb.Service, error) {
 		postgresqlchaindb.WithLogLevel(util.LogLevel("chaindb")),
 		postgresqlchaindb.WithConnectionURL(viper.GetString("chaindb.url")),
 		postgresqlchaindb.WithMaxConnections(viper.GetUint("chaindb.max-connections")),
+		postgresqlchaindb.WithPartitioned(viper.GetBool("chaindb.partitioned")),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start chain database service")
@@ -312,6 +314,13 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 		return errors.Wrap(err, "failed to start chain time service")
 	}
 
+	scheduler, err := standardscheduler.New(ctx,
+		standardscheduler.WithLogLevel(util.LogLevel("scheduler")),
+		standardscheduler.WithMonitor(monitor))
+	if err != nil {
+		return errors.Wrap(err, "failed to initialise scheduler")
+	}
+
 	// Wait for chainstart.
 	specServiceStarted := false
 	timeToGenesis := time.Until(chainTime.GenesisTime())
@@ -319,7 +328,7 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 		// See if we can obtain spec before the chain starts.  Not all beacon nodes support this,
 		// so don't worry if it fails but do note it so that the service can be started later.
 		log.Trace().Msg("Starting spec service (speculative pre-chain)")
-		if err := startSpec(ctx, eth2Client, chainDB, monitor); err == nil {
+		if err := startSpec(ctx, eth2Client, scheduler, chainDB); err == nil {
 			specServiceStarted = true
 		}
 
@@ -333,7 +342,7 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 	// chaindb so it is accessible to other services.
 	if !specServiceStarted {
 		log.Trace().Msg("Starting spec service")
-		if err := startSpec(ctx, eth2Client, chainDB, monitor); err != nil {
+		if err := startSpec(ctx, eth2Client, scheduler, chainDB); err != nil {
 			return errors.Wrap(err, "failed to start spec service")
 		}
 	}
@@ -367,7 +376,7 @@ func startServices(ctx context.Context, monitor metrics.Service) error {
 	if summarizerSvc != nil {
 		finalityHandlers = append(finalityHandlers, summarizerSvc.(handlers.FinalityHandler))
 	}
-	if err := startFinalizer(ctx, eth2Client, chainDB, chainTime, blocks, monitor, finalityHandlers, activitySem); err != nil {
+	if err := startFinalizer(ctx, eth2Client, scheduler, chainDB, chainTime, blocks, monitor, finalityHandlers, activitySem); err != nil {
 		return errors.Wrap(err, "failed to start finalizer service")
 	}
 
@@ -444,8 +453,8 @@ func resolvePath(path string) string {
 func startSpec(
 	ctx context.Context,
 	eth2Client eth2client.Service,
+	scheduler scheduler.Service,
 	chainDB chaindb.Service,
-	monitor metrics.Service,
 ) error {
 	var err error
 	if viper.GetString("spec.address") != "" {
@@ -453,13 +462,6 @@ func startSpec(
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("failed to fetch client %q", viper.GetString("spec.address")))
 		}
-	}
-
-	scheduler, err := standardscheduler.New(ctx,
-		standardscheduler.WithLogLevel(util.LogLevel("scheduler")),
-		standardscheduler.WithMonitor(monitor))
-	if err != nil {
-		return errors.Wrap(err, "failed to initialise scheduler")
 	}
 
 	_, err = standardspec.New(ctx,
@@ -518,6 +520,7 @@ func startBlocks(
 func startFinalizer(
 	ctx context.Context,
 	eth2Client eth2client.Service,
+	scheduler scheduler.Service,
 	chainDB chaindb.Service,
 	chainTime chaintime.Service,
 	blocks blocks.Service,
@@ -541,6 +544,7 @@ func startFinalizer(
 		standardfinalizer.WithLogLevel(util.LogLevel("finalizer")),
 		standardfinalizer.WithMonitor(monitor),
 		standardfinalizer.WithETH2Client(eth2Client),
+		standardfinalizer.WithScheduler(scheduler),
 		standardfinalizer.WithChainTime(chainTime),
 		standardfinalizer.WithChainDB(chainDB),
 		standardfinalizer.WithBlocks(blocks),

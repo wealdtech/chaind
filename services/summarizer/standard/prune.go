@@ -23,28 +23,6 @@ import (
 )
 
 func (s *Service) prune(ctx context.Context, summaryEpoch phase0.Epoch) error {
-	if s.validatorBalanceRetention != nil {
-		if err := s.pruneBalances(ctx, summaryEpoch); err != nil {
-			return err
-		}
-		monitorBalancePruned()
-	}
-
-	if s.validatorEpochRetention != nil {
-		if err := s.pruneEpochs(ctx, summaryEpoch); err != nil {
-			return err
-		}
-		monitorEpochPruned()
-	}
-
-	return nil
-}
-
-func (s *Service) pruneBalances(ctx context.Context, summaryEpoch phase0.Epoch) error {
-	summaryTime := s.chainTime.StartOfEpoch(summaryEpoch)
-	pruneTime := s.validatorBalanceRetention.Decrement(summaryTime)
-
-	// Ensure that we're not pruning to a point before the summary.
 	daySummaries, err := s.chainDB.(chaindb.ValidatorDaySummariesProvider).ValidatorDaySummaries(ctx, &chaindb.ValidatorDaySummaryFilter{
 		Order: chaindb.OrderLatest,
 		Limit: 1,
@@ -57,6 +35,32 @@ func (s *Service) pruneBalances(ctx context.Context, summaryEpoch phase0.Epoch) 
 		return nil
 	}
 	summarizedTime := daySummaries[0].StartTimestamp.AddDate(0, 0, 1)
+
+	if s.validatorBalanceRetention != nil {
+		if err := s.pruneBalances(ctx, summaryEpoch, summarizedTime); err != nil {
+			return err
+		}
+		monitorBalancePruned()
+	}
+
+	if s.validatorEpochRetention != nil {
+		if err := s.pruneEpochs(ctx, summaryEpoch, summarizedTime); err != nil {
+			return err
+		}
+		monitorEpochPruned()
+	}
+
+	return nil
+}
+
+func (s *Service) pruneBalances(ctx context.Context,
+	summaryEpoch phase0.Epoch,
+	summarizedTime time.Time,
+) error {
+	summaryTime := s.chainTime.StartOfEpoch(summaryEpoch)
+	pruneTime := s.validatorBalanceRetention.Decrement(summaryTime)
+
+	// Ensure that we're not pruning to a point before the summary.
 	if summarizedTime.Before(pruneTime) {
 		// We are attempting to prune data that we have not yet summarized; do not do this.
 		pruneTime = summarizedTime.Add(-1 * time.Second)
@@ -84,23 +88,14 @@ func (s *Service) pruneBalances(ctx context.Context, summaryEpoch phase0.Epoch) 
 	return nil
 }
 
-func (s *Service) pruneEpochs(ctx context.Context, summaryEpoch phase0.Epoch) error {
+func (s *Service) pruneEpochs(ctx context.Context,
+	summaryEpoch phase0.Epoch,
+	summarizedTime time.Time,
+) error {
 	summaryTime := s.chainTime.StartOfEpoch(summaryEpoch)
 	pruneTime := s.validatorEpochRetention.Decrement(summaryTime)
 
 	// Ensure that we're not pruning to a point before the summary.
-	daySummaries, err := s.chainDB.(chaindb.ValidatorDaySummariesProvider).ValidatorDaySummaries(ctx, &chaindb.ValidatorDaySummaryFilter{
-		Order: chaindb.OrderLatest,
-		Limit: 1,
-	})
-	if err != nil {
-		return errors.Wrap(err, "failed to obtain latest day summary")
-	}
-	if len(daySummaries) == 0 {
-		log.Trace().Msg("No validator day summaries, not pruning")
-		return nil
-	}
-	summarizedTime := daySummaries[0].StartTimestamp.AddDate(0, 0, 1)
 	if summarizedTime.Before(pruneTime) {
 		// We are attempting to prune data that we have not yet summarized; do not do this.
 		pruneTime = summarizedTime.Add(-1 * time.Second)

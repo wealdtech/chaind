@@ -1,3 +1,10 @@
+0.8.3;
+  - add validator retention by pubkey
+  - move to periodic finalization rather than event-triggered
+
+0.8.2:
+  - do not store forks at FAR_FUTURE_EPOCH
+
 0.8.1:
   - do not repeat summarization for epochs
 
