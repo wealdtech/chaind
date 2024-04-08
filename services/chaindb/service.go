@@ -203,6 +203,9 @@ type ETH1DepositsSetter interface {
 
 // ProposerDutiesProvider defines functions to access proposer duties.
 type ProposerDutiesProvider interface {
+	// ProposerDuties provides proposer duties according to the filter.
+	ProposerDuties(ctx context.Context, filter *ProposerDutyFilter) ([]*ProposerDuty, error)
+
 	// ProposerDutiesForSlotRange fetches all proposer duties for the given slot range.
 	// Ranges are inclusive of start and exclusive of end i.e. a request with startSlot 2 and endSlot 4 will provide
 	// proposer duties for slots 2 and 3.

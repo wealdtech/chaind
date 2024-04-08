@@ -197,6 +197,32 @@ type AttestationFilter struct {
 	Canonical *bool
 }
 
+// ProposerDutyFilter defines a filter for fetching proposer duties.
+// Filter elements are ANDed together.
+// Results are always returned in ascending (epoch, validator index) order.
+type ProposerDutyFilter struct {
+	// Limit is the maximum number of entries to return.
+	Limit uint32
+
+	// Order is either OrderEarliest, in which case the earliest results
+	// that match the filter are returned, or OrderLatest, in which case the
+	// latest results that match the filter are returned.
+	// The default is OrderEarliest.
+	Order Order
+
+	// From is the earliest slot from which to fetch entries.
+	// If nil then there is no earliest slot.
+	From *phase0.Slot
+
+	// To is the latest slot to which to fetch entries.
+	// If nil then there is no latest slot.
+	To *phase0.Slot
+
+	// ValidatorIndices is the list of validator indices for which to obtain entries.
+	// If nil then no filter is applied.
+	ValidatorIndices *[]phase0.ValidatorIndex
+}
+
 // SyncAggregateFilter defines a filter for fetching sync aggregates.
 // Filter elements are ANDed together.
 // Results are always returned in ascending slot order.

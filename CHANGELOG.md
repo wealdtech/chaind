@@ -1,4 +1,4 @@
-0.8.3;
+0.8.3:
   - add validator retention by pubkey
   - move to periodic finalization rather than event-triggered
 
