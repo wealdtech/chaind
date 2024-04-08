@@ -1863,7 +1863,7 @@ func replaceValidatorDaySummariesIndex2(ctx context.Context, s *Service) error {
 	if _, err := tx.Exec(ctx, `
 DROP INDEX IF EXISTS i_validator_day_summaries_2
 `); err != nil {
-		return errors.Wrap(err, "failed to deop i_validator_day_summaries_2")
+		return errors.Wrap(err, "failed to drop i_validator_day_summaries_2")
 	}
 
 	if _, err := tx.Exec(ctx, `
