@@ -79,11 +79,9 @@ func (s *Service) createTablePartitions(ctx context.Context,
 	startEpoch := chainTime.TimestampToEpoch(start)
 
 	end := start.AddDate(0, 0, 1)
+	// endEpoch is exclusive, which means that endEpoch for today will equal startEpoch tomorrow.
+	// As such, no reduction in endEpoch is required.
 	endEpoch := chainTime.TimestampToEpoch(end)
-	endEpochStart := chainTime.StartOfEpoch(endEpoch)
-	if endEpochStart.Before(end) {
-		endEpoch--
-	}
 
 	ctx, cancel, err := s.BeginTx(ctx)
 	if err != nil {
