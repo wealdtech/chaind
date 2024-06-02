@@ -696,7 +696,7 @@ func (*Service) dbBlockBellatrix(
 	// base fee per gas is stored little-endian but we need it
 	// big-endian for big.Int.
 	var baseFeePerGasBEBytes [32]byte
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		baseFeePerGasBEBytes[i] = block.Body.ExecutionPayload.BaseFeePerGas[32-1-i]
 	}
 	baseFeePerGas := new(big.Int).SetBytes(baseFeePerGasBEBytes[:])
@@ -757,7 +757,7 @@ func (*Service) dbBlockCapella(
 	// base fee per gas is stored little-endian but we need it
 	// big-endian for big.Int.
 	var baseFeePerGasBEBytes [32]byte
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		baseFeePerGasBEBytes[i] = block.Body.ExecutionPayload.BaseFeePerGas[32-1-i]
 	}
 	baseFeePerGas := new(big.Int).SetBytes(baseFeePerGasBEBytes[:])
@@ -924,7 +924,7 @@ func (s *Service) dbAttestation(
 
 	if len(committee.Committee) == int(attestation.AggregationBits.Len()) {
 		aggregationIndices = make([]phase0.ValidatorIndex, 0, len(committee.Committee))
-		for i := uint64(0); i < attestation.AggregationBits.Len(); i++ {
+		for i := range attestation.AggregationBits.Len() {
 			if attestation.AggregationBits.BitAt(i) {
 				aggregationIndices = append(aggregationIndices, committee.Committee[i])
 			}
@@ -976,7 +976,7 @@ func (s *Service) dbSyncAggregate(
 	}
 
 	indices := make([]phase0.ValidatorIndex, 0, syncAggregate.SyncCommitteeBits.Count())
-	for i := 0; i < int(syncAggregate.SyncCommitteeBits.Len()); i++ {
+	for i := range int(syncAggregate.SyncCommitteeBits.Len()) {
 		if syncAggregate.SyncCommitteeBits.BitAt(uint64(i)) {
 			indices = append(indices, syncCommittee.Committee[i])
 		}

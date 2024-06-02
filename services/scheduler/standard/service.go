@@ -26,9 +26,6 @@ import (
 	"go.uber.org/atomic"
 )
 
-// module-wide log.
-var log zerolog.Logger
-
 // job contains control points for a job.
 type job struct {
 	// stateLock is required for active or finalised.
@@ -44,6 +41,7 @@ type job struct {
 // the state of each job, in an attempt to ensure additional robustness in the face
 // of high concurrent load.
 type Service struct {
+	log       zerolog.Logger
 	jobs      map[string]*job
 	jobsMutex deadlock.RWMutex
 }
@@ -56,7 +54,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}
 
 	// Set logging.
-	log = zerologger.With().Str("service", "scheduler").Str("impl", "advanced").Logger()
+	log := zerologger.With().Str("service", "scheduler").Str("impl", "advanced").Logger()
 	if parameters.logLevel != log.GetLevel() {
 		log = log.Level(parameters.logLevel)
 	}
@@ -66,6 +64,7 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 	}
 
 	return &Service{
+		log:  log,
 		jobs: make(map[string]*job),
 	}, nil
 }
@@ -100,45 +99,45 @@ func (s *Service) ScheduleJob(ctx context.Context,
 	s.jobsMutex.Unlock()
 	jobScheduled(class)
 
-	log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Scheduled job")
+	s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Scheduled job")
 	go func() {
 		select {
 		case <-ctx.Done():
-			log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Parent context done; job not running")
+			s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Parent context done; job not running")
 			s.jobsMutex.Lock()
 			delete(s.jobs, name)
 			s.jobsMutex.Unlock()
 			finaliseJob(job)
 			jobCancelled(class)
 		case <-job.cancelCh:
-			log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Cancel triggered; job not running")
+			s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Cancel triggered; job not running")
 			// If we receive this signal the job has already been deleted from the jobs list so no need to
 			// do so again here.
 			finaliseJob(job)
 			jobCancelled(class)
 		case <-job.runCh:
-			log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Run triggered; job running")
+			s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Run triggered; job running")
 			// If we receive this signal the job has already been deleted from the jobs list so no need to
 			// do so again here.
 			jobStartedOnSignal(class)
 			jobFunc(ctx, data)
-			log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Job complete")
+			s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Job complete")
 			finaliseJob(job)
 			job.active.Store(false)
 		case <-time.After(time.Until(runtime)):
 			// It is possible that the job is already active, so check that first before proceeding.
 			if job.active.Load() {
-				log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Already running; job not running")
+				s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Already running; job not running")
 				break
 			}
 			s.jobsMutex.Lock()
 			delete(s.jobs, name)
 			s.jobsMutex.Unlock()
-			log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Timer triggered; job running")
+			s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Timer triggered; job running")
 			job.active.Store(true)
 			jobStartedOnTimer(class)
 			jobFunc(ctx, data)
-			log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Job complete")
+			s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Job complete")
 			job.active.Store(false)
 			finaliseJob(job)
 		}
@@ -188,7 +187,7 @@ func (s *Service) SchedulePeriodicJob(ctx context.Context,
 		for {
 			runtime, err := runtimeFunc(ctx, runtimeData)
 			if errors.Is(err, scheduler.ErrNoMoreInstances) {
-				log.Trace().Str("job", name).Msg("No more instances; period job stopping")
+				s.log.Trace().Str("job", name).Msg("No more instances; period job stopping")
 				s.jobsMutex.Lock()
 				delete(s.jobs, name)
 				s.jobsMutex.Unlock()
@@ -197,7 +196,7 @@ func (s *Service) SchedulePeriodicJob(ctx context.Context,
 				return
 			}
 			if err != nil {
-				log.Error().Str("job", name).Err(err).Msg("Failed to obtain runtime; periodic job stopping")
+				s.log.Error().Str("job", name).Err(err).Msg("Failed to obtain runtime; periodic job stopping")
 				s.jobsMutex.Lock()
 				delete(s.jobs, name)
 				s.jobsMutex.Unlock()
@@ -205,10 +204,10 @@ func (s *Service) SchedulePeriodicJob(ctx context.Context,
 				jobCancelled(class)
 				return
 			}
-			log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Scheduled job")
+			s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Scheduled job")
 			select {
 			case <-ctx.Done():
-				log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Parent context done; job not running")
+				s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Parent context done; job not running")
 				s.jobsMutex.Lock()
 				delete(s.jobs, name)
 				s.jobsMutex.Unlock()
@@ -216,26 +215,26 @@ func (s *Service) SchedulePeriodicJob(ctx context.Context,
 				jobCancelled(class)
 				return
 			case <-job.cancelCh:
-				log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Cancel triggered; job not running")
+				s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Cancel triggered; job not running")
 				finaliseJob(job)
 				jobCancelled(class)
 				return
 			case <-job.runCh:
-				log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Run triggered; job running")
+				s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Run triggered; job running")
 				jobStartedOnSignal(class)
 				jobFunc(ctx, jobData)
-				log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Job complete")
+				s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Job complete")
 				job.active.Store(false)
 			case <-time.After(time.Until(runtime)):
 				if job.active.Load() {
-					log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Already running; job not running")
+					s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Already running; job not running")
 					continue
 				}
 				job.active.Store(true)
-				log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Timer triggered; job running")
+				s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Timer triggered; job running")
 				jobStartedOnTimer(class)
 				jobFunc(ctx, jobData)
-				log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Job complete")
+				s.log.Trace().Str("job", name).Time("scheduled", runtime).Msg("Job complete")
 				job.active.Store(false)
 			}
 		}

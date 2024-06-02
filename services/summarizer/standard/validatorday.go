@@ -379,7 +379,7 @@ func (s *Service) syncCommitteeSummary(ctx context.Context,
 		}
 
 		aggregateBits := bitfield.Bitlist(aggregate.Bits)
-		for i := uint64(0); i < aggregateBits.Len(); i++ {
+		for i := range aggregateBits.Len() {
 			if _, exists := res[syncCommittee[i]]; !exists {
 				res[syncCommittee[i]] = &scSummary{}
 			}

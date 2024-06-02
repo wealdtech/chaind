@@ -1,6 +1,6 @@
 module github.com/wealdtech/chaind
 
-go 1.20
+go 1.22
 
 require (
 	github.com/attestantio/go-eth2-client v0.20.0

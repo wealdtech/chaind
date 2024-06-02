@@ -631,7 +631,7 @@ func padValidatorBalances(validatorBalances map[phase0.ValidatorIndex][]*chaindb
 		if len(balances) != entries {
 			paddedBalances := make([]*chaindb.ValidatorBalance, entries)
 			padding := entries - len(balances)
-			for i := 0; i < padding; i++ {
+			for i := range padding {
 				paddedBalances[i] = &chaindb.ValidatorBalance{
 					Index:            validatorIndex,
 					Epoch:            startEpoch + phase0.Epoch(i),
