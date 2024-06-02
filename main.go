@@ -64,7 +64,7 @@ import (
 )
 
 // ReleaseVersion is the release version for the code.
-var ReleaseVersion = "0.8.3"
+var ReleaseVersion = "0.8.4"
 
 func main() {
 	os.Exit(main2())
@@ -778,7 +778,7 @@ func startSyncCommittees(
 //nolint:unparam
 func runCommands(_ context.Context) (bool, error) {
 	if viper.GetBool("version") {
-		fmt.Printf("%s\n", ReleaseVersion)
+		fmt.Fprintf(os.Stdout, "%s\n", ReleaseVersion)
 		return true, nil
 	}
 
