@@ -1,3 +1,6 @@
+0.8.5:
+  - update mock with latest functions
+
 0.8.4:
   - use end epoch without reduction when creating partitioned tables
 
