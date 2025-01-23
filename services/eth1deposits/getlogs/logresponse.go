@@ -63,9 +63,6 @@ func (l *logResponse) UnmarshalJSON(input []byte) error {
 	if err != nil {
 		return errors.Wrap(err, "invalid value for address")
 	}
-	if len(logResponseJSON.Topics) == 0 {
-		return errors.New("topics missing")
-	}
 	l.Topics = make([][]byte, len(logResponseJSON.Topics))
 	for i := range logResponseJSON.Topics {
 		l.Topics[i], err = hex.DecodeString(strings.TrimPrefix(logResponseJSON.Topics[i], "0x"))
