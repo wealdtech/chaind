@@ -46,7 +46,17 @@ func (s *Service) getMetadata(ctx context.Context) (*metadata, error) {
 		return md, nil
 	}
 	if err := json.Unmarshal(mdJSON, md); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal metadata")
+		// Assume this is the old format.
+		omd := &oldmetadata{}
+		if err := json.Unmarshal(mdJSON, omd); err != nil {
+			return nil, errors.Wrap(err, "failed to unmarshal metadata")
+		}
+		// Convert to new format.
+		md.LastValidatorEpoch = phase0.Epoch(omd.LastValidatorEpoch)
+		md.LastBlockEpoch = phase0.Epoch(omd.LastBlockEpoch)
+		md.LastEpoch = phase0.Epoch(omd.LastEpoch)
+		md.LastValidatorDay = omd.LastValidatorDay
+		md.PeriodicValidatorRollups = omd.PeriodicValidatorRollups
 	}
 
 	return md, nil
@@ -62,4 +72,13 @@ func (s *Service) setMetadata(ctx context.Context, md *metadata) error {
 		return errors.Wrap(err, "failed to update metadata")
 	}
 	return nil
+}
+
+// oldmetadata is pre-0.8.8 metadata using unquoted strings for epochs.
+type oldmetadata struct {
+	LastValidatorEpoch       uint64 `json:"latest_validator_epoch"`
+	LastBlockEpoch           uint64 `json:"latest_block_epoch"`
+	LastEpoch                uint64 `json:"latest_epoch"`
+	LastValidatorDay         int64  `json:"last_validator_day"`
+	PeriodicValidatorRollups bool   `json:"periodic_validator_rollups"`
 }

@@ -42,8 +42,20 @@ func (s *Service) getMetadata(ctx context.Context) (*metadata, error) {
 		return md, nil
 	}
 	if err := json.Unmarshal(mdJSON, md); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal metadata")
+		// Assume this is the old format.
+		omd := &oldmetadata{}
+		if err := json.Unmarshal(mdJSON, omd); err != nil {
+			return nil, errors.Wrap(err, "failed to unmarshal metadata")
+		}
+		// Convert to new format.
+		md.LatestEpoch = phase0.Epoch(omd.LatestEpoch)
+		md.LatestBalancesEpoch = phase0.Epoch(omd.LatestBalancesEpoch)
+		md.MissedEpochs = make([]phase0.Epoch, len(omd.MissedEpochs))
+		for i := range omd.MissedEpochs {
+			md.MissedEpochs[i] = phase0.Epoch(omd.MissedEpochs[i])
+		}
 	}
+
 	return md, nil
 }
 
@@ -57,4 +69,11 @@ func (s *Service) setMetadata(ctx context.Context, md *metadata) error {
 		return errors.Wrap(err, "failed to update metadata")
 	}
 	return nil
+}
+
+// oldmetadata is pre-0.8.8 metadata using unquoted strings for epochs.
+type oldmetadata struct {
+	LatestEpoch         uint64   `json:"latest_epoch"`
+	LatestBalancesEpoch uint64   `json:"latest_balances_epoch"`
+	MissedEpochs        []uint64 `json:"missed_epochs,omitempty"`
 }

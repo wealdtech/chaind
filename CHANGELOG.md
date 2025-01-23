@@ -1,4 +1,5 @@
-0.8.7:
+0.8.8:
+  - handle upstream change of epoch serialization for metadata
   - do not error on deposit transactions containing events without topics
 
 0.8.6:
