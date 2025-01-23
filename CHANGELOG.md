@@ -1,5 +1,8 @@
-0.8.6:
+0.8.7:
   - do not error on deposit transactions containing events without topics
+
+0.8.6:
+  - not released
 
 0.8.5:
   - update mock with latest functions
