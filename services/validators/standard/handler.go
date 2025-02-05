@@ -202,6 +202,10 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 	if s.balances {
 		dbValidatorBalances := make([]*chaindb.ValidatorBalance, 0, len(validators))
 		for index, validator := range validators {
+			// Do not store 0 balances.
+			if validator.Balance == 0 {
+				continue
+			}
 			dbValidatorBalances = append(dbValidatorBalances, &chaindb.ValidatorBalance{
 				Index:            index,
 				Epoch:            epoch,

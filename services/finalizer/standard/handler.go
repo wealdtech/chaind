@@ -191,6 +191,10 @@ func (s *Service) updateCanonicalBlocks(ctx context.Context, root phase0.Root) e
 		return errors.Wrap(err, "failed to obtain block")
 	}
 
+	if block == nil {
+		return fmt.Errorf("unable to obtain block for root %#x", root)
+	}
+
 	s.log.Trace().Uint64("slot", uint64(block.Slot)).Msg("Canonicalizing up to slot")
 
 	if err := s.canonicalizeBlocks(ctx, root, phase0.Slot(md.LatestCanonicalSlot)); err != nil {

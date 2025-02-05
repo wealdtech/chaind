@@ -1,3 +1,6 @@
+0.8.9:
+  - do not store 0 validator balances (i.e. from validators that are not active, or have exited and withdrawn)
+
 0.8.8:
   - handle upstream change of epoch serialization for metadata
   - do not error on deposit transactions containing events without topics
