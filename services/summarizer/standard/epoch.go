@@ -18,8 +18,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/attestantio/go-eth2-client/spec/electra"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
+	"github.com/prysmaticlabs/go-bitfield"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -259,11 +261,14 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 	epochAttestations := make([]*chaindb.Attestation, 0)
 	seenAttestations := make(map[phase0.Root]bool)
 	for _, attestation := range attestationsForEpoch {
-		specAttestation := &phase0.Attestation{
+		committeeBits := bitfield.NewBitvector64()
+		for _, committeeIndex := range attestation.CommitteeIndices {
+			committeeBits.SetBitAt(uint64(committeeIndex), true)
+		}
+		specAttestation := &electra.Attestation{
 			AggregationBits: attestation.AggregationBits,
 			Data: &phase0.AttestationData{
 				Slot:            attestation.Slot,
-				Index:           attestation.CommitteeIndex,
 				BeaconBlockRoot: attestation.BeaconBlockRoot,
 				Source: &phase0.Checkpoint{
 					Epoch: attestation.SourceEpoch,
@@ -275,6 +280,7 @@ func (s *Service) attestationStatsForEpoch(ctx context.Context,
 				},
 			},
 			// N.B. we don't keep the signature in the database so cannot provide it here.
+			CommitteeBits: committeeBits,
 		}
 		specAttestationRoot, err := specAttestation.HashTreeRoot()
 		if err != nil {

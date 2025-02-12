@@ -1,4 +1,4 @@
-// Copyright © 2021 - 2024 Weald Technology Trading.
+// Copyright © 2021 - 2025 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -27,7 +27,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(15)
+var currentVersion = uint64(16)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -130,6 +130,14 @@ var upgrades = map[uint64]*upgrade{
 		funcs: []func(context.Context, *Service) error{
 			addValidatorEpochSummariesIndex2,
 			replaceValidatorDaySummariesIndex2,
+		},
+	},
+	16: {
+		funcs: []func(context.Context, *Service) error{
+			committeeIndicesToArray,
+			addBlockDepositRequests,
+			addBlockWithdrawalRequests,
+			addBlockConsolidationRequests,
 		},
 	},
 }
@@ -953,7 +961,7 @@ CREATE TABLE t_attestations (
  ,f_inclusion_block_root BYTEA NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
  ,f_inclusion_index      BIGINT NOT NULL
  ,f_slot                 BIGINT NOT NULL
- ,f_committee_index      BIGINT NOT NULL
+ ,f_committee_indices    BIGINT[] -- This could be null as historically we populated f_committee_index
  ,f_aggregation_bits     BYTEA NOT NULL
  ,f_aggregation_indices  BIGINT[] -- REFERENCES t_validators(f_index)
  ,f_beacon_block_root    BYTEA NOT NULL -- we don't reference this because the block may not exist in the canonical chain
@@ -1206,6 +1214,48 @@ CREATE TABLE t_blob_sidecars (
 );
 CREATE UNIQUE INDEX i_blob_sidecars_1 ON t_blob_sidecars(f_block_root,f_index);
 CREATE INDEX i_blob_sidecars_2 ON t_blob_sidecars(f_slot);
+
+CREATE TABLE t_block_deposit_requests(
+  f_block_root             BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_slot                   BIGINT  NOT NULL
+ ,f_index                  INTEGER NOT NULL
+ ,f_pubkey                 BYTEA   NOT NULL
+ ,f_withdrawal_credentials BYTEA   NOT NULL
+ ,f_amount                 BIGINT  NOT NULL
+ ,f_signature              BYTEA   NOT NULL
+ ,f_deposit_index          BIGINT  NOT NULL
+);
+CREATE UNIQUE INDEX i_block_deposit_requests_1 ON t_block_deposit_requests(f_block_root,f_index);
+CREATE INDEX i_block_deposit_requests_2 ON t_block_deposit_requests(f_slot);
+CREATE INDEX i_block_deposit_requests_3 ON t_block_deposit_requests(f_pubkey);
+CREATE INDEX i_block_deposit_requests_4 ON t_block_deposit_requests(f_withdrawal_credentials);
+
+CREATE TABLE t_block_withdrawal_requests(
+  f_block_root       BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_slot             BIGINT  NOT NULL
+ ,f_index            INTEGER NOT NULL
+ ,f_source_address   BYTEA   NOT NULL
+ ,f_validator_pubkey BYTEA   NOT NULL
+ ,f_amount           NUMERIC NOT NULL
+);
+CREATE UNIQUE INDEX i_block_withdrawal_requests_1 ON t_block_withdrawal_requests(f_block_root,f_index);
+CREATE INDEX i_block_withdrawal_requests_2 ON t_block_withdrawal_requests(f_slot);
+CREATE INDEX i_block_withdrawal_requests_3 ON t_block_withdrawal_requests(f_source_address);
+CREATE INDEX i_block_withdrawal_requests_4 ON t_block_withdrawal_requests(f_validator_pubkey);
+
+CREATE TABLE t_block_consolidation_requests(
+  f_block_root     BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_slot           BIGINT  NOT NULL
+ ,f_index          INTEGER NOT NULL
+ ,f_source_address BYTEA   NOT NULL
+ ,f_source_pubkey  BYTEA   NOT NULL
+ ,f_target_pubkey  BYTEA   NOT NULL
+);
+CREATE UNIQUE INDEX i_block_consolidation_requests_1 ON t_block_consolidation_requests(f_block_root,f_index);
+CREATE INDEX i_block_consolidation_requests_2 ON t_block_consolidation_requests(f_slot);
+CREATE INDEX i_block_consolidation_requests_3 ON t_block_consolidation_requests(f_source_address);
+CREATE INDEX i_block_consolidation_requests_4 ON t_block_consolidation_requests(f_source_pubkey);
+CREATE INDEX i_block_consolidation_requests_5 ON t_block_consolidation_requests(f_target_pubkey);
 `); err != nil {
 		cancel()
 		return errors.Wrap(err, "failed to create initial tables")
@@ -1870,6 +1920,186 @@ DROP INDEX IF EXISTS i_validator_day_summaries_2
 CREATE UNIQUE INDEX IF NOT EXISTS i_validator_day_summaries_2 ON t_validator_day_summaries(f_start_timestamp, f_validator_index)
 `); err != nil {
 		return errors.Wrap(err, "failed to add i_validator_epoch_summaries_2 to t_validator_epoch_summaries")
+	}
+
+	return nil
+}
+
+func committeeIndicesToArray(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	// Star off by ensuring that f_committee_index is NULLable.
+	if _, err := tx.Exec(ctx, `
+ALTER TABLE t_attestations
+ALTER COLUMN f_committee_index
+DROP NOT NULL
+`); err != nil {
+		return errors.Wrap(err, "failed to drop NOT NULL constraint on f_committee_index in t_attestations")
+	}
+	// It is possible that the user already created this ahead of time.
+	exists, err := s.columnExists(ctx, "t_attestations", "f_committee_indices")
+	if err != nil {
+		return errors.Wrap(err, "failed to ascertain if f_committee_indices exists in t_attestations")
+	}
+	if !exists {
+		// The user has not created the required column, do it now.
+		if _, err := tx.Exec(ctx, `
+ALTER TABLE t_attestations
+ADD COLUMN f_committee_indices BIGINT[]
+`); err != nil {
+			return errors.Wrap(err, "failed to add f_committee_indices to t_attestations")
+		}
+
+		//		if _, err := tx.Exec(ctx, `
+	}
+
+	return nil
+}
+
+func addBlockDepositRequests(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE t_block_deposit_requests(
+  f_block_root             BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_slot                   BIGINT  NOT NULL
+ ,f_index                  INTEGER NOT NULL
+ ,f_pubkey                 BYTEA NOT NULL
+ ,f_withdrawal_credentials BYTEA NOT NULL
+ ,f_amount                 BIGINT NOT NULL
+ ,f_signature              BYTEA NOT NULL
+ ,f_deposit_index          BIGINT NOT NULL
+)
+`); err != nil {
+		return errors.Wrap(err, "failed to create t_block_deposit_requests")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE UNIQUE INDEX i_block_deposit_requests_1 ON t_block_deposit_requests(f_block_root,f_index)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_block_deposit_requests_1 to t_block_deposit_requests")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX i_block_deposit_requests_2 ON t_block_deposit_requests(f_slot)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_block_deposit_requests_2 to t_block_deposit_requests")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX i_block_deposit_requests_3 ON t_block_deposit_requests(f_pubkey)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_block_deposit_requests_3 to t_block_deposit_requests")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX i_block_deposit_requests_4 ON t_block_deposit_requests(f_withdrawal_credentials)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_block_deposit_requests_4 to t_block_deposit_requests")
+	}
+
+	return nil
+}
+
+func addBlockWithdrawalRequests(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE t_block_withdrawal_requests(
+  f_block_root       BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_slot             BIGINT  NOT NULL
+ ,f_index            INTEGER NOT NULL
+ ,f_source_address   BYTEA   NOT NULL
+ ,f_validator_pubkey BYTEA   NOT NULL
+ ,f_amount           NUMERIC NOT NULL
+)
+`); err != nil {
+		return errors.Wrap(err, "failed to create t_block_withdrawal_requests")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE UNIQUE INDEX i_block_withdrawal_requests_1 ON t_block_withdrawal_requests(f_block_root,f_index)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_block_withdrawal_requests_1 to t_block_withdrawal_requests")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX i_block_withdrawal_requests_2 ON t_block_withdrawal_requests(f_slot)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_block_withdrawal_requests_2 to t_block_withdrawal_requests")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX i_block_withdrawal_requests_3 ON t_block_withdrawal_requests(f_source_address)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_block_withdrawal_requests_3 to t_block_withdrawal_requests")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX i_block_withdrawal_requests_4 ON t_block_withdrawal_requests(f_validator_pubkey)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_block_withdrawal_requests_4 to t_block_withdrawal_requests")
+	}
+
+	return nil
+}
+
+func addBlockConsolidationRequests(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE t_block_consolidation_requests(
+  f_block_root     BYTEA   NOT NULL REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_slot           BIGINT  NOT NULL
+ ,f_index          INTEGER NOT NULL
+ ,f_source_address BYTEA NOT NULL
+ ,f_source_pubkey  BYTEA NOT NULL
+ ,f_target_pubkey  BYTEA NOT NULL
+)
+`); err != nil {
+		return errors.Wrap(err, "failed to create t_block_consolidation_requests")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE UNIQUE INDEX i_block_consolidation_requests_1 ON t_block_consolidation_requests(f_block_root,f_index)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_block_consolidation_requests_1 to t_block_consolidation_requests")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX i_block_consolidation_requests_2 ON t_block_consolidation_requests(f_slot)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_block_consolidation_requests_2 to t_block_consolidation_requests")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX i_block_consolidation_requests_3 ON t_block_consolidation_requests(f_source_address)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_block_consolidation_requests_3 to t_block_consolidation_requests")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX i_block_consolidation_requests_4 ON t_block_consolidation_requests(f_source_pubkey)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_block_consolidation_requests_4 to t_block_consolidation_requests")
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE INDEX i_block_consolidation_requests_5 ON t_block_consolidation_requests(f_target_pubkey)
+`); err != nil {
+		return errors.Wrap(err, "failed to add i_block_consolidation_requests_5 to t_block_consolidation_requests")
 	}
 
 	return nil

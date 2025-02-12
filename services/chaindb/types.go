@@ -17,6 +17,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/attestantio/go-eth2-client/spec/bellatrix"
 	"github.com/attestantio/go-eth2-client/spec/capella"
 	"github.com/attestantio/go-eth2-client/spec/deneb"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
@@ -42,6 +43,10 @@ type Block struct {
 	BLSToExecutionChanges []*BLSToExecutionChange
 	// Information only available from Deneb onwards.
 	BlobKZGCommitments []deneb.KZGCommitment
+	// Information only available from Electra onwards.
+	DepositRequests       []*DepositRequest
+	WithdrawalRequests    []*WithdrawalRequest
+	ConsolidationRequests []*ConsolidationRequest
 }
 
 // Validator holds information about a validator.
@@ -100,7 +105,7 @@ type Attestation struct {
 	InclusionBlockRoot phase0.Root
 	InclusionIndex     uint64
 	Slot               phase0.Slot
-	CommitteeIndex     phase0.CommitteeIndex
+	CommitteeIndices   []phase0.CommitteeIndex
 	AggregationBits    []byte
 	AggregationIndices []phase0.ValidatorIndex
 	BeaconBlockRoot    phase0.Root
@@ -334,4 +339,36 @@ type BlobSidecar struct {
 	KZGCommitment               deneb.KZGCommitment
 	KZGProof                    deneb.KZGProof
 	KZGCommitmentInclusionProof deneb.KZGCommitmentInclusionProof
+}
+
+// DepositRequest holds information about a deposit request for a block.
+type DepositRequest struct {
+	InclusionBlockRoot    phase0.Root
+	InclusionSlot         phase0.Slot
+	InclusionIndex        uint
+	Pubkey                phase0.BLSPubKey
+	WithdrawalCredentials [32]byte
+	Amount                phase0.Gwei
+	Signature             phase0.BLSSignature
+	Index                 uint64
+}
+
+// ConsolidationRequest holds information about a consolidation request for a block.
+type ConsolidationRequest struct {
+	InclusionBlockRoot phase0.Root
+	InclusionSlot      phase0.Slot
+	InclusionIndex     uint
+	SourceAddress      bellatrix.ExecutionAddress
+	SourcePubkey       phase0.BLSPubKey
+	TargetPubkey       phase0.BLSPubKey
+}
+
+// WithdrawalRequest holds information about a withdrawal request for a block.
+type WithdrawalRequest struct {
+	InclusionBlockRoot phase0.Root
+	InclusionSlot      phase0.Slot
+	InclusionIndex     uint
+	SourceAddress      bellatrix.ExecutionAddress
+	ValidatorPubkey    phase0.BLSPubKey
+	Amount             phase0.Gwei
 }

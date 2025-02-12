@@ -1,3 +1,10 @@
+0.9.0:
+  - support electra
+  - add t_block_deposit_requests for Electra
+  - add t_block_withdrawal_requests for Electra
+  - add t_block_consolidation_requests for Electra
+  - move from f_committee_index to f_committee_indices (see note in README for migration information)
+
 0.8.9:
   - do not store 0 validator balances (i.e. from validators that are not active, or have exited and withdrawn)
 
