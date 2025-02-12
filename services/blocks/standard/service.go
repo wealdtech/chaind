@@ -29,23 +29,26 @@ import (
 
 // Service is a chain database service.
 type Service struct {
-	eth2Client               eth2client.Service
-	chainDB                  chaindb.Service
-	blocksSetter             chaindb.BlocksSetter
-	attestationsSetter       chaindb.AttestationsSetter
-	attesterSlashingsSetter  chaindb.AttesterSlashingsSetter
-	proposerSlashingsSetter  chaindb.ProposerSlashingsSetter
-	syncAggregateSetter      chaindb.SyncAggregateSetter
-	depositsSetter           chaindb.DepositsSetter
-	voluntaryExitsSetter     chaindb.VoluntaryExitsSetter
-	beaconCommitteesProvider chaindb.BeaconCommitteesProvider
-	syncCommitteesProvider   chaindb.SyncCommitteesProvider
-	blobSidecarsSetter       chaindb.BlobSidecarsSetter
-	chainTime                chaintime.Service
-	refetch                  bool
-	lastHandledBlockRoot     phase0.Root
-	activitySem              *semaphore.Weighted
-	syncCommittees           map[uint64]*chaindb.SyncCommittee
+	eth2Client                  eth2client.Service
+	chainDB                     chaindb.Service
+	blocksSetter                chaindb.BlocksSetter
+	attestationsSetter          chaindb.AttestationsSetter
+	attesterSlashingsSetter     chaindb.AttesterSlashingsSetter
+	proposerSlashingsSetter     chaindb.ProposerSlashingsSetter
+	syncAggregateSetter         chaindb.SyncAggregateSetter
+	depositsSetter              chaindb.DepositsSetter
+	voluntaryExitsSetter        chaindb.VoluntaryExitsSetter
+	beaconCommitteesProvider    chaindb.BeaconCommitteesProvider
+	syncCommitteesProvider      chaindb.SyncCommitteesProvider
+	blobSidecarsSetter          chaindb.BlobSidecarsSetter
+	depositRequestsSetter       chaindb.DepositRequestsSetter
+	withdrawalRequestsSetter    chaindb.WithdrawalRequestsSetter
+	consolidationRequestsSetter chaindb.ConsolidationRequestsSetter
+	chainTime                   chaintime.Service
+	refetch                     bool
+	lastHandledBlockRoot        phase0.Root
+	activitySem                 *semaphore.Weighted
+	syncCommittees              map[uint64]*chaindb.SyncCommittee
 }
 
 // module-wide log.
@@ -115,23 +118,41 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		return nil, errors.New("chain DB does not support blob sidecar setting")
 	}
 
+	depositRequestsSetter, isDepositRequestsSetter := parameters.chainDB.(chaindb.DepositRequestsSetter)
+	if !isDepositRequestsSetter {
+		return nil, errors.New("chain DB does not support deposit request setting")
+	}
+
+	withdrawalRequestsSetter, isWithdrawalRequestsSetter := parameters.chainDB.(chaindb.WithdrawalRequestsSetter)
+	if !isWithdrawalRequestsSetter {
+		return nil, errors.New("chain DB does not support withdrawal request setting")
+	}
+
+	consolidationRequestsSetter, isConsolidationRequestsSetter := parameters.chainDB.(chaindb.ConsolidationRequestsSetter)
+	if !isConsolidationRequestsSetter {
+		return nil, errors.New("chain DB does not support consolidation request setting")
+	}
+
 	s := &Service{
-		eth2Client:               parameters.eth2Client,
-		chainDB:                  parameters.chainDB,
-		blocksSetter:             blocksSetter,
-		attestationsSetter:       attestationsSetter,
-		attesterSlashingsSetter:  attesterSlashingsSetter,
-		proposerSlashingsSetter:  proposerSlashingsSetter,
-		syncAggregateSetter:      syncAggregateSetter,
-		depositsSetter:           depositsSetter,
-		voluntaryExitsSetter:     voluntaryExitsSetter,
-		beaconCommitteesProvider: beaconCommitteesProvider,
-		syncCommitteesProvider:   syncCommitteesProvider,
-		blobSidecarsSetter:       blobSidecarsSetter,
-		chainTime:                parameters.chainTime,
-		refetch:                  parameters.refetch,
-		activitySem:              parameters.activitySem,
-		syncCommittees:           make(map[uint64]*chaindb.SyncCommittee),
+		eth2Client:                  parameters.eth2Client,
+		chainDB:                     parameters.chainDB,
+		blocksSetter:                blocksSetter,
+		attestationsSetter:          attestationsSetter,
+		attesterSlashingsSetter:     attesterSlashingsSetter,
+		proposerSlashingsSetter:     proposerSlashingsSetter,
+		syncAggregateSetter:         syncAggregateSetter,
+		depositsSetter:              depositsSetter,
+		voluntaryExitsSetter:        voluntaryExitsSetter,
+		beaconCommitteesProvider:    beaconCommitteesProvider,
+		syncCommitteesProvider:      syncCommitteesProvider,
+		blobSidecarsSetter:          blobSidecarsSetter,
+		depositRequestsSetter:       depositRequestsSetter,
+		withdrawalRequestsSetter:    withdrawalRequestsSetter,
+		consolidationRequestsSetter: consolidationRequestsSetter,
+		chainTime:                   parameters.chainTime,
+		refetch:                     parameters.refetch,
+		activitySem:                 parameters.activitySem,
+		syncCommittees:              make(map[uint64]*chaindb.SyncCommittee),
 	}
 
 	// Note the current highest processed block for the monitor.

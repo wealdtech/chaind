@@ -1,4 +1,4 @@
-// Copyright © 2020, 2021 Weald Technology Trading.
+// Copyright © 2020 - 2025 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -57,7 +57,7 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
                                 ,f_inclusion_block_root
                                 ,f_inclusion_index
                                 ,f_slot
-                                ,f_committee_index
+                                ,f_committee_indices
                                 ,f_aggregation_bits
                                 ,f_aggregation_indices
                                 ,f_beacon_block_root
@@ -73,7 +73,7 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
       ON CONFLICT (f_inclusion_slot,f_inclusion_block_root,f_inclusion_index) DO
       UPDATE
       SET f_slot = excluded.f_slot
-         ,f_committee_index = excluded.f_committee_index
+         ,f_committee_indices = excluded.f_committee_indices
          ,f_aggregation_bits = excluded.f_aggregation_bits
          ,f_aggregation_indices = excluded.f_aggregation_indices
          ,f_beacon_block_root = excluded.f_beacon_block_root
@@ -89,7 +89,7 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
 		attestation.InclusionBlockRoot[:],
 		attestation.InclusionIndex,
 		attestation.Slot,
-		attestation.CommitteeIndex,
+		attestation.CommitteeIndices,
 		attestation.AggregationBits,
 		attestation.AggregationIndices,
 		attestation.BeaconBlockRoot[:],
@@ -122,7 +122,7 @@ func (s *Service) SetAttestations(ctx context.Context, attestations []*chaindb.A
 			"f_inclusion_block_root",
 			"f_inclusion_index",
 			"f_slot",
-			"f_committee_index",
+			"f_committee_indices",
 			"f_aggregation_bits",
 			"f_aggregation_indices",
 			"f_beacon_block_root",
@@ -155,7 +155,7 @@ func (s *Service) SetAttestations(ctx context.Context, attestations []*chaindb.A
 				attestations[i].InclusionBlockRoot[:],
 				attestations[i].InclusionIndex,
 				attestations[i].Slot,
-				attestations[i].CommitteeIndex,
+				attestations[i].CommitteeIndices,
 				attestations[i].AggregationBits,
 				attestations[i].AggregationIndices,
 				attestations[i].BeaconBlockRoot[:],
@@ -191,7 +191,7 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot phase0.Roo
             ,f_inclusion_block_root
             ,f_inclusion_index
             ,f_slot
-            ,f_committee_index
+            ,f_committee_indices
             ,f_aggregation_bits
             ,f_aggregation_indices
             ,f_beacon_block_root
@@ -230,7 +230,7 @@ func (s *Service) AttestationsForBlock(ctx context.Context, blockRoot phase0.Roo
 			&inclusionBlockRoot,
 			&attestation.InclusionIndex,
 			&attestation.Slot,
-			&attestation.CommitteeIndex,
+			&attestation.CommitteeIndices,
 			&attestation.AggregationBits,
 			&aggregationIndices,
 			&beaconBlockRoot,
@@ -291,7 +291,7 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot phase0.Root
             ,f_inclusion_block_root
             ,f_inclusion_index
             ,f_slot
-            ,f_committee_index
+            ,f_committee_indices
             ,f_aggregation_bits
             ,f_aggregation_indices
             ,f_beacon_block_root
@@ -330,7 +330,7 @@ func (s *Service) AttestationsInBlock(ctx context.Context, blockRoot phase0.Root
 			&inclusionBlockRoot,
 			&attestation.InclusionIndex,
 			&attestation.Slot,
-			&attestation.CommitteeIndex,
+			&attestation.CommitteeIndices,
 			&attestation.AggregationBits,
 			&aggregationIndices,
 			&beaconBlockRoot,
@@ -393,7 +393,7 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot phase0
             ,f_inclusion_block_root
             ,f_inclusion_index
             ,f_slot
-            ,f_committee_index
+            ,f_committee_indices
             ,f_aggregation_bits
             ,f_aggregation_indices
             ,f_beacon_block_root
@@ -434,7 +434,7 @@ func (s *Service) AttestationsForSlotRange(ctx context.Context, startSlot phase0
 			&inclusionBlockRoot,
 			&attestation.InclusionIndex,
 			&attestation.Slot,
-			&attestation.CommitteeIndex,
+			&attestation.CommitteeIndices,
 			&attestation.AggregationBits,
 			&aggregationIndices,
 			&beaconBlockRoot,
@@ -497,7 +497,7 @@ func (s *Service) AttestationsInSlotRange(ctx context.Context, startSlot phase0.
             ,f_inclusion_block_root
             ,f_inclusion_index
             ,f_slot
-            ,f_committee_index
+            ,f_committee_indices
             ,f_aggregation_bits
             ,f_aggregation_indices
             ,f_beacon_block_root
@@ -538,7 +538,7 @@ func (s *Service) AttestationsInSlotRange(ctx context.Context, startSlot phase0.
 			&inclusionBlockRoot,
 			&attestation.InclusionIndex,
 			&attestation.Slot,
-			&attestation.CommitteeIndex,
+			&attestation.CommitteeIndices,
 			&attestation.AggregationBits,
 			&aggregationIndices,
 			&beaconBlockRoot,
@@ -649,7 +649,7 @@ SELECT f_inclusion_slot
       ,f_inclusion_block_root
       ,f_inclusion_index
       ,f_slot
-      ,f_committee_index
+      ,f_committee_indices
       ,f_aggregation_bits
       ,f_aggregation_indices
       ,f_beacon_block_root
@@ -758,7 +758,7 @@ LIMIT $%d`, len(queryVals)))
 			&inclusionBlockRoot,
 			&attestation.InclusionIndex,
 			&attestation.Slot,
-			&attestation.CommitteeIndex,
+			&attestation.CommitteeIndices,
 			&attestation.AggregationBits,
 			&aggregationIndices,
 			&beaconBlockRoot,

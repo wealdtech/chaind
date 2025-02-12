@@ -19,11 +19,30 @@
 - [Contribute](#contribute)
 - [License](#license)
 
+
+## Notes for 0.9.0 and Electra
+Release 0.9.0 of `chaind` brings with it support for the Electra hard fork.  A significant change in Electra is that attestations now cover multiple committees.  As such, there is a new column in the `t_attestations` table called `f_committee_indices`.  The existing column, called `f_committee_index`, is deprecated and will no longer be populated from this release onwards.
+
+Usually in these situations `chaind` would carry out an automatic migration of data, however mainnet has over 1 billion attestations and so any migration will take a large amount of time and storage.  To avoid the upgrade locking out `chaind` updates there is _no_ automatic movement of this data, however there are a number of options for existing users:
+
+* leave the data as-is.  If this data is required then code to query the database will need to fetch data from either the `f_committee_index` or `f_committee_indices` columns, depending on the slot time at which `chaind` was updated to release 0.9.0.
+* move the data manually.  Data can be moved from one column to the other with the following SQL:
+```sql
+UPDATE t_attestations
+SET f_committee_indices = ARRAY[f_committee_index]
+   ,f_committee_index = NULL
+WHERE f_committee_indices IS NULL
+AND <slot conditions>
+```
+Where `<slot_conditions>` are conditions to restrict the attestations to a subset of all slots.  This restriction is important, as otherwise the update will take a very long time and require significant disk space.  It would be possible to migrate the data over time by migrating a smaller number (e.g. 100000) slots at a time.
+
+Note that although `f_committee_index` is now deprecated it is not removed by the update, due to the data not being automatically migrated.  If a manual migration is completed then the column can be safely dropped, as it is no longer referenced within the `chaind` codebase.
+
 ## Install
 
 ### Binaries
 
-Binaries for the latest version of `chaind` can be obtained from [the releases page](https://github.com/wealdtech/chaind/releases/latest  ).
+Binaries for the latest version of `chaind` can be obtained from [the releases page](https://github.com/wealdtech/chaind/releases/latest).
 
 ### Docker
 
@@ -38,7 +57,7 @@ docker pull wealdtech/chaind
 `chaind` is a standard Go binary which can be installed with:
 
 ```sh
-GO111MODULE=on go get github.com/wealdtech/chaind
+go install github.com/wealdtech/chaind@latest
 ```
 
 ## Usage
@@ -53,8 +72,13 @@ Data gathers four pieces of information from the beacon node, broken down by the
     - proposer slashings
     - attester slashings
     - deposits
-    - voluntary exits; and
-  - **Ethereum 1 deposits** The Ethereum 1 deposits module provides information on deposits made on the Ethereum 1 network;
+    - voluntary exits
+    - BLS to execution change requests
+    - blobs
+    - deposit requests
+    - withdrawal requests
+    - consolidation requests
+  - **Ethereum execution deposits** The Ethereum execution deposits module provides information on deposits made on the Ethereum execution network;
   - **Finalizer** The finalizer module augments the information present in the database from finalized states.  This includes:
     - the canonical state of blocks.
 
@@ -77,9 +101,7 @@ You can also run chaind using the example docker-compose file, it setups the Pos
 `chaind` supports Teku and Lighthouse beacon nodes.  The current state of obtaining data from beacon nodes is as follows:
 
   - Teku: must be run in [archive mode](https://docs.teku.consensys.net/en/latest/Reference/CLI/CLI-Syntax/#data-storage-mode) to allow `chaind` to obtain historical data
-  - Lighthouse: Make sure to run with `--slots-per-restore-point 64 --reconstruct-historic-states --genesis-backfill`, else fetching historical information will be **very** slow. For more information on the trade off between Freezer DB size and fetching performance, please refer to [Database Configuration](https://lighthouse-book.sigmaprime.io/advanced_database.html) in the Lighthouse Book.
-
-At current Prysm is not supported due to its lack of Altair-related information in its gRPC and HTTP APIs.  We expect to be able to support Prysm again soon.
+  - Lighthouse: Make sure to run with `--reconstruct-historic-states --genesis-backfill --disable-backfill-rate-limiting`,otherwise fetching historical information will be **very** slow. For more information please refer to the [Advanced Database Configuration](https://lighthouse-book.sigmaprime.io/advanced_database.html) section in the Lighthouse Book.
 
 `chaind` supports all execution nodes.  The current state of obtaining data from execution nodes is as follows:
 
