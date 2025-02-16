@@ -1,4 +1,4 @@
-// Copyright © 2020 - 2023 Weald Technology Trading.
+// Copyright © 2020 - 2025 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -165,6 +165,24 @@ type ChainSpecSetter interface {
 	SetChainSpecValue(ctx context.Context, key string, value any) error
 }
 
+// ConsolidationRequestsSetter defines functions to create and update consolidation requests.
+type ConsolidationRequestsSetter interface {
+	// SetConsolidationRequests sets consolidation requests.
+	SetConsolidationRequests(ctx context.Context, requests []*ConsolidationRequest) error
+
+	// SetConsolidationRequest sets or updates a consolidation request.
+	SetConsolidationRequest(ctx context.Context, request *ConsolidationRequest) error
+}
+
+// DepositRequestsSetter defines functions to create and update deposit requests.
+type DepositRequestsSetter interface {
+	// SetDepositRequests sets deposit requests.
+	SetDepositRequests(ctx context.Context, requests []*DepositRequest) error
+
+	// SetDepositRequest sets or updates a deposit request.
+	SetDepositRequest(ctx context.Context, request *DepositRequest) error
+}
+
 // ForkScheduleProvider defines functions to access fork schedule information.
 type ForkScheduleProvider interface {
 	// ForkSchedule provides details of past and future changes in the chain's fork version.
@@ -304,6 +322,15 @@ type ValidatorsProvider interface {
 		map[phase0.ValidatorIndex][]*ValidatorBalance,
 		error,
 	)
+}
+
+// WithdrawalRequestsSetter defines functions to create and update withdrawal requests.
+type WithdrawalRequestsSetter interface {
+	// SetWithdrawalRequests sets deposit requests.
+	SetWithdrawalRequests(ctx context.Context, requests []*WithdrawalRequest) error
+
+	// SetWithdrawalRequest sets or updates a deposit request.
+	SetWithdrawalRequest(ctx context.Context, request *WithdrawalRequest) error
 }
 
 // AggregateValidatorBalancesProvider defines functions to access aggregate validator balances.

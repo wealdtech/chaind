@@ -27,8 +27,10 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/bellatrix"
 	"github.com/attestantio/go-eth2-client/spec/capella"
 	"github.com/attestantio/go-eth2-client/spec/deneb"
+	"github.com/attestantio/go-eth2-client/spec/electra"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
+	"github.com/prysmaticlabs/go-bitfield"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -190,6 +192,8 @@ func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.VersionedSigned
 		return s.onBlockCapella(ctx, signedBlock.Capella, dbBlock)
 	case spec.DataVersionDeneb:
 		return s.onBlockDeneb(ctx, signedBlock.Deneb, dbBlock)
+	case spec.DataVersionElectra:
+		return s.onBlockElectra(ctx, signedBlock.Electra, dbBlock)
 	case spec.DataVersionUnknown:
 		return errors.New("unknown block version")
 	default:
@@ -411,6 +415,95 @@ func (s *Service) onBlockDeneb(ctx context.Context, signedBlock *deneb.SignedBea
 	return nil
 }
 
+func (s *Service) onBlockElectra(ctx context.Context, signedBlock *electra.SignedBeaconBlock, dbBlock *chaindb.Block) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "OnBlockElectra")
+	defer span.End()
+
+	if err := s.updateElectraAttestationsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.Attestations); err != nil {
+		return errors.Wrap(err, "failed to update attestations")
+	}
+	if err := s.updateProposerSlashingsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.ProposerSlashings); err != nil {
+		return errors.Wrap(err, "failed to update proposer slashings")
+	}
+	if err := s.updateElectraAttesterSlashingsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.AttesterSlashings); err != nil {
+		return errors.Wrap(err, "failed to update attester slashings")
+	}
+	if err := s.updateDepositsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.Deposits); err != nil {
+		return errors.Wrap(err, "failed to update deposits")
+	}
+	if err := s.updateVoluntaryExitsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.VoluntaryExits); err != nil {
+		return errors.Wrap(err, "failed to update voluntary exits")
+	}
+	if err := s.updateSyncAggregateForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.SyncAggregate); err != nil {
+		return errors.Wrap(err, "failed to update sync aggregate")
+	}
+	if len(signedBlock.Message.Body.BlobKZGCommitments) > 0 {
+		if err := s.updateBlobSidecarsForBlock(ctx, dbBlock.Root); err != nil {
+			return errors.Wrap(err, "failed to update blob sidecars")
+		}
+	}
+
+	if err := s.updateDepositRequestsForBlock(ctx, dbBlock.DepositRequests); err != nil {
+		return errors.Wrap(err, "failed to update deposit requests")
+	}
+	if err := s.updateWithdrawalRequestsForBlock(ctx, dbBlock.WithdrawalRequests); err != nil {
+		return errors.Wrap(err, "failed to update withdrawal requests")
+	}
+	if err := s.updateConsolidationRequestsForBlock(ctx, dbBlock.ConsolidationRequests); err != nil {
+		return errors.Wrap(err, "failed to update consolidation requests")
+	}
+
+	return nil
+}
+
+func (s *Service) updateDepositRequestsForBlock(ctx context.Context,
+	requests []*chaindb.DepositRequest,
+) error {
+	if err := s.depositRequestsSetter.SetDepositRequests(ctx, requests); err != nil {
+		return errors.Wrap(err, "failed to set deposit requests")
+	}
+
+	return nil
+}
+
+func (s *Service) updateWithdrawalRequestsForBlock(ctx context.Context,
+	requests []*chaindb.WithdrawalRequest,
+) error {
+	if err := s.withdrawalRequestsSetter.SetWithdrawalRequests(ctx, requests); err != nil {
+		return errors.Wrap(err, "failed to set withdrawal requests")
+	}
+
+	return nil
+}
+
+func (s *Service) updateConsolidationRequestsForBlock(ctx context.Context,
+	requests []*chaindb.ConsolidationRequest,
+) error {
+	if err := s.consolidationRequestsSetter.SetConsolidationRequests(ctx, requests); err != nil {
+		return errors.Wrap(err, "failed to set consolidation requests")
+	}
+
+	return nil
+}
+
 func (s *Service) updateAttestationsForBlock(ctx context.Context,
 	slot phase0.Slot,
 	blockRoot phase0.Root,
@@ -459,6 +552,54 @@ func (s *Service) updateAttestationsForBlock(ctx context.Context,
 	return nil
 }
 
+func (s *Service) updateElectraAttestationsForBlock(ctx context.Context,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	attestations []*electra.Attestation,
+) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateElectraAttestationsForBlock")
+	defer span.End()
+
+	var err error
+	// Fetch all of the beacon committees we commonly need up front.
+	// Others are fetched as required.
+	earliestSlot := phase0.Slot(0)
+	if slot > 5 {
+		earliestSlot = slot - 5
+	}
+	beaconCommittees := make(map[phase0.Slot]map[phase0.CommitteeIndex]*chaindb.BeaconCommittee)
+	bcs, err := s.beaconCommitteesProvider.BeaconCommittees(ctx, &chaindb.BeaconCommitteeFilter{
+		From: &earliestSlot,
+		To:   &slot,
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain beacon committees")
+	}
+	for _, bc := range bcs {
+		if _, exists := beaconCommittees[bc.Slot]; !exists {
+			beaconCommittees[bc.Slot] = make(map[phase0.CommitteeIndex]*chaindb.BeaconCommittee)
+		}
+		beaconCommittees[bc.Slot][bc.Index] = bc
+	}
+
+	dbAttestations := make([]*chaindb.Attestation, len(attestations))
+	for i, attestation := range attestations {
+		dbAttestations[i], err = s.dbElectraAttestation(ctx, slot, blockRoot, uint64(i), attestation, beaconCommittees)
+		if err != nil {
+			return errors.Wrap(err, "failed to obtain database attestation")
+		}
+	}
+	if err := s.attestationsSetter.SetAttestations(ctx, dbAttestations); err != nil {
+		log.Debug().Err(err).Msg("Failed to set attestations en masse, setting individually")
+		for _, dbAttestation := range dbAttestations {
+			if err := s.attestationsSetter.SetAttestation(ctx, dbAttestation); err != nil {
+				return errors.Wrap(err, "failed to set attestation")
+			}
+		}
+	}
+	return nil
+}
+
 func (s *Service) updateProposerSlashingsForBlock(ctx context.Context,
 	slot phase0.Slot,
 	blockRoot phase0.Root,
@@ -489,6 +630,23 @@ func (s *Service) updateAttesterSlashingsForBlock(ctx context.Context,
 
 	for i, attesterSlashing := range attesterSlashings {
 		dbAttesterSlashing := s.dbAttesterSlashing(ctx, slot, blockRoot, uint64(i), attesterSlashing)
+		if err := s.attesterSlashingsSetter.SetAttesterSlashing(ctx, dbAttesterSlashing); err != nil {
+			return errors.Wrap(err, "failed to set attester slashing")
+		}
+	}
+	return nil
+}
+
+func (s *Service) updateElectraAttesterSlashingsForBlock(ctx context.Context,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	attesterSlashings []*electra.AttesterSlashing,
+) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateAttesterElectraSlashingsForBlock")
+	defer span.End()
+
+	for i, attesterSlashing := range attesterSlashings {
+		dbAttesterSlashing := s.dbElectraAttesterSlashing(ctx, slot, blockRoot, uint64(i), attesterSlashing)
 		if err := s.attesterSlashingsSetter.SetAttesterSlashing(ctx, dbAttesterSlashing); err != nil {
 			return errors.Wrap(err, "failed to set attester slashing")
 		}
@@ -589,6 +747,8 @@ func (s *Service) dbBlock(
 		return s.dbBlockCapella(ctx, block.Capella.Message)
 	case spec.DataVersionDeneb:
 		return s.dbBlockDeneb(ctx, block.Deneb.Message)
+	case spec.DataVersionElectra:
+		return s.dbBlockElectra(ctx, block.Electra.Message)
 	case spec.DataVersionUnknown:
 		return nil, errors.New("unknown block version")
 	default:
@@ -904,6 +1064,139 @@ func (*Service) dbBlockDeneb(
 	return dbBlock, nil
 }
 
+func (*Service) dbBlockElectra(
+	_ context.Context,
+	block *electra.BeaconBlock,
+) (*chaindb.Block, error) {
+	bodyRoot, err := block.Body.HashTreeRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to calculate body root")
+	}
+
+	header := &phase0.BeaconBlockHeader{
+		Slot:          block.Slot,
+		ProposerIndex: block.ProposerIndex,
+		ParentRoot:    block.ParentRoot,
+		StateRoot:     block.StateRoot,
+		BodyRoot:      bodyRoot,
+	}
+	root, err := header.HashTreeRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to calculate block root")
+	}
+
+	blsToExecutionChanges := make([]*chaindb.BLSToExecutionChange, len(block.Body.BLSToExecutionChanges))
+	for i := range block.Body.BLSToExecutionChanges {
+		blsToExecutionChanges[i] = &chaindb.BLSToExecutionChange{
+			InclusionBlockRoot: root,
+			InclusionSlot:      block.Slot,
+			InclusionIndex:     uint(i),
+			ValidatorIndex:     block.Body.BLSToExecutionChanges[i].Message.ValidatorIndex,
+		}
+		copy(blsToExecutionChanges[i].FromBLSPubKey[:], block.Body.BLSToExecutionChanges[i].Message.FromBLSPubkey[:])
+		copy(blsToExecutionChanges[i].ToExecutionAddress[:], block.Body.BLSToExecutionChanges[i].Message.ToExecutionAddress[:])
+	}
+
+	withdrawals := make([]*chaindb.Withdrawal, len(block.Body.ExecutionPayload.Withdrawals))
+	for i := range block.Body.ExecutionPayload.Withdrawals {
+		withdrawals[i] = &chaindb.Withdrawal{
+			InclusionBlockRoot: root,
+			InclusionSlot:      block.Slot,
+			InclusionIndex:     uint(i),
+			Index:              block.Body.ExecutionPayload.Withdrawals[i].Index,
+			ValidatorIndex:     block.Body.ExecutionPayload.Withdrawals[i].ValidatorIndex,
+			Amount:             block.Body.ExecutionPayload.Withdrawals[i].Amount,
+		}
+		copy(withdrawals[i].Address[:], block.Body.ExecutionPayload.Withdrawals[i].Address[:])
+	}
+
+	depositRequests := make([]*chaindb.DepositRequest, 0)
+	if block.Body.ExecutionRequests != nil {
+		for i, request := range block.Body.ExecutionRequests.Deposits {
+			depositRequest := &chaindb.DepositRequest{
+				InclusionBlockRoot:    root,
+				InclusionSlot:         block.Slot,
+				InclusionIndex:        uint(i),
+				Pubkey:                request.Pubkey,
+				WithdrawalCredentials: [32]byte(request.WithdrawalCredentials),
+				Amount:                request.Amount,
+				Signature:             request.Signature,
+				Index:                 request.Index,
+			}
+			depositRequests = append(depositRequests, depositRequest)
+		}
+	}
+
+	withdrawalRequests := make([]*chaindb.WithdrawalRequest, 0)
+	if block.Body.ExecutionRequests != nil {
+		for i, request := range block.Body.ExecutionRequests.Withdrawals {
+			withdrawalRequest := &chaindb.WithdrawalRequest{
+				InclusionBlockRoot: root,
+				InclusionSlot:      block.Slot,
+				InclusionIndex:     uint(i),
+				SourceAddress:      request.SourceAddress,
+				ValidatorPubkey:    request.ValidatorPubkey,
+				Amount:             request.Amount,
+			}
+			withdrawalRequests = append(withdrawalRequests, withdrawalRequest)
+		}
+	}
+
+	consolidationRequests := make([]*chaindb.ConsolidationRequest, 0)
+	if block.Body.ExecutionRequests != nil {
+		for i, request := range block.Body.ExecutionRequests.Consolidations {
+			consolidationRequest := &chaindb.ConsolidationRequest{
+				InclusionBlockRoot: root,
+				InclusionSlot:      block.Slot,
+				InclusionIndex:     uint(i),
+				SourceAddress:      request.SourceAddress,
+				SourcePubkey:       request.SourcePubkey,
+				TargetPubkey:       request.TargetPubkey,
+			}
+			consolidationRequests = append(consolidationRequests, consolidationRequest)
+		}
+	}
+
+	dbBlock := &chaindb.Block{
+		Slot:             block.Slot,
+		ProposerIndex:    block.ProposerIndex,
+		Root:             root,
+		Graffiti:         block.Body.Graffiti[:],
+		RANDAOReveal:     block.Body.RANDAOReveal,
+		BodyRoot:         bodyRoot,
+		ParentRoot:       block.ParentRoot,
+		StateRoot:        block.StateRoot,
+		ETH1BlockHash:    block.Body.ETH1Data.BlockHash,
+		ETH1DepositCount: block.Body.ETH1Data.DepositCount,
+		ETH1DepositRoot:  block.Body.ETH1Data.DepositRoot,
+		ExecutionPayload: &chaindb.ExecutionPayload{
+			ParentHash:    block.Body.ExecutionPayload.ParentHash,
+			FeeRecipient:  block.Body.ExecutionPayload.FeeRecipient,
+			StateRoot:     block.Body.ExecutionPayload.StateRoot,
+			ReceiptsRoot:  block.Body.ExecutionPayload.ReceiptsRoot,
+			LogsBloom:     block.Body.ExecutionPayload.LogsBloom,
+			PrevRandao:    block.Body.ExecutionPayload.PrevRandao,
+			BlockNumber:   block.Body.ExecutionPayload.BlockNumber,
+			GasLimit:      block.Body.ExecutionPayload.GasLimit,
+			GasUsed:       block.Body.ExecutionPayload.GasUsed,
+			Timestamp:     block.Body.ExecutionPayload.Timestamp,
+			ExtraData:     block.Body.ExecutionPayload.ExtraData,
+			BaseFeePerGas: block.Body.ExecutionPayload.BaseFeePerGas.ToBig(),
+			BlockHash:     block.Body.ExecutionPayload.BlockHash,
+			Withdrawals:   withdrawals,
+			BlobGasUsed:   block.Body.ExecutionPayload.BlobGasUsed,
+			ExcessBlobGas: block.Body.ExecutionPayload.ExcessBlobGas,
+		},
+		BLSToExecutionChanges: blsToExecutionChanges,
+		BlobKZGCommitments:    block.Body.BlobKZGCommitments,
+		DepositRequests:       depositRequests,
+		WithdrawalRequests:    withdrawalRequests,
+		ConsolidationRequests: consolidationRequests,
+	}
+
+	return dbBlock, nil
+}
+
 func (s *Service) dbAttestation(
 	ctx context.Context,
 	inclusionSlot phase0.Slot,
@@ -938,7 +1231,7 @@ func (s *Service) dbAttestation(
 		InclusionBlockRoot: blockRoot,
 		InclusionIndex:     inclusionIndex,
 		Slot:               attestation.Data.Slot,
-		CommitteeIndex:     attestation.Data.Index,
+		CommitteeIndices:   []phase0.CommitteeIndex{attestation.Data.Index},
 		BeaconBlockRoot:    attestation.Data.BeaconBlockRoot,
 		AggregationBits:    []byte(attestation.AggregationBits),
 		AggregationIndices: aggregationIndices,
@@ -949,6 +1242,66 @@ func (s *Service) dbAttestation(
 	}
 
 	return dbAttestation, nil
+}
+
+func (s *Service) dbElectraAttestation(
+	ctx context.Context,
+	inclusionSlot phase0.Slot,
+	blockRoot phase0.Root,
+	inclusionIndex uint64,
+	attestation *electra.Attestation,
+	beaconCommittees map[phase0.Slot]map[phase0.CommitteeIndex]*chaindb.BeaconCommittee,
+) (*chaindb.Attestation, error) {
+	committees := make(map[phase0.CommitteeIndex][]phase0.ValidatorIndex)
+	committeeIndices := make([]phase0.CommitteeIndex, 0)
+	validatorIndices := make([]phase0.ValidatorIndex, 0)
+	for _, committeeIndex := range attestation.CommitteeBits.BitIndices() {
+		committee, err := s.beaconCommittee(ctx, attestation.Data.Slot, phase0.CommitteeIndex(committeeIndex), beaconCommittees)
+		if err != nil {
+			return nil, err
+		}
+		if committee == nil {
+			return nil, fmt.Errorf("no committee obtained for electra attestation slot %d committee %d included in slot %d index %d", attestation.Data.Slot, committeeIndex, inclusionSlot, inclusionIndex)
+		}
+		validatorIndices = append(validatorIndices, committee.Committee...)
+		committees[phase0.CommitteeIndex(committeeIndex)] = committee.Committee
+		committeeIndices = append(committeeIndices, phase0.CommitteeIndex(committeeIndex))
+	}
+
+	aggregationIndices := attestingIndices(attestation.AggregationBits, validatorIndices)
+
+	dbAttestation := &chaindb.Attestation{
+		InclusionSlot:      inclusionSlot,
+		InclusionBlockRoot: blockRoot,
+		InclusionIndex:     inclusionIndex,
+		Slot:               attestation.Data.Slot,
+		CommitteeIndices:   committeeIndices,
+		BeaconBlockRoot:    attestation.Data.BeaconBlockRoot,
+		AggregationBits:    []byte(attestation.AggregationBits),
+		AggregationIndices: aggregationIndices,
+		SourceEpoch:        attestation.Data.Source.Epoch,
+		SourceRoot:         attestation.Data.Source.Root,
+		TargetEpoch:        attestation.Data.Target.Epoch,
+		TargetRoot:         attestation.Data.Target.Root,
+	}
+
+	return dbAttestation, nil
+}
+
+func attestingIndices(input bitfield.Bitlist,
+	validatorIndices []phase0.ValidatorIndex,
+) []phase0.ValidatorIndex {
+	bits := int(input.Len())
+
+	res := make([]phase0.ValidatorIndex, 0)
+
+	for i := range bits {
+		if input.BitAt(uint64(i)) {
+			res = append(res, validatorIndices[i])
+		}
+	}
+
+	return res
 }
 
 func (s *Service) dbSyncAggregate(
@@ -1031,6 +1384,50 @@ func (*Service) dbAttesterSlashing(
 	blockRoot phase0.Root,
 	index uint64,
 	attesterSlashing *phase0.AttesterSlashing,
+) *chaindb.AttesterSlashing {
+	// This is temporary, until attester fastssz is fixed to support []phase0.ValidatorIndex.
+	attestation1Indices := make([]phase0.ValidatorIndex, len(attesterSlashing.Attestation1.AttestingIndices))
+	for i := range attesterSlashing.Attestation1.AttestingIndices {
+		attestation1Indices[i] = phase0.ValidatorIndex(attesterSlashing.Attestation1.AttestingIndices[i])
+	}
+	attestation2Indices := make([]phase0.ValidatorIndex, len(attesterSlashing.Attestation2.AttestingIndices))
+	for i := range attesterSlashing.Attestation2.AttestingIndices {
+		attestation2Indices[i] = phase0.ValidatorIndex(attesterSlashing.Attestation2.AttestingIndices[i])
+	}
+
+	dbAttesterSlashing := &chaindb.AttesterSlashing{
+		InclusionSlot:               slot,
+		InclusionBlockRoot:          blockRoot,
+		InclusionIndex:              index,
+		Attestation1Indices:         attestation1Indices,
+		Attestation1Slot:            attesterSlashing.Attestation1.Data.Slot,
+		Attestation1CommitteeIndex:  attesterSlashing.Attestation1.Data.Index,
+		Attestation1BeaconBlockRoot: attesterSlashing.Attestation1.Data.BeaconBlockRoot,
+		Attestation1SourceEpoch:     attesterSlashing.Attestation1.Data.Source.Epoch,
+		Attestation1SourceRoot:      attesterSlashing.Attestation1.Data.Source.Root,
+		Attestation1TargetEpoch:     attesterSlashing.Attestation1.Data.Target.Epoch,
+		Attestation1TargetRoot:      attesterSlashing.Attestation1.Data.Target.Root,
+		Attestation1Signature:       attesterSlashing.Attestation1.Signature,
+		Attestation2Indices:         attestation2Indices,
+		Attestation2Slot:            attesterSlashing.Attestation2.Data.Slot,
+		Attestation2CommitteeIndex:  attesterSlashing.Attestation2.Data.Index,
+		Attestation2BeaconBlockRoot: attesterSlashing.Attestation2.Data.BeaconBlockRoot,
+		Attestation2SourceEpoch:     attesterSlashing.Attestation2.Data.Source.Epoch,
+		Attestation2SourceRoot:      attesterSlashing.Attestation2.Data.Source.Root,
+		Attestation2TargetEpoch:     attesterSlashing.Attestation2.Data.Target.Epoch,
+		Attestation2TargetRoot:      attesterSlashing.Attestation2.Data.Target.Root,
+		Attestation2Signature:       attesterSlashing.Attestation2.Signature,
+	}
+
+	return dbAttesterSlashing
+}
+
+func (*Service) dbElectraAttesterSlashing(
+	_ context.Context,
+	slot phase0.Slot,
+	blockRoot phase0.Root,
+	index uint64,
+	attesterSlashing *electra.AttesterSlashing,
 ) *chaindb.AttesterSlashing {
 	// This is temporary, until attester fastssz is fixed to support []phase0.ValidatorIndex.
 	attestation1Indices := make([]phase0.ValidatorIndex, len(attesterSlashing.Attestation1.AttestingIndices))
