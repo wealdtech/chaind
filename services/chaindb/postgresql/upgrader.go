@@ -1952,8 +1952,6 @@ ADD COLUMN f_committee_indices BIGINT[]
 `); err != nil {
 			return errors.Wrap(err, "failed to add f_committee_indices to t_attestations")
 		}
-
-		//		if _, err := tx.Exec(ctx, `
 	}
 
 	return nil
