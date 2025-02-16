@@ -557,7 +557,7 @@ func (s *Service) updateElectraAttestationsForBlock(ctx context.Context,
 	blockRoot phase0.Root,
 	attestations []*electra.Attestation,
 ) error {
-	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateAttestationsForBlock")
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateElectraAttestationsForBlock")
 	defer span.End()
 
 	var err error
