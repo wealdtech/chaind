@@ -1,3 +1,6 @@
+dev:
+  - add commit hash to startup
+
 0.9.0:
   - support electra
   - add t_block_deposit_requests for Electra

@@ -102,7 +102,7 @@ func main2() int {
 	}
 
 	logModules()
-	log.Info().Str("version", ReleaseVersion).Msg("Starting chaind")
+	log.Info().Str("version", ReleaseVersion).Str("commit_hash", util.CommitHash()).Msg("Starting chaind")
 
 	if err := initTracing(ctx, majordomo); err != nil {
 		log.Error().Err(err).Msg("Failed to initialise tracing")
