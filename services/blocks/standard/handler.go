@@ -1,4 +1,4 @@
-// Copyright © 2020 - 2023 Weald Technology Trading.
+// Copyright © 2020 - 2025 Weald Technology Trading.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -717,6 +717,14 @@ func (s *Service) updateBlobSidecarsForBlock(ctx context.Context,
 		Block: blockRoot.String(),
 	})
 	if err != nil {
+		var apiErr *api.Error
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+			// Possible that this data has been removed from the consensus node; warn but no error.
+			log.Warn().Stringer("block_root", blockRoot).Msg("Failed to obtain blobs for block; these will not be available in the database")
+
+			return nil
+		}
+
 		return errors.Wrap(err, "failed to obtain beacon block blobs")
 	}
 

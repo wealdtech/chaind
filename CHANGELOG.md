@@ -1,5 +1,6 @@
 dev:
   - add commit hash to startup
+  - warn if blobs are no longer available in the beacon node for a block, but continue
 
 0.9.0:
   - support electra
