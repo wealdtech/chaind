@@ -112,6 +112,8 @@ func (s *Service) runFinalizer(ctx context.Context, _ any) {
 	})
 	if err != nil {
 		s.log.Error().Err(err).Msg("Failed to obtain finality data")
+
+		return
 	}
 	finality := finalityResponse.Data
 
