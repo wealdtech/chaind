@@ -1,4 +1,4 @@
-dev:
+0.9.1:
   - add commit hash to startup
   - warn if blobs are no longer available in the beacon node for a block, but continue
   - do not error when finality response is unavailable

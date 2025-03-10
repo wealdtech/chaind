@@ -15,6 +15,7 @@ package standard
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
 
@@ -79,13 +80,22 @@ func (s *Service) summarizeEpoch(ctx context.Context,
 		// the balances.  We return false but no error.
 		return false, nil
 	}
-	for i, balance := range balances {
-		if activeValidators[i] {
-			summary.ActiveRealBalance += balance.Balance
-			summary.ActiveBalance += balance.EffectiveBalance
-		}
+	// Make a balances map.
+	balancesMap := make(map[phase0.ValidatorIndex]*chaindb.ValidatorBalance)
+	for _, balance := range balances {
+		balancesMap[balance.Index] = balance
 	}
-	log.Trace().Dur("elapsed", time.Since(started)).Msg("Set validator balances")
+
+	for activeValidatorIndex := range activeValidators {
+		balance, exists := balancesMap[activeValidatorIndex]
+		if !exists {
+			// Every active validator should have an index, so error if not the case.
+			return false, fmt.Errorf("failed to obtain balance for active validator %d", activeValidatorIndex)
+		}
+		summary.ActiveRealBalance += balance.Balance
+		summary.ActiveBalance += balance.EffectiveBalance
+	}
+	log.Trace().Dur("elapsed", time.Since(started)).Msg("Obtained validator balances")
 
 	err = s.blockStatsForEpoch(ctx, epoch, summary)
 	if err != nil {
@@ -144,7 +154,7 @@ func (s *Service) validatorSummaryStatsForEpoch(ctx context.Context,
 	epoch phase0.Epoch,
 	summary *chaindb.EpochSummary,
 ) (
-	[]bool,
+	map[phase0.ValidatorIndex]struct{},
 	error,
 ) {
 	// Number of validators that are active, became active, and exited in this epoch.
@@ -153,19 +163,19 @@ func (s *Service) validatorSummaryStatsForEpoch(ctx context.Context,
 		return nil, errors.Wrap(err, "failed to obtain validators")
 	}
 
-	activeValidators := make([]bool, len(validators))
-	for i, validator := range validators {
+	activeValidators := make(map[phase0.ValidatorIndex]struct{}, len(validators))
+	for _, validator := range validators {
 		switch {
 		case validator.ActivationEpoch == epoch:
 			summary.ActiveValidators++
 			summary.ActivatingValidators++
-			activeValidators[i] = true
+			activeValidators[validator.Index] = struct{}{}
 		case validator.ExitEpoch == epoch:
 			summary.ExitingValidators++
 		case validator.ActivationEpoch <= epoch &&
 			validator.ExitEpoch > epoch:
 			summary.ActiveValidators++
-			activeValidators[i] = true
+			activeValidators[validator.Index] = struct{}{}
 		case validator.ActivationEligibilityEpoch <= epoch &&
 			validator.ActivationEpoch != s.farFutureEpoch &&
 			validator.ActivationEpoch > epoch:
