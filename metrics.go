@@ -53,7 +53,7 @@ func registerPrometheusMetrics() error {
 		Help:      "The timestamp at which this instance started.",
 	})
 	if err := prometheus.Register(startTime); err != nil {
-		return errors.Wrap(err, "failed to regsiter start_time_secs")
+		return errors.Wrap(err, "failed to register start_time_secs")
 	}
 	startTime.SetToCurrentTime()
 
@@ -72,7 +72,7 @@ func registerPrometheusMetrics() error {
 		Help:      "1 if ready to serve requests, otherwise 0.",
 	})
 	if err := prometheus.Register(readyMetric); err != nil {
-		return errors.Wrap(err, "failed to regsiter ready")
+		return errors.Wrap(err, "failed to register ready")
 	}
 
 	return nil

@@ -70,7 +70,7 @@ type ValidatorBalance struct {
 	EffectiveBalance phase0.Gwei
 }
 
-// AggregateValidatorBalance holds aggreated information about validators' balances at a given epoch.
+// AggregateValidatorBalance holds aggregated information about validators' balances at a given epoch.
 type AggregateValidatorBalance struct {
 	Epoch            phase0.Epoch
 	Balance          phase0.Gwei

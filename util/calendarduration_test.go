@@ -287,7 +287,7 @@ func TestCalendarDuration(t *testing.T) {
 		// Because Go normalises dates, months addition can be counter-intuitive.
 		// Please refer to 	 for details.
 		// We reimplement months addition following the logic in https://lubridate.tidyverse.org/reference/mplus.html
-		// which matches implemenation of Moment.js and Java
+		// which matches implementation of Moment.js and Java
 		{
 			name:     "EndMonths",
 			duration: "P1M",

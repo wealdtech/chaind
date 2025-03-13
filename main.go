@@ -152,7 +152,7 @@ func main2() int {
 func fetchConfig() error {
 	pflag.String("base-dir", "", "base directory for configuration files")
 	pflag.Bool("version", false, "show version and exit")
-	pflag.String("log-level", "info", "minimum level of messsages to log")
+	pflag.String("log-level", "info", "minimum level of messages to log")
 	pflag.String("log-file", "", "redirect log output to a file")
 	pflag.String("profile-address", "", "Address on which to run Go profile server")
 	pflag.String("tracing-address", "", "Address to which to send tracing data")
