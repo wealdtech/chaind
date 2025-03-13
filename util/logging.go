@@ -40,7 +40,7 @@ func LogLevel(path string) zerolog.Level {
 	return LogLevel(path[0:lastPeriod])
 }
 
-// stringtoLevel converts a string to a log level.
+// stringToLevel converts a string to a log level.
 // It returns the user-supplied level by default.
 func stringToLevel(input string) zerolog.Level {
 	switch strings.ToLower(input) {

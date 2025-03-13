@@ -525,7 +525,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 	})
 
 	// Create a matrix of the values we require.  This allows the database to fill in the blanks when it doesn't have a balance for
-	// the required (index,epoch) tuple (for exmple when the balance is 0).
+	// the required (index,epoch) tuple (for example when the balance is 0).
 	values := make([]string, 0)
 	for _, validatorIndex := range validatorIndices {
 		for epoch := startEpoch; epoch < endEpoch; epoch++ {
@@ -600,7 +600,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochs(
 	})
 
 	// Create a matrix of the values we require.  This allows the database to fill in the blanks when it doesn't have a balance for
-	// the required (index,epoch) tuple (for exmple when the balance is 0).
+	// the required (index,epoch) tuple (for example when the balance is 0).
 	values := make([]string, 0)
 	for _, validatorIndex := range validatorIndices {
 		for _, epoch := range epochs {
