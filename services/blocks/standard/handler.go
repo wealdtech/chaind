@@ -510,6 +510,10 @@ func (s *Service) updateAttestationsForBlock(ctx context.Context,
 	blockRoot phase0.Root,
 	attestations []*phase0.Attestation,
 ) error {
+	if !s.attestationsSaving {
+		return nil
+	}
+
 	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateAttestationsForBlock")
 	defer span.End()
 
@@ -558,6 +562,10 @@ func (s *Service) updateElectraAttestationsForBlock(ctx context.Context,
 	blockRoot phase0.Root,
 	attestations []*electra.Attestation,
 ) error {
+	if !s.attestationsSaving {
+		return nil
+	}
+
 	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "updateElectraAttestationsForBlock")
 	defer span.End()
 

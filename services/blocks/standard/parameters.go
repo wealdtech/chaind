@@ -31,9 +31,10 @@ type parameters struct {
 	chainDB     chaindb.Service
 	chainTime   chaintime.Service
 	startSlot   int64
-	refetch     bool
-	blobsSaving bool
-	activitySem *semaphore.Weighted
+	refetch             bool
+	blobsSaving         bool
+	attestationsSaving  bool
+	activitySem         *semaphore.Weighted
 }
 
 // Parameter is the interface for service parameters.
@@ -103,6 +104,13 @@ func WithBlobsSaving(blobsSaving bool) Parameter {
 	})
 }
 
+// WithAttestationsSaving sets the attestationsSaving flag for this module.
+func WithAttestationsSaving(attestationsSaving bool) Parameter {
+	return parameterFunc(func(p *parameters) {
+		p.attestationsSaving = attestationsSaving
+	})
+}
+
 // WithActivitySem sets the activity semaphore for this module.
 func WithActivitySem(sem *semaphore.Weighted) Parameter {
 	return parameterFunc(func(p *parameters) {
@@ -113,8 +121,9 @@ func WithActivitySem(sem *semaphore.Weighted) Parameter {
 // parseAndCheckParameters parses and checks parameters to ensure that mandatory parameters are present and correct.
 func parseAndCheckParameters(params ...Parameter) (*parameters, error) {
 	parameters := parameters{
-		logLevel:  zerolog.GlobalLevel(),
-		startSlot: -1,
+		logLevel:           zerolog.GlobalLevel(),
+		startSlot:          -1,
+		attestationsSaving: true,
 	}
 	for _, p := range params {
 		if params != nil {
