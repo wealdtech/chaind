@@ -68,7 +68,7 @@ Data gathers four pieces of information from the beacon node, broken down by the
   - **Validators** The validators module provides information on the current statue of validators.  It can also obtain information on the validators' balances and effective balances at a given epoch;
   - **Blocks** The blocks module provides information on blocks proposed for each slot.  This includes:
     - the block structure
-    - attestations
+    - attestations (can be disabled with `blocks.attestations.enable: false`)
     - proposer slashings
     - attester slashings
     - deposits
@@ -205,6 +205,10 @@ blocks:
   # refetch: false
   # blobs.enable will fetch and save blobs for block
   blobs:
+    enable: true
+  # attestations.enable will save attestations contained in blocks.
+  # Disable to reduce database size during backfill when attestations are not needed.
+  attestations:
     enable: true
 # validators contains configuration for obtaining validator-related information.
 validators:
