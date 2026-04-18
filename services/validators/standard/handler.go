@@ -37,6 +37,13 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	// skipcq: RVV-A0005
 	epochTransition bool,
 ) {
+	// Detach from SSE event stream context. In go-eth2-client v0.27.1+,
+	// the head handler receives the SSE connection context. If the SSE stream
+	// disconnects (e.g. Cloudflare timeout), this context gets canceled and
+	// kills any in-flight state downloads for validator balances.
+	// This restores the v0.24.0 behavior where handlers were context-independent.
+	ctx = context.WithoutCancel(ctx)
+
 	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "OnBeaconChainHeadUpdated",
 		trace.WithAttributes(
 			attribute.Int64("slot", int64(slot)),
