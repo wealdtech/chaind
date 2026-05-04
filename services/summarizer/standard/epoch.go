@@ -77,7 +77,10 @@ func (s *Service) summarizeEpoch(ctx context.Context,
 	}
 	if len(balances) == 0 {
 		// This can happen if chaind does not have validator balances enabled, or has not yet obtained
-		// the balances.  We return false but no error.
+		// the balances.  We return false but no error so we retry on the next finality tick.
+		// Alert annotation contract: this stable message text is matched by the lag-based alert
+		// rule; do not change without coordinating the alert update.
+		log.Warn().Msg("No validator balances available; cannot summarize epoch (will retry on next finality tick)")
 		return false, nil
 	}
 	// Make a balances map.

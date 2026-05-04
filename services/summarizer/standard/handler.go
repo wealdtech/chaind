@@ -47,6 +47,11 @@ func (s *Service) OnFinalityUpdated(
 		return
 	}
 	defer s.activitySem.Release(1)
+	// Refresh per-pipeline lag gauges on every handler invocation, including
+	// the error-return paths below.  Deferred so it observes the post-run
+	// metadata.  Registered after activitySem.Release so LIFO ordering runs
+	// the gauge update first, while the semaphore is still held.
+	defer s.updateLagGauges(ctx, finalizedEpoch)
 
 	if finalizedEpoch == 0 {
 		log.Debug().Msg("Not summarizing on epoch 0")
@@ -130,7 +135,9 @@ func (s *Service) summarizeEpochs(ctx context.Context, targetEpoch phase0.Epoch)
 			return errors.Wrapf(err, "failed to update summary for epoch %d", epoch)
 		}
 		if !updated {
-			log.Debug().Uint64("epoch", uint64(epoch)).Msg("Not enough data to update summary")
+			// Alert annotation contract: this stable message text is matched by the lag-based alert
+			// rule; do not change without coordinating the alert update.
+			log.Warn().Uint64("epoch", uint64(epoch)).Msg("Not enough data to update summary; will retry on next finality tick")
 			return nil
 		}
 	}
@@ -269,4 +276,38 @@ func (s *Service) summarizeValidatorDays(ctx context.Context) error {
 
 func (s *Service) epochsPerDay() phase0.Epoch {
 	return phase0.Epoch(86400.0 / s.chainTime.SlotDuration().Seconds() / float64(s.chainTime.SlotsPerEpoch()))
+}
+
+// updateLagGauges fetches the latest summarizer metadata and refreshes the
+// per-pipeline lag gauges.  Invoked via defer at the top of OnFinalityUpdated
+// so it runs on every return path, including handler errors.  The pure-compute
+// half is split into setLagGauges so unit tests can drive the gauge math with
+// synthetic metadata without standing up a chainDB.
+func (s *Service) updateLagGauges(ctx context.Context, finalizedEpoch phase0.Epoch) {
+	if finalizedEpoch == 0 {
+		return
+	}
+	md, err := s.getMetadata(ctx)
+	if err != nil {
+		log.Debug().Err(err).Msg("Failed to obtain metadata for lag gauges")
+		return
+	}
+	s.setLagGauges(md, finalizedEpoch)
+}
+
+// setLagGauges computes lag-in-epochs per enabled pipeline from synthetic
+// inputs.  The float64 cast is deliberate: a uint64 subtraction would underflow
+// to ~1.8e19 if metadata were briefly ahead of finality.  Callers are expected
+// to pre-validate finalizedEpoch > 0.
+func (s *Service) setLagGauges(md *metadata, finalizedEpoch phase0.Epoch) {
+	targetEpoch := finalizedEpoch - 1
+	if s.epochSummaries {
+		monitorLag("epoch", float64(targetEpoch)-float64(md.LastEpoch))
+	}
+	if s.blockSummaries {
+		monitorLag("block", float64(targetEpoch)-float64(md.LastBlockEpoch))
+	}
+	if s.validatorSummaries {
+		monitorLag("validator", float64(targetEpoch)-float64(md.LastValidatorEpoch))
+	}
 }
