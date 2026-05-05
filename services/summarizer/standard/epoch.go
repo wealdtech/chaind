@@ -76,8 +76,14 @@ func (s *Service) summarizeEpoch(ctx context.Context,
 		return false, errors.Wrap(err, "failed to obtain validator balances")
 	}
 	if len(balances) == 0 {
-		// This can happen if chaind does not have validator balances enabled, or has not yet obtained
-		// the balances.  We return false but no error so we retry on the next finality tick.
+		// Bootstrap path: chaind has no validators rows yet (first boot before
+		// the validators service has populated t_validators), or validator
+		// balances are disabled entirely, so the LEFT JOIN in
+		// ValidatorBalancesByEpoch returns no rows at all.  In production
+		// state the JOIN returns one zero-balance row per validator instead —
+		// see the post-accumulation guard below for that case.  Both branches
+		// share one warn message so the alert-annotation contract is single-
+		// sourced.
 		// Alert annotation contract: this stable message text is matched by the lag-based alert
 		// rule; do not change without coordinating the alert update.
 		log.Warn().Msg("No validator balances available; cannot summarize epoch (will retry on next finality tick)")
@@ -99,6 +105,19 @@ func (s *Service) summarizeEpoch(ctx context.Context,
 		summary.ActiveBalance += balance.EffectiveBalance
 	}
 	log.Trace().Dur("elapsed", time.Since(started)).Msg("Obtained validator balances")
+
+	// Production-state guard: ValidatorBalancesByEpoch LEFT-JOINs t_validators
+	// against t_validator_balances with COALESCE(f_balance, 0) — when no
+	// balance rows exist for the epoch, it returns one zero-balance row per
+	// validator rather than an empty slice, so the len(balances) == 0 check
+	// above cannot detect that case.  If we have active validators but zero
+	// summed balance, the upstream balance pipeline missed this epoch.  Refuse
+	// to write a corrupt summary; reuse the same warn-log text so the alert
+	// annotation contract is preserved.
+	if summary.ActiveValidators > 0 && summary.ActiveBalance == 0 {
+		log.Warn().Msg("No validator balances available; cannot summarize epoch (will retry on next finality tick)")
+		return false, nil
+	}
 
 	err = s.blockStatsForEpoch(ctx, epoch, summary)
 	if err != nil {

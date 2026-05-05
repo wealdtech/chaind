@@ -82,3 +82,47 @@ type oldmetadata struct {
 	LastValidatorDay         int64  `json:"last_validator_day"`
 	PeriodicValidatorRollups bool   `json:"periodic_validator_rollups"`
 }
+
+// upstreamMetadataKey is the metadata key written by the validators service.
+// Mirrored here (rather than imported) so the summarizer stays decoupled from
+// the validators package.  Format contract owned by services/validators/standard.
+const upstreamMetadataKey = "validators.standard"
+
+// upstreamMetadata captures the subset of validators.standard metadata that the
+// per-pipeline lag gauge needs.  Only LatestBalancesEpoch is consumed today;
+// the struct exists so future fields can be added without changing the call
+// site.
+type upstreamMetadata struct {
+	LatestBalancesEpoch phase0.Epoch `json:"latest_balances_epoch"`
+}
+
+// oldUpstreamMetadata mirrors upstreamMetadata for the pre-0.8.8 unquoted-int
+// JSON format the validators service may have written.
+type oldUpstreamMetadata struct {
+	LatestBalancesEpoch uint64 `json:"latest_balances_epoch"`
+}
+
+// getUpstreamMetadata reads the validators.standard metadata row used to
+// compute the epoch-pipeline lag.  Returns a zero-valued struct (not an error)
+// when the row is absent — bootstrap state where the validators service has
+// not yet written metadata is a normal condition, and the cursor diff in
+// setLagGauges naturally clamps to 0 in that case.
+func (s *Service) getUpstreamMetadata(ctx context.Context) (*upstreamMetadata, error) {
+	md := &upstreamMetadata{}
+	mdJSON, err := s.chainDB.Metadata(ctx, upstreamMetadataKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch upstream validators metadata")
+	}
+	if mdJSON == nil {
+		return md, nil
+	}
+	if err := json.Unmarshal(mdJSON, md); err != nil {
+		// Try the old format.  Same dual-path pattern as getMetadata above.
+		omd := &oldUpstreamMetadata{}
+		if err := json.Unmarshal(mdJSON, omd); err != nil {
+			return nil, errors.Wrap(err, "failed to unmarshal upstream validators metadata")
+		}
+		md.LatestBalancesEpoch = phase0.Epoch(omd.LatestBalancesEpoch)
+	}
+	return md, nil
+}
