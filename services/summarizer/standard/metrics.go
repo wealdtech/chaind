@@ -124,7 +124,7 @@ func registerPrometheusMetrics() error {
 	summarizerLagEpochs = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "lag_epochs",
-		Help:      "Number of epochs by which each summarizer pipeline lags the finality target",
+		Help:      "Number of epochs by which each summarizer pipeline lags its direct upstream cursor",
 	}, []string{"pipeline"})
 	if err := prometheus.Register(summarizerLagEpochs); err != nil {
 		return errors.Wrap(err, "failed to register lag_epochs")
