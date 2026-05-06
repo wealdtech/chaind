@@ -29,7 +29,7 @@ func TestMain(m *testing.M) {
 	// test by name and still call m.Run(), so internal-package unit tests like
 	// the lag-gauge wiring tests run unconditionally under `go test ./...`.
 	if os.Getenv("CHAINDB_URL") == "" || os.Getenv("ETH2CLIENT_ADDRESS") == "" {
-		_ = flag.Set("test.skip", "TestService")
+		_ = flag.Set("test.skip", "^TestService$")
 	}
 	os.Exit(m.Run())
 }
