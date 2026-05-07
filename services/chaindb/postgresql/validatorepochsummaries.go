@@ -517,7 +517,7 @@ WHERE f_validator_index = $1
 	return summary, nil
 }
 
-// PruneValidatorEpochSummaries prunes validator epoch summaries up to (but not including) the given point.
+// PruneValidatorEpochSummaries prunes validator epoch summaries up to and including the given epoch.
 func (s *Service) PruneValidatorEpochSummaries(ctx context.Context, to phase0.Epoch, retain []phase0.BLSPubKey) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "PruneValidatorEpochSummaries")
 	defer span.End()

@@ -707,7 +707,7 @@ func validatorBalanceFromRow(rows pgx.Rows) (*chaindb.ValidatorBalance, error) {
 	return validatorBalance, nil
 }
 
-// PruneValidatorBalances prunes validator balances up to (but not including) the given epoch.
+// PruneValidatorBalances prunes validator balances up to and including the given epoch.
 func (s *Service) PruneValidatorBalances(ctx context.Context, to phase0.Epoch, retain []phase0.BLSPubKey) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "PruneValidatorBalances")
 	defer span.End()
