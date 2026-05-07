@@ -14,17 +14,45 @@
 package standard
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/api"
 	apiv1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/wealdtech/chaind/services/chaindb"
 )
+
+// captureWarnLog redirects the package-level zerolog.Logger to a byte buffer
+// at WarnLevel and returns the buffer plus a restore func.  Mirrors the
+// pattern in services/summarizer/standard/validatorday_internal_test.go so
+// the two zero-balance guard sites (epoch summarizer, day summarizer,
+// validator-balance fetcher) all assert their warn-log contracts the same
+// way.  The GlobalLevel save/restore is defensive: the validators/standard
+// package has no main_test.go today, so GlobalLevel defaults to TraceLevel
+// and the buffer would capture warns regardless — but if a future
+// main_test.go sets Disabled to silence noise, this guard keeps the assertion
+// load-bearing instead of silently always-passing.
+func captureWarnLog(t *testing.T) (*bytes.Buffer, func()) {
+	t.Helper()
+	originalGlobalLevel := zerolog.GlobalLevel()
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	var buf bytes.Buffer
+	originalLog := log
+	log = zerolog.New(&buf).Level(zerolog.WarnLevel)
+
+	return &buf, func() {
+		log = originalLog
+		zerolog.SetGlobalLevel(originalGlobalLevel)
+	}
+}
 
 // stubEth2Client is a hand-built eth2client.Service + ValidatorsProvider used
 // to drive onEpochTransitionValidatorBalancesForEpoch.  handler.go:186 type-
@@ -158,19 +186,25 @@ func makeService(eth2 *stubEth2Client, db *recordingChainDB, setter *recordingVa
 	}
 }
 
-// TestOnEpochTransitionValidatorBalancesForEpoch_EmptyValidatorsAdvancesCursor
-// confirms the silent-cursor-advance bug with an empty 200-OK validators
-// response.  When the beacon returns Data: map[ValidatorIndex]*Validator{}
-// (empty map, nil error), the function returns nil, calls SetValidatorBalances
-// once with an empty slice, mutates md.LatestBalancesEpoch to the requested
-// epoch, and commits the transaction.
+// TestOnEpochTransitionValidatorBalancesForEpoch_EmptyValidatorsRejectedAndCursorUnchanged
+// pins the post-fix contract for guard 1 (the empty 200-OK validators map):
+// the function refuses to advance md.LatestBalancesEpoch, never opens a
+// transaction (the guard fires before BeginTx), never calls
+// SetValidatorBalances, returns an error so the parent
+// onEpochTransitionValidatorBalances loop surfaces it to OnBeaconChainHeadUpdated,
+// and emits the alert-contract warn log at WarnLevel.  This is the regression
+// boundary for the silent-cursor-advance defect addressed by ADR 0002
+// (docs/adr/0002-validator-balance-fetcher-recovery-model.md).
 //
-// The test must PASS with the current code; it documents the bug as the
-// implementation currently behaves, not a regression boundary.  When the
-// future fix lands and the function refuses to advance the cursor on an
-// empty response, the expectations below get inverted in a follow-up.
-func TestOnEpochTransitionValidatorBalancesForEpoch_EmptyValidatorsAdvancesCursor(t *testing.T) {
+// Pre-fix this test asserted the BUGGY shape (cursor advanced, transaction
+// committed); the inversion landed alongside the production-code guard in
+// the same commit.
+func TestOnEpochTransitionValidatorBalancesForEpoch_EmptyValidatorsRejectedAndCursorUnchanged(t *testing.T) {
 	const epoch = phase0.Epoch(86823)
+	const startCursor = phase0.Epoch(86822)
+
+	buf, restore := captureWarnLog(t)
+	defer restore()
 
 	eth2 := &stubEth2Client{
 		response: &api.Response[map[phase0.ValidatorIndex]*apiv1.Validator]{
@@ -181,40 +215,62 @@ func TestOnEpochTransitionValidatorBalancesForEpoch_EmptyValidatorsAdvancesCurso
 	setter := &recordingValidatorsSetter{}
 	s := makeService(eth2, db, setter)
 
-	md := &metadata{LatestBalancesEpoch: epoch - 1}
+	md := &metadata{LatestBalancesEpoch: startCursor}
 
 	err := s.onEpochTransitionValidatorBalancesForEpoch(context.Background(), md, epoch)
 
-	require.NoError(t, err, "empty 200-OK response surfaces no error today")
+	require.Error(t, err,
+		"empty 200-OK response must surface an error so the parent handler logs it")
+	require.Contains(t, err.Error(), "beacon returned no validator balances",
+		"error text must carry the stable contract substring used by alert rules")
+
 	require.Equal(t, 1, eth2.calls, "beacon Validators must be called exactly once")
-	require.Equal(t, 1, db.beginTxCalls, "must begin exactly one transaction")
-	require.Equal(t, 1, db.commitTxCalls, "transaction must commit (silent advance)")
+	require.Equal(t, 0, db.beginTxCalls,
+		"guard 1 fires before BeginTx; no transaction may open on this path")
+	require.Equal(t, 0, db.commitTxCalls,
+		"no transaction may commit when the guard rejects the response")
+	require.Equal(t, 0, db.cancelCalls,
+		"no transaction was opened, so cancel must not be invoked")
 
-	require.Len(t, setter.bulkCalls, 1, "SetValidatorBalances must be called once")
-	require.Empty(t, setter.bulkCalls[0],
-		"empty validators map yields an empty balances slice (zero rows persisted)")
+	require.Empty(t, setter.bulkCalls,
+		"SetValidatorBalances must not be called when the response is empty")
 	require.Empty(t, setter.individualBalances,
-		"fallback per-row insert path must not be entered when bulk insert succeeds")
+		"SetValidatorBalance must not be called when the response is empty")
+	require.Empty(t, db.setMetadata,
+		"SetMetadata must not be called when the response is empty")
 
-	require.Equal(t, epoch, md.LatestBalancesEpoch,
-		"BUG: cursor advanced silently despite zero rows persisted")
-	require.NotEmpty(t, db.setMetadata,
-		"SetMetadata must be invoked so the advanced cursor is durable")
+	require.Equal(t, startCursor, md.LatestBalancesEpoch,
+		"cursor must NOT advance when the beacon returns no validators")
+
+	logged := buf.String()
+	require.True(t, strings.Contains(logged, noValidatorBalancesMsg),
+		"warn log missing alert-contract message text; got: %s", logged)
+	require.True(t, strings.Contains(logged, `"level":"warn"`),
+		"empty-response log emitted at unexpected level; got: %s", logged)
+	require.True(t, strings.Contains(logged, `"epoch":86823`),
+		"warn log missing structured epoch field for operator disambiguation; got: %s", logged)
 }
 
-// TestOnEpochTransitionValidatorBalancesForEpoch_AllZeroBalancesAdvancesCursor
-// confirms the same silent-cursor-advance bug shape when the beacon returns a
-// fully-populated validator set whose every Balance is zero.  The
-// "Do not store 0 balances" filter at handler.go:206-208 amplifies the response
-// into an empty slice that SetValidatorBalances persists, after which the
-// cursor advances.  Both shapes (empty map and all-zero balances) have been
-// observed in production; chaind treats them identically.
-func TestOnEpochTransitionValidatorBalancesForEpoch_AllZeroBalancesAdvancesCursor(t *testing.T) {
+// TestOnEpochTransitionValidatorBalancesForEpoch_AllZeroBalancesRejectedAndCursorUnchanged
+// pins the post-fix contract for guard 2 (the all-zero-balances filter
+// amplifier).  The beacon returns 1000 validators with Balance == 0; the
+// "Do not store 0 balances" filter at handler.go:206-208 collapses them into
+// a zero-row insert, and the guard refuses to advance.  Unlike guard 1, this
+// path has already opened a transaction by the time it fires, so cancel()
+// must be invoked exactly once; the transaction must not commit; and the
+// cursor must stay put.  Both empty-response shapes (this and
+// EmptyValidatorsRejectedAndCursorUnchanged) emit the same warn-log
+// alert-contract substring so an alert rule matches them uniformly.
+func TestOnEpochTransitionValidatorBalancesForEpoch_AllZeroBalancesRejectedAndCursorUnchanged(t *testing.T) {
 	const epoch = phase0.Epoch(86824)
+	const startCursor = phase0.Epoch(86823)
 	const numValidators = 1000
 
+	buf, restore := captureWarnLog(t)
+	defer restore()
+
 	validators := make(map[phase0.ValidatorIndex]*apiv1.Validator, numValidators)
-	for i := 0; i < numValidators; i++ {
+	for i := range numValidators {
 		idx := phase0.ValidatorIndex(i)
 		validators[idx] = &apiv1.Validator{
 			Index:   idx,
@@ -235,25 +291,40 @@ func TestOnEpochTransitionValidatorBalancesForEpoch_AllZeroBalancesAdvancesCurso
 	setter := &recordingValidatorsSetter{}
 	s := makeService(eth2, db, setter)
 
-	md := &metadata{LatestBalancesEpoch: epoch - 1}
+	md := &metadata{LatestBalancesEpoch: startCursor}
 
 	err := s.onEpochTransitionValidatorBalancesForEpoch(context.Background(), md, epoch)
 
-	require.NoError(t, err, "all-zero-balance response surfaces no error today")
+	require.Error(t, err,
+		"all-zero-balance response must surface an error so the parent handler logs it")
+	require.Contains(t, err.Error(), "beacon returned no validator balances",
+		"error text must carry the stable contract substring used by alert rules")
+
 	require.Equal(t, 1, eth2.calls, "beacon Validators must be called exactly once")
-	require.Equal(t, 1, db.beginTxCalls, "must begin exactly one transaction")
-	require.Equal(t, 1, db.commitTxCalls, "transaction must commit (silent advance)")
+	require.Equal(t, 1, db.beginTxCalls,
+		"guard 2 fires after BeginTx; exactly one transaction must open")
+	require.Equal(t, 0, db.commitTxCalls,
+		"transaction must not commit when the guard rejects the filtered response")
+	require.Equal(t, 1, db.cancelCalls,
+		"the open transaction must be cancelled so its writes do not commit")
 
-	require.Len(t, setter.bulkCalls, 1, "SetValidatorBalances must be called once")
-	require.Empty(t, setter.bulkCalls[0],
-		"all-zero filter at handler.go:206-208 reduces 1000 validators to an empty slice")
+	require.Empty(t, setter.bulkCalls,
+		"SetValidatorBalances must not be called when the filtered slice is empty")
 	require.Empty(t, setter.individualBalances,
-		"fallback per-row insert path must not be entered when bulk insert succeeds")
+		"SetValidatorBalance must not be called when the filtered slice is empty")
+	require.Empty(t, db.setMetadata,
+		"SetMetadata must not be called when the cursor is not advanced")
 
-	require.Equal(t, epoch, md.LatestBalancesEpoch,
-		"BUG: cursor advanced silently despite zero rows persisted")
-	require.NotEmpty(t, db.setMetadata,
-		"SetMetadata must be invoked so the advanced cursor is durable")
+	require.Equal(t, startCursor, md.LatestBalancesEpoch,
+		"cursor must NOT advance when the all-zero filter collapses the response to nothing")
+
+	logged := buf.String()
+	require.True(t, strings.Contains(logged, noValidatorBalancesMsg),
+		"warn log missing alert-contract message text; got: %s", logged)
+	require.True(t, strings.Contains(logged, `"level":"warn"`),
+		"all-zero log emitted at unexpected level; got: %s", logged)
+	require.True(t, strings.Contains(logged, `"epoch":86824`),
+		"warn log missing structured epoch field for operator disambiguation; got: %s", logged)
 }
 
 // TestOnEpochTransitionValidatorBalancesForEpoch_MixedBalancesPersistsNonZero
@@ -270,7 +341,7 @@ func TestOnEpochTransitionValidatorBalancesForEpoch_MixedBalancesPersistsNonZero
 	const nonZeroBalance = phase0.Gwei(32_000_000_000)
 
 	validators := make(map[phase0.ValidatorIndex]*apiv1.Validator, numValidators)
-	for i := 0; i < numValidators; i++ {
+	for i := range numValidators {
 		idx := phase0.ValidatorIndex(i)
 		var balance phase0.Gwei
 		if i < numNonZero {

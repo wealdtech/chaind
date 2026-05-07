@@ -28,6 +28,14 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// noValidatorBalancesMsg is the stable warn-log text emitted when the
+// validator-balance fetcher rejects an empty or all-zero beacon response.
+// Both rejection sites use this exact string so an operator runbook or
+// Prometheus alert rule keyed off it matches uniformly.  See
+// docs/adr/0002-validator-balance-fetcher-recovery-model.md (claim 2:
+// no-empty-write).
+const noValidatorBalancesMsg = "Beacon returned no validator balances; cannot persist epoch (will retry on next finality tick)"
+
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
@@ -191,6 +199,15 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 	}
 	validators := validatorsResponse.Data
 
+	// Refuse to advance the cursor on an empty 200-OK validators response.
+	// ADR 0002 records the no-empty-write contract this guard enforces:
+	// when the beacon returns zero validators the cursor must stay put so
+	// the next finality tick re-fetches the same epoch.
+	if len(validators) == 0 {
+		log.Warn().Msg(noValidatorBalancesMsg)
+		return errors.New("beacon returned no validator balances")
+	}
+
 	span.AddEvent("Obtained validators", trace.WithAttributes(
 		attribute.Int("slot", int(s.chainTime.FirstSlotOfEpoch(epoch))),
 	))
@@ -212,6 +229,15 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 				Balance:          validator.Balance,
 				EffectiveBalance: validator.Validator.EffectiveBalance,
 			})
+		}
+		// Refuse to advance the cursor when the "do not store 0 balances"
+		// filter above amplifies an all-zero-balance beacon response into a
+		// zero-row insert.  Cancel the open transaction so the cursor is
+		// not committed; same warn-log contract as the empty-map guard.
+		if len(dbValidatorBalances) == 0 {
+			cancel()
+			log.Warn().Msg(noValidatorBalancesMsg)
+			return errors.New("beacon returned no validator balances")
 		}
 		if err := s.validatorsSetter.SetValidatorBalances(dbCtx, dbValidatorBalances); err != nil {
 			log.Trace().Err(err).Msg("Bulk insert failed; falling back to individual insert")
