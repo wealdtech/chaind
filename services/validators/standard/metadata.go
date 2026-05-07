@@ -23,9 +23,19 @@ import (
 
 // metadata stored about this service.
 type metadata struct {
-	LatestEpoch         phase0.Epoch   `json:"latest_epoch"`
-	LatestBalancesEpoch phase0.Epoch   `json:"latest_balances_epoch"`
-	MissedEpochs        []phase0.Epoch `json:"missed_epochs,omitempty"`
+	LatestEpoch         phase0.Epoch `json:"latest_epoch"`
+	LatestBalancesEpoch phase0.Epoch `json:"latest_balances_epoch"`
+	// Deprecated: never populated by any code path in this service.  Residue
+	// from an abandoned gap-tracking design (the same residue exists in
+	// services/finalizer/standard/metadata.go and
+	// services/proposerduties/standard/metadata.go).  Retained for JSON
+	// backward-compatibility with t_metadata rows persisted by older builds.
+	// See ADR docs/adr/0002-validator-balance-fetcher-recovery-model.md
+	// "Considered Options" § Option 4 for the historical design intent and
+	// why the current recovery model chose a different shape.  Do not add
+	// new readers or writers — file an issue to remove the field if you
+	// find one.
+	MissedEpochs []phase0.Epoch `json:"missed_epochs,omitempty"`
 }
 
 // metadataKey is the key for the metadata.

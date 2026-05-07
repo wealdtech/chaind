@@ -22,9 +22,16 @@ import (
 
 // metadata stored about this service.
 type metadata struct {
-	LastFinalizedEpoch  int64   `json:"latest_epoch"`
-	LatestCanonicalSlot int64   `json:"latest_canonical_slot"`
-	MissedEpochs        []int64 `json:"missed_epochs,omitempty"`
+	LastFinalizedEpoch  int64 `json:"latest_epoch"`
+	LatestCanonicalSlot int64 `json:"latest_canonical_slot"`
+	// Deprecated: never populated by any code path in this service.  Residue
+	// from an abandoned gap-tracking design (the same residue exists in
+	// services/validators/standard/metadata.go and
+	// services/proposerduties/standard/metadata.go).  Retained for JSON
+	// backward-compatibility with t_metadata rows persisted by older builds.
+	// Do not add new readers or writers — file an issue to remove the field
+	// if you find one.
+	MissedEpochs []int64 `json:"missed_epochs,omitempty"`
 }
 
 // metadataKey is the key for the metadata.
