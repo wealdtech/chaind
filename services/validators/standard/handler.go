@@ -213,10 +213,6 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 		attribute.Int("slot", int(firstSlot)),
 	))
 
-	dbCtx, cancel, err := s.chainDB.BeginTx(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to begin transaction for validator balances")
-	}
 	dbValidatorBalances := make([]*chaindb.ValidatorBalance, 0, len(validators))
 	for index, validator := range validators {
 		// Do not store 0 balances.
@@ -232,12 +228,17 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 	}
 	// Refuse to advance the cursor when the "do not store 0 balances"
 	// filter above amplifies an all-zero-balance beacon response into a
-	// zero-row insert.  Cancel the open transaction so the cursor is
-	// not committed; same warn-log contract as the empty-response guard.
+	// zero-row insert.  No transaction is open at this point, so the
+	// rejection short-circuits cleanly; same warn-log contract as the
+	// empty-response guard.
 	if len(dbValidatorBalances) == 0 {
-		cancel()
 		log.Warn().Msg(noValidatorBalancesMsg)
 		return errors.New("beacon returned no validator balances")
+	}
+
+	dbCtx, cancel, err := s.chainDB.BeginTx(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to begin transaction for validator balances")
 	}
 	if err := s.validatorsSetter.SetValidatorBalances(dbCtx, dbValidatorBalances); err != nil {
 		log.Trace().Err(err).Msg("Bulk insert failed; falling back to individual insert")

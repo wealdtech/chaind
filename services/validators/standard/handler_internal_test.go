@@ -254,13 +254,14 @@ func TestOnEpochTransitionValidatorBalancesForEpoch_EmptyValidatorsRejectedAndCu
 // TestOnEpochTransitionValidatorBalancesForEpoch_AllZeroBalancesRejectedAndCursorUnchanged
 // pins the post-fix contract for guard 2 (the all-zero-balances filter
 // amplifier).  The beacon returns 1000 validators with Balance == 0; the
-// "Do not store 0 balances" filter at handler.go:206-208 collapses them into
-// a zero-row insert, and the guard refuses to advance.  Unlike guard 1, this
-// path has already opened a transaction by the time it fires, so cancel()
-// must be invoked exactly once; the transaction must not commit; and the
-// cursor must stay put.  Both empty-response shapes (this and
-// EmptyValidatorsRejectedAndCursorUnchanged) emit the same warn-log
-// alert-contract substring so an alert rule matches them uniformly.
+// "Do not store 0 balances" filter collapses them into a zero-row insert,
+// and the guard refuses to advance.  Like guard 1, this path fires before
+// any transaction is opened: BeginTx now sits below the slice build so the
+// rejection short-circuits with no transaction to cancel; the transaction
+// must not commit; and the cursor must stay put.  Both empty-response
+// shapes (this and EmptyValidatorsRejectedAndCursorUnchanged) emit the
+// same warn-log alert-contract substring so an alert rule matches them
+// uniformly.
 func TestOnEpochTransitionValidatorBalancesForEpoch_AllZeroBalancesRejectedAndCursorUnchanged(t *testing.T) {
 	const epoch = phase0.Epoch(86824)
 	const startCursor = phase0.Epoch(86823)
@@ -301,12 +302,12 @@ func TestOnEpochTransitionValidatorBalancesForEpoch_AllZeroBalancesRejectedAndCu
 		"error text must carry the stable contract substring used by alert rules")
 
 	require.Equal(t, 1, eth2.calls, "beacon Validators must be called exactly once")
-	require.Equal(t, 1, db.beginTxCalls,
-		"guard 2 fires after BeginTx; exactly one transaction must open")
+	require.Equal(t, 0, db.beginTxCalls,
+		"guard 2 fires before BeginTx; no transaction may open on this path")
 	require.Equal(t, 0, db.commitTxCalls,
-		"transaction must not commit when the guard rejects the filtered response")
-	require.Equal(t, 1, db.cancelCalls,
-		"the open transaction must be cancelled so its writes do not commit")
+		"no transaction may commit when the guard rejects the filtered response")
+	require.Equal(t, 0, db.cancelCalls,
+		"no transaction was opened, so cancel must not be invoked")
 
 	require.Empty(t, setter.bulkCalls,
 		"SetValidatorBalances must not be called when the filtered slice is empty")
