@@ -21,6 +21,7 @@ linters:
     - gochecknoglobals
     - gocognit
     - goconst
+    - gomodguard
     - inamedparam
     - ireturn
     - lll
@@ -37,8 +38,6 @@ linters:
     gosec:
       excludes:
         - G115
-    lll:
-      line-length: 132
     nlreturn:
       block-size: 3
     staticcheck:
