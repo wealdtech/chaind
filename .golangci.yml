@@ -29,11 +29,13 @@ linters:
     - nestif
     - nilnil
     - nlreturn
+    - noinlineerr
     - perfsprint
     - promlinter
     - varnamelen
     - wrapcheck
     - wsl
+    - wsl_v5
   settings:
     gosec:
       excludes:
