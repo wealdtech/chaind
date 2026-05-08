@@ -218,21 +218,21 @@ FROM t_validator_epoch_summaries`)
 
 	if filter.From != nil {
 		queryVals = append(queryVals, *filter.From)
-		queryBuilder.WriteString(fmt.Sprintf(`
-%s f_epoch >= $%d`, wherestr, len(queryVals)))
+		fmt.Fprintf(&queryBuilder, `
+%s f_epoch >= $%d`, wherestr, len(queryVals))
 		wherestr = "  AND"
 	}
 
 	if filter.To != nil {
 		queryVals = append(queryVals, *filter.To)
-		queryBuilder.WriteString(fmt.Sprintf(`
-%s f_epoch <= $%d`, wherestr, len(queryVals)))
+		fmt.Fprintf(&queryBuilder, `
+%s f_epoch <= $%d`, wherestr, len(queryVals))
 	}
 
 	if filter.ValidatorIndices != nil && len(*filter.ValidatorIndices) > 0 {
 		queryVals = append(queryVals, *filter.ValidatorIndices)
-		queryBuilder.WriteString(fmt.Sprintf(`
-%s f_validator_index = ANY($%d)`, wherestr, len(queryVals)))
+		fmt.Fprintf(&queryBuilder, `
+%s f_validator_index = ANY($%d)`, wherestr, len(queryVals))
 	}
 
 	switch filter.Order {
@@ -248,8 +248,8 @@ ORDER BY f_epoch DESC,f_validator_index DESC`)
 
 	if filter.Limit > 0 {
 		queryVals = append(queryVals, filter.Limit)
-		queryBuilder.WriteString(fmt.Sprintf(`
-LIMIT $%d`, len(queryVals)))
+		fmt.Fprintf(&queryBuilder, `
+LIMIT $%d`, len(queryVals))
 	}
 
 	if e := log.Trace(); e.Enabled() {
