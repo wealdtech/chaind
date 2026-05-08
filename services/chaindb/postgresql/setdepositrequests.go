@@ -50,8 +50,8 @@ func (s *Service) SetDepositRequests(ctx context.Context, requests []*chaindb.De
 			"f_signature",
 			"f_deposit_index",
 		},
-		pgx.CopyFromSlice(len(requests), func(i int) ([]interface{}, error) {
-			return []interface{}{
+		pgx.CopyFromSlice(len(requests), func(i int) ([]any, error) {
+			return []any{
 				requests[i].InclusionBlockRoot[:],
 				requests[i].InclusionSlot,
 				requests[i].InclusionIndex,

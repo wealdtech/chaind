@@ -449,7 +449,7 @@ func TestManyJobs(t *testing.T) {
 	runTime := time.Now().Add(200 * time.Millisecond)
 
 	jobs := 2048
-	for i := 0; i < jobs; i++ {
+	for i := range jobs {
 		require.NoError(t, s.ScheduleJob(ctx, "Test", fmt.Sprintf("Job instance %d", i), runTime, runFunc, nil))
 	}
 	require.Len(t, s.ListJobs(ctx), jobs)
@@ -579,7 +579,7 @@ func TestMulti(t *testing.T) {
 	var runWG sync.WaitGroup
 	var setupWG sync.WaitGroup
 	starter := make(chan any)
-	for i := 0; i < 32; i++ {
+	for range 32 {
 		setupWG.Add(1)
 		runWG.Add(1)
 		go func() {

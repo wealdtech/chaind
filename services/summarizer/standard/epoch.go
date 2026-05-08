@@ -16,7 +16,7 @@ package standard
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/electra"
@@ -460,8 +460,8 @@ func (s *Service) attesterSlashingStatsForSlotRange(ctx context.Context,
 
 // intersection returns a list of items common between the two sets.
 func intersection(set1 []phase0.ValidatorIndex, set2 []phase0.ValidatorIndex) []phase0.ValidatorIndex {
-	sort.Slice(set1, func(i, j int) bool { return set1[i] < set1[j] })
-	sort.Slice(set2, func(i, j int) bool { return set2[i] < set2[j] })
+	slices.Sort(set1)
+	slices.Sort(set2)
 	res := make([]phase0.ValidatorIndex, 0)
 
 	set1Pos := 0

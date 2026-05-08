@@ -170,7 +170,7 @@ func TestSummarizeEpochZeroBalanceAssertion(t *testing.T) {
 
 	validators := make([]*chaindb.Validator, numValidators)
 	balances := make([]*chaindb.ValidatorBalance, numValidators)
-	for i := 0; i < numValidators; i++ {
+	for i := range numValidators {
 		idx := phase0.ValidatorIndex(i)
 		validators[i] = &chaindb.Validator{
 			Index:           idx,

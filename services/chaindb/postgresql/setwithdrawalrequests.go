@@ -48,8 +48,8 @@ func (s *Service) SetWithdrawalRequests(ctx context.Context, requests []*chaindb
 			"f_validator_pubkey",
 			"f_amount",
 		},
-		pgx.CopyFromSlice(len(requests), func(i int) ([]interface{}, error) {
-			return []interface{}{
+		pgx.CopyFromSlice(len(requests), func(i int) ([]any, error) {
+			return []any{
 				requests[i].InclusionBlockRoot[:],
 				requests[i].InclusionSlot,
 				requests[i].InclusionIndex,

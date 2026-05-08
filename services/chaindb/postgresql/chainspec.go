@@ -160,8 +160,8 @@ func dbValToSpec(_ context.Context, key string, val string) any {
 	}
 
 	// Handle hex strings.
-	if strings.HasPrefix(val, "0x") {
-		byteVal, err := hex.DecodeString(strings.TrimPrefix(val, "0x"))
+	if after, ok := strings.CutPrefix(val, "0x"); ok {
+		byteVal, err := hex.DecodeString(after)
 		if err == nil {
 			return byteVal
 		}

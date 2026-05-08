@@ -228,10 +228,7 @@ func (s *Service) TimestampToEpoch(timestamp time.Time) phase0.Epoch {
 // FirstEpochOfSyncPeriod provides the first epoch of the given sync period.
 // Note that epochs before the sync committee period will provide the Altair hard fork epoch.
 func (s *Service) FirstEpochOfSyncPeriod(period uint64) phase0.Epoch {
-	epoch := phase0.Epoch(period * s.epochsPerSyncCommitteePeriod)
-	if epoch < s.altairForkEpoch {
-		epoch = s.altairForkEpoch
-	}
+	epoch := max(phase0.Epoch(period*s.epochsPerSyncCommitteePeriod), s.altairForkEpoch)
 	return epoch
 }
 

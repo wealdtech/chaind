@@ -17,7 +17,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
@@ -520,9 +520,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 	}
 
 	// Sort the validator indices.
-	sort.Slice(validatorIndices, func(i, j int) bool {
-		return validatorIndices[i] < validatorIndices[j]
-	})
+	slices.Sort(validatorIndices)
 
 	// Create a matrix of the values we require. This allows the database to fill in the blanks when it doesn't have a balance for
 	// the required (index,epoch) tuple (for example when the balance is 0).
@@ -595,9 +593,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochs(
 	}
 
 	// Sort the validator indices.
-	sort.Slice(validatorIndices, func(i, j int) bool {
-		return validatorIndices[i] < validatorIndices[j]
-	})
+	slices.Sort(validatorIndices)
 
 	// Create a matrix of the values we require. This allows the database to fill in the blanks when it doesn't have a balance for
 	// the required (index,epoch) tuple (for example when the balance is 0).
