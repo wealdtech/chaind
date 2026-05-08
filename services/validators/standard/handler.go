@@ -189,8 +189,9 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 	defer span.End()
 
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
-	stateID := fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(epoch))
-	log.Trace().Uint64("slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch))).Msg("Fetching validators")
+	firstSlot := s.chainTime.FirstSlotOfEpoch(epoch)
+	stateID := fmt.Sprintf("%d", firstSlot)
+	log.Trace().Uint64("slot", uint64(firstSlot)).Msg("Fetching validators")
 	validatorsResponse, err := s.eth2Client.(eth2client.ValidatorsProvider).Validators(ctx, &api.ValidatorsOpts{
 		State: stateID,
 	})
@@ -209,7 +210,7 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 	}
 
 	span.AddEvent("Obtained validators", trace.WithAttributes(
-		attribute.Int("slot", int(s.chainTime.FirstSlotOfEpoch(epoch))),
+		attribute.Int("slot", int(firstSlot)),
 	))
 
 	dbCtx, cancel, err := s.chainDB.BeginTx(ctx)
