@@ -48,8 +48,8 @@ func (s *Service) SetConsolidationRequests(ctx context.Context, requests []*chai
 			"f_source_pubkey",
 			"f_target_pubkey",
 		},
-		pgx.CopyFromSlice(len(requests), func(i int) ([]interface{}, error) {
-			return []interface{}{
+		pgx.CopyFromSlice(len(requests), func(i int) ([]any, error) {
+			return []any{
 				requests[i].InclusionBlockRoot[:],
 				requests[i].InclusionSlot,
 				requests[i].InclusionIndex,

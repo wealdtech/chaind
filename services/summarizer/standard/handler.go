@@ -47,6 +47,9 @@ func (s *Service) OnFinalityUpdated(
 		return
 	}
 	defer s.activitySem.Release(1)
+	// Registered after activitySem.Release so LIFO ordering runs the gauge
+	// update while the semaphore is still held.
+	defer s.updateLagGauges(ctx, finalizedEpoch)
 
 	if finalizedEpoch == 0 {
 		log.Debug().Msg("Not summarizing on epoch 0")
@@ -130,7 +133,8 @@ func (s *Service) summarizeEpochs(ctx context.Context, targetEpoch phase0.Epoch)
 			return errors.Wrapf(err, "failed to update summary for epoch %d", epoch)
 		}
 		if !updated {
-			log.Debug().Uint64("epoch", uint64(epoch)).Msg("Not enough data to update summary")
+			// Alert-rule contract — do not change message text.
+			log.Warn().Uint64("epoch", uint64(epoch)).Msg("Not enough data to update summary; will retry on next finality tick")
 			return nil
 		}
 	}
@@ -269,4 +273,50 @@ func (s *Service) summarizeValidatorDays(ctx context.Context) error {
 
 func (s *Service) epochsPerDay() phase0.Epoch {
 	return phase0.Epoch(86400.0 / s.chainTime.SlotDuration().Seconds() / float64(s.chainTime.SlotsPerEpoch()))
+}
+
+// updateLagGauges refreshes the per-pipeline lag gauges from current
+// metadata.  The pure-compute half is split into setLagGauges for testing.
+func (s *Service) updateLagGauges(ctx context.Context, finalizedEpoch phase0.Epoch) {
+	if finalizedEpoch == 0 {
+		return
+	}
+	md, err := s.getMetadata(ctx)
+	if err != nil {
+		log.Debug().Err(err).Msg("Failed to obtain metadata for lag gauges")
+		return
+	}
+	upstream, err := s.getUpstreamMetadata(ctx)
+	if err != nil {
+		log.Debug().Err(err).Msg("Failed to obtain upstream metadata for lag gauges")
+		return
+	}
+	s.setLagGauges(md, upstream)
+}
+
+// setLagGauges sets per-pipeline lag as a cursor diff against direct upstream:
+//
+//   - epoch     = validators.LatestBalancesEpoch - summarizer.LastEpoch
+//   - block     = summarizer.LastEpoch          - summarizer.LastBlockEpoch
+//   - validator = summarizer.LastEpoch          - summarizer.LastValidatorEpoch
+func (s *Service) setLagGauges(md *metadata, upstream *upstreamMetadata) {
+	if s.epochSummaries {
+		monitorLag("epoch", clampLag(upstream.LatestBalancesEpoch, md.LastEpoch))
+	}
+	if s.blockSummaries {
+		monitorLag("block", clampLag(md.LastEpoch, md.LastBlockEpoch))
+	}
+	if s.validatorSummaries {
+		monitorLag("validator", clampLag(md.LastEpoch, md.LastValidatorEpoch))
+	}
+}
+
+// clampLag returns upstream - downstream as a non-negative float64.  uint64
+// subtraction would underflow to ~1.8e19 if cursors transiently invert across
+// metadata reads, breaking alerts.
+func clampLag(upstream, downstream phase0.Epoch) float64 {
+	if downstream >= upstream {
+		return 0
+	}
+	return float64(upstream - downstream)
 }

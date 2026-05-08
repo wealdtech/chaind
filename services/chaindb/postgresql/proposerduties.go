@@ -166,7 +166,7 @@ func (s *Service) ProposerDuties(ctx context.Context, filter *chaindb.ProposerDu
 
 	// Build the query.
 	queryBuilder := strings.Builder{}
-	queryVals := make([]interface{}, 0)
+	queryVals := make([]any, 0)
 
 	queryBuilder.WriteString(`
 SELECT f_slot

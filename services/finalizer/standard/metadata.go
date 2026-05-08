@@ -22,9 +22,12 @@ import (
 
 // metadata stored about this service.
 type metadata struct {
-	LastFinalizedEpoch  int64   `json:"latest_epoch"`
-	LatestCanonicalSlot int64   `json:"latest_canonical_slot"`
-	MissedEpochs        []int64 `json:"missed_epochs,omitempty"`
+	LastFinalizedEpoch  int64 `json:"latest_epoch"`
+	LatestCanonicalSlot int64 `json:"latest_canonical_slot"`
+	// Deprecated: never populated.  Residue from an abandoned gap-tracking
+	// design.  Retained for JSON backward-compatibility with t_metadata rows
+	// persisted by older builds.
+	MissedEpochs []int64 `json:"missed_epochs,omitempty"`
 }
 
 // metadataKey is the key for the metadata.

@@ -23,9 +23,12 @@ import (
 
 // metadata stored about this service.
 type metadata struct {
-	LatestEpoch         phase0.Epoch   `json:"latest_epoch"`
-	LatestBalancesEpoch phase0.Epoch   `json:"latest_balances_epoch"`
-	MissedEpochs        []phase0.Epoch `json:"missed_epochs,omitempty"`
+	LatestEpoch         phase0.Epoch `json:"latest_epoch"`
+	LatestBalancesEpoch phase0.Epoch `json:"latest_balances_epoch"`
+	// Deprecated: never populated.  Residue from an abandoned gap-tracking
+	// design.  Retained for JSON backward-compatibility with t_metadata rows
+	// persisted by older builds.
+	MissedEpochs []phase0.Epoch `json:"missed_epochs,omitempty"`
 }
 
 // metadataKey is the key for the metadata.

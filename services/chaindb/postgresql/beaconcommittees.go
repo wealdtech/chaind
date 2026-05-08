@@ -88,22 +88,22 @@ FROM t_beacon_committees`)
 
 	if filter.From != nil {
 		queryVals = append(queryVals, *filter.From)
-		queryBuilder.WriteString(fmt.Sprintf(`
-%s f_slot >= $%d`, wherestr, len(queryVals)))
+		fmt.Fprintf(&queryBuilder, `
+%s f_slot >= $%d`, wherestr, len(queryVals))
 		wherestr = "  AND"
 	}
 
 	if filter.To != nil {
 		queryVals = append(queryVals, *filter.To)
-		queryBuilder.WriteString(fmt.Sprintf(`
-%s f_slot <= $%d`, wherestr, len(queryVals)))
+		fmt.Fprintf(&queryBuilder, `
+%s f_slot <= $%d`, wherestr, len(queryVals))
 		wherestr = "  AND"
 	}
 
 	if len(filter.CommitteeIndices) > 0 {
 		queryVals = append(queryVals, filter.CommitteeIndices)
-		queryBuilder.WriteString(fmt.Sprintf(`
-%s f_index = ANY($%d)`, wherestr, len(queryVals)))
+		fmt.Fprintf(&queryBuilder, `
+%s f_index = ANY($%d)`, wherestr, len(queryVals))
 	}
 
 	switch filter.Order {
@@ -119,8 +119,8 @@ ORDER BY f_slot DESC,f_committee DESC`)
 
 	if filter.Limit > 0 {
 		queryVals = append(queryVals, filter.Limit)
-		queryBuilder.WriteString(fmt.Sprintf(`
-LIMIT $%d`, len(queryVals)))
+		fmt.Fprintf(&queryBuilder, `
+LIMIT $%d`, len(queryVals))
 	}
 
 	if e := log.Trace(); e.Enabled() {

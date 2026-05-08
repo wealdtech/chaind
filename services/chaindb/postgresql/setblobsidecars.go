@@ -50,7 +50,7 @@ func (s *Service) SetBlobSidecars(ctx context.Context, blobSidecars []*chaindb.B
 			"f_kzg_proof",
 			"f_kzg_commitment_inclusion_proof",
 		},
-		pgx.CopyFromSlice(len(blobSidecars), func(i int) ([]interface{}, error) {
+		pgx.CopyFromSlice(len(blobSidecars), func(i int) ([]any, error) {
 			var blob *[]byte
 			if len(blobSidecars[i].Blob) > 0 {
 				blobBytes := blobSidecars[i].Blob[:]
@@ -63,7 +63,7 @@ func (s *Service) SetBlobSidecars(ctx context.Context, blobSidecars []*chaindb.B
 				kzgCommitmentInclusionProof = append(kzgCommitmentInclusionProof, blobSidecars[i].KZGCommitmentInclusionProof[j][:]...)
 			}
 
-			return []interface{}{
+			return []any{
 				blobSidecars[i].InclusionBlockRoot[:],
 				blobSidecars[i].InclusionSlot,
 				blobSidecars[i].InclusionIndex,

@@ -14,6 +14,7 @@
 package standard_test
 
 import (
+	"flag"
 	"os"
 	"testing"
 
@@ -22,8 +23,13 @@ import (
 
 func TestMain(m *testing.M) {
 	zerolog.SetGlobalLevel(zerolog.Disabled)
-	if os.Getenv("CHAINDB_URL") != "" &&
-		os.Getenv("ETH2CLIENT_ADDRESS") != "" {
-		os.Exit(m.Run())
+	// `package standard` (internal) and `package standard_test` (external) tests
+	// share a single test binary, so this TestMain governs both.  When the env
+	// vars required by service_test.go's TestService are absent we skip that
+	// test by name and still call m.Run(), so internal-package unit tests like
+	// the lag-gauge wiring tests run unconditionally under `go test ./...`.
+	if os.Getenv("CHAINDB_URL") == "" || os.Getenv("ETH2CLIENT_ADDRESS") == "" {
+		_ = flag.Set("test.skip", "^TestService$")
 	}
+	os.Exit(m.Run())
 }

@@ -82,3 +82,40 @@ type oldmetadata struct {
 	LastValidatorDay         int64  `json:"last_validator_day"`
 	PeriodicValidatorRollups bool   `json:"periodic_validator_rollups"`
 }
+
+// upstreamMetadataKey mirrors validators.standard's metadata key to keep the
+// summarizer decoupled from the validators package.
+const upstreamMetadataKey = "validators.standard"
+
+// upstreamMetadata captures the subset of validators.standard metadata the
+// lag gauge consumes.
+type upstreamMetadata struct {
+	LatestBalancesEpoch phase0.Epoch `json:"latest_balances_epoch"`
+}
+
+// oldUpstreamMetadata is the pre-0.8.8 unquoted-int format.
+type oldUpstreamMetadata struct {
+	LatestBalancesEpoch uint64 `json:"latest_balances_epoch"`
+}
+
+// getUpstreamMetadata reads validators.standard metadata.  Returns a zero
+// struct when the row is absent (bootstrap state).
+func (s *Service) getUpstreamMetadata(ctx context.Context) (*upstreamMetadata, error) {
+	md := &upstreamMetadata{}
+	mdJSON, err := s.chainDB.Metadata(ctx, upstreamMetadataKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch upstream validators metadata")
+	}
+	if mdJSON == nil {
+		return md, nil
+	}
+	if err := json.Unmarshal(mdJSON, md); err != nil {
+		// Try the old format.
+		omd := &oldUpstreamMetadata{}
+		if err := json.Unmarshal(mdJSON, omd); err != nil {
+			return nil, errors.Wrap(err, "failed to unmarshal upstream validators metadata")
+		}
+		md.LatestBalancesEpoch = phase0.Epoch(omd.LatestBalancesEpoch)
+	}
+	return md, nil
+}

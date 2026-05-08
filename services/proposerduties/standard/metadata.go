@@ -23,7 +23,10 @@ import (
 
 // metadata stored about this service.
 type metadata struct {
-	LatestEpoch  int64          `json:"latest_epoch"`
+	LatestEpoch int64 `json:"latest_epoch"`
+	// Deprecated: never populated.  The handleMissed consumer reads from a
+	// permanently-empty list and is dormant.  Retained for JSON backward-
+	// compatibility with t_metadata rows persisted by older builds.
 	MissedEpochs []phase0.Epoch `json:"missed_epochs,omitempty"`
 }
 

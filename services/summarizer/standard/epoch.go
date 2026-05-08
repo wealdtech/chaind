@@ -16,7 +16,7 @@ package standard
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/electra"
@@ -76,8 +76,11 @@ func (s *Service) summarizeEpoch(ctx context.Context,
 		return false, errors.Wrap(err, "failed to obtain validator balances")
 	}
 	if len(balances) == 0 {
-		// This can happen if chaind does not have validator balances enabled, or has not yet obtained
-		// the balances.  We return false but no error.
+		// Bootstrap path: t_validators not yet populated, so the LEFT JOIN in
+		// ValidatorBalancesByEpoch returns no rows.  Production state is
+		// covered by the post-accumulation guard below.  The message is the
+		// alert-rule contract; changing the text breaks the alert.
+		log.Warn().Msg("No validator balances available; cannot summarize epoch (will retry on next finality tick)")
 		return false, nil
 	}
 	// Make a balances map.
@@ -96,6 +99,15 @@ func (s *Service) summarizeEpoch(ctx context.Context,
 		summary.ActiveBalance += balance.EffectiveBalance
 	}
 	log.Trace().Dur("elapsed", time.Since(started)).Msg("Obtained validator balances")
+
+	// Production-state guard: ValidatorBalancesByEpoch's LEFT JOIN with
+	// COALESCE(f_balance, 0) returns one zero-balance row per validator when
+	// no balance rows exist for the epoch, so the len() check above cannot
+	// catch this shape.  Reuse the alert-rule message text.
+	if summary.ActiveValidators > 0 && summary.ActiveBalance == 0 {
+		log.Warn().Msg("No validator balances available; cannot summarize epoch (will retry on next finality tick)")
+		return false, nil
+	}
 
 	err = s.blockStatsForEpoch(ctx, epoch, summary)
 	if err != nil {
@@ -438,8 +450,8 @@ func (s *Service) attesterSlashingStatsForSlotRange(ctx context.Context,
 
 // intersection returns a list of items common between the two sets.
 func intersection(set1 []phase0.ValidatorIndex, set2 []phase0.ValidatorIndex) []phase0.ValidatorIndex {
-	sort.Slice(set1, func(i, j int) bool { return set1[i] < set1[j] })
-	sort.Slice(set2, func(i, j int) bool { return set2[i] < set2[j] })
+	slices.Sort(set1)
+	slices.Sort(set2)
 	res := make([]phase0.ValidatorIndex, 0)
 
 	set1Pos := 0

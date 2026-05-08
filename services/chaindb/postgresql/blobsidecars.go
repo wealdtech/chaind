@@ -46,7 +46,7 @@ func (s *Service) BlobSidecars(ctx context.Context,
 
 	// Build the query.
 	queryBuilder := strings.Builder{}
-	queryVals := make([]interface{}, 0)
+	queryVals := make([]any, 0)
 
 	queryBuilder.WriteString(`
 SELECT f_block_root

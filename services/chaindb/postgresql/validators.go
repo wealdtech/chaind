@@ -17,7 +17,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
@@ -520,9 +520,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochRange(
 	}
 
 	// Sort the validator indices.
-	sort.Slice(validatorIndices, func(i, j int) bool {
-		return validatorIndices[i] < validatorIndices[j]
-	})
+	slices.Sort(validatorIndices)
 
 	// Create a matrix of the values we require. This allows the database to fill in the blanks when it doesn't have a balance for
 	// the required (index,epoch) tuple (for example when the balance is 0).
@@ -595,9 +593,7 @@ func (s *Service) ValidatorBalancesByIndexAndEpochs(
 	}
 
 	// Sort the validator indices.
-	sort.Slice(validatorIndices, func(i, j int) bool {
-		return validatorIndices[i] < validatorIndices[j]
-	})
+	slices.Sort(validatorIndices)
 
 	// Create a matrix of the values we require. This allows the database to fill in the blanks when it doesn't have a balance for
 	// the required (index,epoch) tuple (for example when the balance is 0).
@@ -707,7 +703,7 @@ func validatorBalanceFromRow(rows pgx.Rows) (*chaindb.ValidatorBalance, error) {
 	return validatorBalance, nil
 }
 
-// PruneValidatorBalances prunes validator balances up to (but not including) the given epoch.
+// PruneValidatorBalances prunes validator balances up to and including the given epoch.
 func (s *Service) PruneValidatorBalances(ctx context.Context, to phase0.Epoch, retain []phase0.BLSPubKey) error {
 	ctx, span := otel.Tracer("wealdtech.chaind.services.chaindb.postgresql").Start(ctx, "PruneValidatorBalances")
 	defer span.End()

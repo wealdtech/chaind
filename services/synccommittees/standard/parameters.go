@@ -110,11 +110,11 @@ func parseAndCheckParameters(params ...Parameter) (*parameters, error) {
 	}
 	// Ensure the eth2client can handle our requirements.
 	if _, isProvider := parameters.eth2Client.(eth2client.SyncCommitteesProvider); !isProvider {
-		//nolint:stylecheck
+		//nolint:staticcheck
 		return nil, errors.New("Ethereum 2 client does not provide sync committee information") // skipcq: SCC-ST1005
 	}
 	if _, isProvider := parameters.eth2Client.(eth2client.EventsProvider); !isProvider {
-		//nolint:stylecheck
+		//nolint:staticcheck
 		return nil, errors.New("Ethereum 2 client does not provide events") // skipcq: SCC-ST1005
 	}
 	if parameters.chainDB == nil {

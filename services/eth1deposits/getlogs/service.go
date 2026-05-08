@@ -218,10 +218,7 @@ func (s *Service) parseNewBlocks(ctx context.Context, md *metadata) {
 	log.Trace().Uint64("start_block", md.LatestBlock+1).Uint64("end_block", latestHeadBlock).Msg("Fetching ETH1 logs in batches")
 	for block := md.LatestBlock + 1; block <= latestHeadBlock; block += s.blocksPerRequest {
 		startBlock := block
-		endBlock := block + s.blocksPerRequest - 1
-		if endBlock > latestHeadBlock {
-			endBlock = latestHeadBlock
-		}
+		endBlock := min(block+s.blocksPerRequest-1, latestHeadBlock)
 
 		log := log.With().Uint64("start_block", startBlock).Uint64("end_block", endBlock).Logger()
 		// Each update goes in to its own transaction, to make the data available sooner.

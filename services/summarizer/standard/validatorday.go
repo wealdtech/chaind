@@ -225,8 +225,11 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 	if err != nil {
 		return false, errors.Wrap(err, "failed to obtain validator start epoch balances")
 	}
-	if len(startBalances) == 0 {
-		// Balances are not yet present.
+	if !validatorBalancesPresent(startBalances) {
+		// Same dual-shape guard as epoch.go: bootstrap empty slice or LEFT
+		// JOIN all-zero rows.  Keep the "epoch" wording verbatim for the
+		// alert rule; start_time/end_time disambiguate the day layer.
+		log.Warn().Time("start_time", startTime).Time("end_time", endTime).Msg("No validator balances available; cannot summarize epoch (will retry on next finality tick)")
 		return false, nil
 	}
 	for _, startBalance := range startBalances {
@@ -281,8 +284,9 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 	if err != nil {
 		return false, errors.Wrap(err, "failed to obtain validator end epoch balances")
 	}
-	if len(endBalances) == 0 {
-		// Balances are not yet present.
+	if !validatorBalancesPresent(endBalances) {
+		// Same dual-shape guard as startBalances above.
+		log.Warn().Time("start_time", startTime).Time("end_time", endTime).Msg("No validator balances available; cannot summarize epoch (will retry on next finality tick)")
 		return false, nil
 	}
 	for _, endBalance := range endBalances {
@@ -417,4 +421,16 @@ func (s *Service) syncCommitteesForEpochs(ctx context.Context,
 	}
 
 	return syncCommittees, nil
+}
+
+// validatorBalancesPresent reports whether the slice contains at least one
+// non-zero row.  An empty slice and a LEFT-JOIN-all-zero slice both report
+// false, collapsing the bootstrap and production-state shapes into one guard.
+func validatorBalancesPresent(balances []*chaindb.ValidatorBalance) bool {
+	for _, b := range balances {
+		if b.Balance != 0 || b.EffectiveBalance != 0 {
+			return true
+		}
+	}
+	return false
 }

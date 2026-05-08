@@ -41,6 +41,11 @@ var (
 	lastBalancePrune prometheus.Gauge
 )
 
+// summarizerLagEpochs records how many epochs each pipeline trails its
+// upstream cursor.  Disabled pipelines never call WithLabelValues, so their
+// series are absent from /metrics.  Alert-rule contract — do not rename.
+var summarizerLagEpochs *prometheus.GaugeVec
+
 func registerMetrics(_ context.Context, monitor metrics.Service) error {
 	if latestEpoch != nil {
 		// Already registered.
@@ -112,7 +117,25 @@ func registerPrometheusMetrics() error {
 		return errors.Wrap(err, "failed to register epoch_prune_ts")
 	}
 
+	summarizerLagEpochs = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Name:      "lag_epochs",
+		Help:      "Number of epochs by which each summarizer pipeline lags its direct upstream cursor",
+	}, []string{"pipeline"})
+	if err := prometheus.Register(summarizerLagEpochs); err != nil {
+		return errors.Wrap(err, "failed to register lag_epochs")
+	}
+
 	return nil
+}
+
+// monitorLag records the lag in epochs for a given summarizer pipeline.
+// Callers are responsible for guarding with the per-pipeline enabled flag, so
+// disabled pipelines never produce a series.
+func monitorLag(pipeline string, lag float64) {
+	if summarizerLagEpochs != nil {
+		summarizerLagEpochs.WithLabelValues(pipeline).Set(lag)
+	}
 }
 
 // monitorLatestEpoch sets the latest epoch without registering an

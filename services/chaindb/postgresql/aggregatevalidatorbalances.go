@@ -16,7 +16,7 @@ package postgresql
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/attestantio/go-eth2-client/spec/phase0"
@@ -215,9 +215,7 @@ func (s *Service) AggregateValidatorBalancesByIndexAndEpochs(
 // This allows us to form a query that is significantly faster than the simple IN() style.
 func fastIndices(validatorIndices []phase0.ValidatorIndex) string {
 	// Sort the validator indices.
-	sort.Slice(validatorIndices, func(i, j int) bool {
-		return validatorIndices[i] < validatorIndices[j]
-	})
+	slices.Sort(validatorIndices)
 
 	// Create an array for the validator indices.  This gives us higher performance for our query.
 	indices := make([]string, len(validatorIndices))

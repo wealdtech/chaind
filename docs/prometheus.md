@@ -24,6 +24,13 @@ Operations metrics provide information about numbers of operations performed.  T
   - `chaind_finalizer_latest_epoch` latest epoch processed by the finalizer module this run of chaind
   - `chaind_proposerduties_epochs_processed` number of epochs processed by the proposer duties module this run of chaind
   - `chaind_proposerduties_latest_epoch` latest epoch processed by the proposer duties module this run of chaind
+  - `chaind_summarizer_epochs_processed_total` number of epochs processed by the summarizer module this run of chaind
+  - `chaind_summarizer_latest_epoch` latest epoch processed by the summarizer module this run of chaind
+  - `chaind_summarizer_days_processed_total` number of days processed by the daily-rollup submodule of the summarizer module this run of chaind
+  - `chaind_summarizer_latest_day` latest day (Unix timestamp of midnight UTC) processed by the daily-rollup submodule of the summarizer module this run of chaind
+  - `chaind_summarizer_balance_prune_ts` Unix timestamp of the last validator-balance prune run by the summarizer module
+  - `chaind_summarizer_epoch_prune_ts` Unix timestamp of the last epoch-summary prune run by the summarizer module
+  - `chaind_summarizer_lag_epochs{pipeline="epoch|block|validator"}` number of epochs by which each summarizer pipeline lags its direct upstream cursor: `pipeline=epoch` is the gap between `validators.latest_balances_epoch` and the summarizer's epoch cursor (i.e. how far the upstream balances pipeline is ahead of summarization); `pipeline=block` and `pipeline=validator` are the gaps between the summarizer's epoch cursor and its own block / validator sub-pipeline cursors. Values are clamped at zero — disabled pipelines (e.g. `summarizer.blocks.enable=false`) produce no series for that label
   - `chaind_validators_epochs_processed` number of epochs processed by the validators module this run of chaind
   - `chaind_validators_latest_epoch` latest epoch processed by the validators module this run of chaind
   - `chaind_validators_balances_epochs_processed` number of epochs processed by the balances submodule of the validators module this run of chaind

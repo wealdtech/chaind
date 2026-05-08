@@ -28,6 +28,13 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// noValidatorBalancesMsg is the warn-log text emitted when the fetcher
+// rejects an empty or all-zero beacon response.  Alert-rule contract — both
+// rejection sites must emit this exact string.  See ADR 0002.
+const noValidatorBalancesMsg = "Beacon returned no validator balances; cannot persist epoch (will retry on next finality tick)"
+
+var errNoValidatorBalances = errors.New("beacon returned no validator balances")
+
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
@@ -181,8 +188,9 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 	defer span.End()
 
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
-	stateID := fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(epoch))
-	log.Trace().Uint64("slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch))).Msg("Fetching validators")
+	firstSlot := s.chainTime.FirstSlotOfEpoch(epoch)
+	stateID := fmt.Sprintf("%d", firstSlot)
+	log.Trace().Uint64("slot", uint64(firstSlot)).Msg("Fetching validators")
 	validatorsResponse, err := s.eth2Client.(eth2client.ValidatorsProvider).Validators(ctx, &api.ValidatorsOpts{
 		State: stateID,
 	})
@@ -191,45 +199,57 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 	}
 	validators := validatorsResponse.Data
 
+	// Empty 200-OK response: refuse to advance so the next tick re-fetches.
+	// See ADR 0002 (no-empty-write contract).
+	if len(validators) == 0 {
+		log.Warn().Msg(noValidatorBalancesMsg)
+		return errNoValidatorBalances
+	}
+
 	span.AddEvent("Obtained validators", trace.WithAttributes(
-		attribute.Int("slot", int(s.chainTime.FirstSlotOfEpoch(epoch))),
+		attribute.Int("slot", int(firstSlot)),
 	))
+
+	dbValidatorBalances := make([]*chaindb.ValidatorBalance, 0, len(validators))
+	for index, validator := range validators {
+		// Do not store 0 balances.
+		if validator.Balance == 0 {
+			continue
+		}
+		dbValidatorBalances = append(dbValidatorBalances, &chaindb.ValidatorBalance{
+			Index:            index,
+			Epoch:            epoch,
+			Balance:          validator.Balance,
+			EffectiveBalance: validator.Validator.EffectiveBalance,
+		})
+	}
+	// All-zero beacon response amplified by the filter above into a zero-row
+	// insert.  Refuse to advance.
+	if len(dbValidatorBalances) == 0 {
+		log.Warn().Msg(noValidatorBalancesMsg)
+		return errNoValidatorBalances
+	}
 
 	dbCtx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to begin transaction for validator balances")
 	}
-	if s.balances {
-		dbValidatorBalances := make([]*chaindb.ValidatorBalance, 0, len(validators))
-		for index, validator := range validators {
-			// Do not store 0 balances.
-			if validator.Balance == 0 {
-				continue
-			}
-			dbValidatorBalances = append(dbValidatorBalances, &chaindb.ValidatorBalance{
-				Index:            index,
-				Epoch:            epoch,
-				Balance:          validator.Balance,
-				EffectiveBalance: validator.Validator.EffectiveBalance,
-			})
+	if err := s.validatorsSetter.SetValidatorBalances(dbCtx, dbValidatorBalances); err != nil {
+		log.Trace().Err(err).Msg("Bulk insert failed; falling back to individual insert")
+		// This error will have caused the transaction to fail, so cancel it and start a new one.
+		cancel()
+		dbCtx, cancel, err = s.chainDB.BeginTx(ctx)
+		if err != nil {
+			return errors.Wrap(err, "failed to begin transaction for validator balances (2)")
 		}
-		if err := s.validatorsSetter.SetValidatorBalances(dbCtx, dbValidatorBalances); err != nil {
-			log.Trace().Err(err).Msg("Bulk insert failed; falling back to individual insert")
-			// This error will have caused the transaction to fail, so cancel it and start a new one.
-			cancel()
-			dbCtx, cancel, err = s.chainDB.BeginTx(ctx)
-			if err != nil {
-				return errors.Wrap(err, "failed to begin transaction for validator balances (2)")
-			}
-			for _, dbValidatorBalance := range dbValidatorBalances {
-				if err := s.validatorsSetter.SetValidatorBalance(dbCtx, dbValidatorBalance); err != nil {
-					cancel()
-					return errors.Wrap(err, "failed to set validator balance")
-				}
+		for _, dbValidatorBalance := range dbValidatorBalances {
+			if err := s.validatorsSetter.SetValidatorBalance(dbCtx, dbValidatorBalance); err != nil {
+				cancel()
+				return errors.Wrap(err, "failed to set validator balance")
 			}
 		}
-		md.LatestBalancesEpoch = epoch
 	}
+	md.LatestBalancesEpoch = epoch
 	span.AddEvent("Updated validators")
 
 	if err := s.setMetadata(dbCtx, md); err != nil {
