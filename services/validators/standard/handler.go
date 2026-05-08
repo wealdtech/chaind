@@ -233,7 +233,7 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 	// Refuse to advance the cursor when the "do not store 0 balances"
 	// filter above amplifies an all-zero-balance beacon response into a
 	// zero-row insert.  Cancel the open transaction so the cursor is
-	// not committed; same warn-log contract as the empty-map guard.
+	// not committed; same warn-log contract as the empty-response guard.
 	if len(dbValidatorBalances) == 0 {
 		cancel()
 		log.Warn().Msg(noValidatorBalancesMsg)
