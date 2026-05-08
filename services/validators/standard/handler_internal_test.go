@@ -29,16 +29,8 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
-// captureWarnLog redirects the package-level zerolog.Logger to a byte buffer
-// at WarnLevel and returns the buffer plus a restore func.  Mirrors the
-// pattern in services/summarizer/standard/validatorday_internal_test.go so
-// the two zero-balance guard sites (epoch summarizer, day summarizer,
-// validator-balance fetcher) all assert their warn-log contracts the same
-// way.  The GlobalLevel save/restore is defensive: the validators/standard
-// package has no main_test.go today, so GlobalLevel defaults to TraceLevel
-// and the buffer would capture warns regardless — but if a future
-// main_test.go sets Disabled to silence noise, this guard keeps the assertion
-// load-bearing instead of silently always-passing.
+// captureWarnLog redirects the package logger to a byte buffer at WarnLevel
+// and returns the buffer plus a restore func.
 func captureWarnLog(t *testing.T) (*bytes.Buffer, func()) {
 	t.Helper()
 	originalGlobalLevel := zerolog.GlobalLevel()
@@ -54,12 +46,8 @@ func captureWarnLog(t *testing.T) (*bytes.Buffer, func()) {
 	}
 }
 
-// stubEth2Client is a hand-built eth2client.Service + ValidatorsProvider used
-// to drive onEpochTransitionValidatorBalancesForEpoch.  handler.go:186 type-
-// asserts s.eth2Client to eth2client.ValidatorsProvider, so this stub
-// implements both interfaces directly.  Only Validators is exercised; the
-// base Service methods satisfy the type assertion but are not invoked along
-// the tested path.
+// stubEth2Client implements eth2client.Service + ValidatorsProvider; only
+// Validators is exercised.
 type stubEth2Client struct {
 	response *api.Response[map[phase0.ValidatorIndex]*apiv1.Validator]
 	err      error
@@ -82,9 +70,7 @@ func (s *stubEth2Client) Validators(_ context.Context, _ *api.ValidatorsOpts) (
 }
 
 // recordingChainDB captures BeginTx/CommitTx ordering and SetMetadata payloads
-// so a test can assert the cursor advanced and the transaction committed.  The
-// tested function does not exercise read-only transactions; BeginROTx/CommitROTx
-// satisfy the interface but are never called along the tested path.
+// so tests can assert the cursor advanced and the transaction committed.
 type recordingChainDB struct {
 	beginTxCalls  int
 	commitTxCalls int
@@ -120,9 +106,7 @@ func (c *recordingChainDB) Metadata(_ context.Context, _ string) ([]byte, error)
 }
 
 // recordingValidatorsSetter captures every SetValidatorBalances/SetValidatorBalance
-// call so the test can assert exactly what was persisted (or that nothing was
-// persisted at all).  SetValidator is part of the chaindb.ValidatorsSetter
-// interface but is not invoked along the tested path.
+// call so tests can assert what was persisted.
 type recordingValidatorsSetter struct {
 	bulkCalls          [][]*chaindb.ValidatorBalance
 	individualBalances []*chaindb.ValidatorBalance
@@ -144,9 +128,7 @@ func (r *recordingValidatorsSetter) SetValidatorBalances(_ context.Context, bala
 	return nil
 }
 
-// stubChainTime satisfies chaintime.Service.  Only FirstSlotOfEpoch is invoked
-// along the tested path (handler.go:184/195); the other 18 methods return zero
-// values so the stub remains type-correct without simulating chain timing.
+// stubChainTime satisfies chaintime.Service; only FirstSlotOfEpoch is invoked.
 type stubChainTime struct{}
 
 func (stubChainTime) GenesisTime() time.Time                           { return time.Time{} }
@@ -172,10 +154,8 @@ func (stubChainTime) AltairInitialSyncCommitteePeriod() uint64     { return 0 }
 func (stubChainTime) BellatrixInitialEpoch() phase0.Epoch          { return 0 }
 func (stubChainTime) CapellaInitialEpoch() phase0.Epoch            { return 0 }
 
-// makeService wires the four stubs above into a *Service ready to drive the
-// onEpochTransitionValidatorBalancesForEpoch path.  s.balances is set to true
-// so the tested branch is entered; s.activitySem is left nil because the
-// tested function does not touch it.
+// makeService wires the stubs into a *Service for the
+// onEpochTransitionValidatorBalancesForEpoch path.
 func makeService(eth2 *stubEth2Client, db *recordingChainDB, setter *recordingValidatorsSetter) *Service {
 	return &Service{
 		eth2Client:       eth2,
@@ -186,19 +166,8 @@ func makeService(eth2 *stubEth2Client, db *recordingChainDB, setter *recordingVa
 	}
 }
 
-// TestOnEpochTransitionValidatorBalancesForEpoch_EmptyValidatorsRejectedAndCursorUnchanged
-// pins the post-fix contract for guard 1 (the empty 200-OK validators map):
-// the function refuses to advance md.LatestBalancesEpoch, never opens a
-// transaction (the guard fires before BeginTx), never calls
-// SetValidatorBalances, returns an error so the parent
-// onEpochTransitionValidatorBalances loop surfaces it to OnBeaconChainHeadUpdated,
-// and emits the alert-contract warn log at WarnLevel.  This is the regression
-// boundary for the silent-cursor-advance defect addressed by ADR 0002
-// (docs/adr/0002-validator-balance-fetcher-recovery-model.md).
-//
-// Pre-fix this test asserted the BUGGY shape (cursor advanced, transaction
-// committed); the inversion landed alongside the production-code guard in
-// the same commit.
+// Empty 200-OK response: cursor stays put, no transaction opens, warn-log
+// fires.  Regression boundary for ADR 0002.
 func TestOnEpochTransitionValidatorBalancesForEpoch_EmptyValidatorsRejectedAndCursorUnchanged(t *testing.T) {
 	const epoch = phase0.Epoch(86823)
 	const startCursor = phase0.Epoch(86822)
@@ -251,17 +220,9 @@ func TestOnEpochTransitionValidatorBalancesForEpoch_EmptyValidatorsRejectedAndCu
 		"warn log missing structured epoch field for operator disambiguation; got: %s", logged)
 }
 
-// TestOnEpochTransitionValidatorBalancesForEpoch_AllZeroBalancesRejectedAndCursorUnchanged
-// pins the post-fix contract for guard 2 (the all-zero-balances filter
-// amplifier).  The beacon returns 1000 validators with Balance == 0; the
-// "Do not store 0 balances" filter collapses them into a zero-row insert,
-// and the guard refuses to advance.  Like guard 1, this path fires before
-// any transaction is opened: BeginTx now sits below the slice build so the
-// rejection short-circuits with no transaction to cancel; the transaction
-// must not commit; and the cursor must stay put.  Both empty-response
-// shapes (this and EmptyValidatorsRejectedAndCursorUnchanged) emit the
-// same warn-log alert-contract substring so an alert rule matches them
-// uniformly.
+// All-zero beacon response amplified by the "Do not store 0 balances" filter
+// into a zero-row insert.  Cursor stays put, no transaction opens, warn-log
+// fires.
 func TestOnEpochTransitionValidatorBalancesForEpoch_AllZeroBalancesRejectedAndCursorUnchanged(t *testing.T) {
 	const epoch = phase0.Epoch(86824)
 	const startCursor = phase0.Epoch(86823)
@@ -328,13 +289,8 @@ func TestOnEpochTransitionValidatorBalancesForEpoch_AllZeroBalancesRejectedAndCu
 		"warn log missing structured epoch field for operator disambiguation; got: %s", logged)
 }
 
-// TestOnEpochTransitionValidatorBalancesForEpoch_MixedBalancesPersistsNonZero
-// pins the partial-persist behavior with a mix of zero and non-zero balances.
-// The "Do not store 0 balances" filter drops the zero half; the function
-// persists the non-zero half and advances the cursor.  Validator indices are
-// constructed so the assertion does not depend on Go's non-deterministic map
-// iteration order: the bulkCalls[0] slice should contain exactly numNonZero
-// entries, each with Balance == nonZeroBalance.
+// Mixed zero/non-zero balances: filter drops zeros, function persists the
+// non-zero half and advances the cursor.
 func TestOnEpochTransitionValidatorBalancesForEpoch_MixedBalancesPersistsNonZero(t *testing.T) {
 	const epoch = phase0.Epoch(100)
 	const numValidators = 1000
@@ -395,13 +351,8 @@ func TestOnEpochTransitionValidatorBalancesForEpoch_MixedBalancesPersistsNonZero
 		"cursor advances when at least some rows persist (expected today)")
 }
 
-// TestOnEpochTransitionValidatorBalancesForEpoch_BeaconErrorLeavesCursorUnchanged
-// is the negative control: when the beacon Validators call returns an error,
-// the function returns the wrapped error, never opens a transaction, never
-// calls SetValidatorBalances, and md.LatestBalancesEpoch stays put.  This case
-// confirms the silent-advance bug is gated specifically on the empty/zero-
-// response path (the previous three cases) — not a blanket "errors are
-// swallowed" regression.
+// Negative control: beacon error surfaces, no transaction opens, cursor
+// stays put.
 func TestOnEpochTransitionValidatorBalancesForEpoch_BeaconErrorLeavesCursorUnchanged(t *testing.T) {
 	const epoch = phase0.Epoch(50)
 	const startCursor = phase0.Epoch(49)

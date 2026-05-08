@@ -27,14 +27,9 @@ import (
 	mockchaintime "github.com/wealdtech/chaind/services/chaintime/mock"
 )
 
-// stubBalanceChainDB is a chaindb.Service that also implements the four
-// interfaces addValidatorBalanceSummaries type-asserts against:
-// ValidatorsProvider, DepositsProvider, WithdrawalsProvider, and
-// ValidatorDaySummariesSetter.  The balance responses are popped from a
-// queue so a single fixture can drive the start-balances and end-balances
-// trip paths from one slice of test inputs.  daySummariesSet records every
-// SetValidatorDaySummaries call so the test can assert that the corrupt-
-// summary guard prevents writes.
+// stubBalanceChainDB pops balance responses from a queue so one fixture can
+// drive both the start-balances and end-balances guard paths.  daySummariesSet
+// records writes so tests can assert the guard short-circuits.
 type stubBalanceChainDB struct {
 	balancesResponses [][]*chaindb.ValidatorBalance
 	balancesCallCount int
@@ -100,13 +95,7 @@ func (c *stubBalanceChainDB) Withdrawals(_ context.Context, _ *chaindb.Withdrawa
 	return nil, nil
 }
 
-// chaindb.ValidatorDaySummariesSetter — addValidatorBalanceSummaries does
-// not call these directly; the parent summarizeValidatorsInDay does, after
-// addValidatorBalanceSummaries returns (true, nil).  Recording these calls
-// here is a structural-impossibility witness: the test asserts the
-// recording slice stays empty, which is the test's way of documenting the
-// guard contract (false, nil) → caller short-circuits → no day summary
-// written.  Mirrors the recordingChainDB pattern in handler_internal_test.go.
+// chaindb.ValidatorDaySummariesSetter.
 func (c *stubBalanceChainDB) SetValidatorDaySummary(_ context.Context, _ *chaindb.ValidatorDaySummary) error {
 	return nil
 }
@@ -116,15 +105,9 @@ func (c *stubBalanceChainDB) SetValidatorDaySummaries(_ context.Context, summari
 	return nil
 }
 
-// TestAddValidatorBalanceSummariesZeroBalanceAssertion drives
-// addValidatorBalanceSummaries with the LEFT-JOIN-all-zero shape that
-// ValidatorBalancesByEpoch returns when no t_validator_balances rows
-// exist for an epoch but t_validators is populated, mirroring the
-// epoch-layer guard from commit 1edcb45 (issue 10).  Both call sites
-// (startBalances at validatorday.go:224 and endBalances at :280) must
-// refuse to advance: return (false, nil), emit the alert-contract warn
-// log with the same stable message string, and write nothing to
-// t_validator_day_summaries.
+// TestAddValidatorBalanceSummariesZeroBalanceAssertion drives the LEFT-JOIN-
+// all-zero shape into both startBalances and endBalances guard sites and
+// asserts neither writes to t_validator_day_summaries.
 func TestAddValidatorBalanceSummariesZeroBalanceAssertion(t *testing.T) {
 	const numValidators = 1000
 
@@ -157,17 +140,12 @@ func TestAddValidatorBalanceSummariesZeroBalanceAssertion(t *testing.T) {
 		balancesResponses [][]*chaindb.ValidatorBalance
 	}{
 		{
-			// Bootstrap-or-production-state path 1: the very first
-			// ValidatorBalancesByEpoch call returns all-zero rows; the
-			// startBalances guard must trip immediately.
 			name: "startBalances all zero",
 			balancesResponses: [][]*chaindb.ValidatorBalance{
 				makeZeroBalances(),
 			},
 		},
 		{
-			// Path 2: startBalances are valid, function proceeds past
-			// deposits/withdrawals, then endBalances trips the guard.
 			name: "endBalances all zero",
 			balancesResponses: [][]*chaindb.ValidatorBalance{
 				makeNonZeroBalances(),
@@ -180,8 +158,7 @@ func TestAddValidatorBalanceSummariesZeroBalanceAssertion(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 
-			// main_test.go sets the global level to Disabled; locally
-			// raise it so the buffer logger below actually emits.
+			// main_test.go sets GlobalLevel to Disabled; raise it so the buffer captures warns.
 			originalGlobalLevel := zerolog.GlobalLevel()
 			zerolog.SetGlobalLevel(zerolog.TraceLevel)
 			defer zerolog.SetGlobalLevel(originalGlobalLevel)

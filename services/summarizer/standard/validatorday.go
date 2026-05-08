@@ -226,19 +226,9 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 		return false, errors.Wrap(err, "failed to obtain validator start epoch balances")
 	}
 	if !validatorBalancesPresent(startBalances) {
-		// Bootstrap path (len == 0): t_validators not yet populated, so the
-		// LEFT JOIN in ValidatorBalancesByEpoch returns no rows.
-		// Production-state path (all-zero rows): t_validators is populated
-		// but no t_validator_balances rows exist for this epoch, so the
-		// LEFT JOIN returns one COALESCE(f_balance, 0) row per validator —
-		// len() cannot detect this case.  Both branches share one warn
-		// message so the alert annotation contract from issue 2 / issue 10
-		// is preserved.  The "epoch" wording in the message is preserved
-		// verbatim to match the alert rule; structured start_time/end_time
-		// fields carry the day-layer identity so operators can disambiguate
-		// from epoch-layer trips.
-		// Alert annotation contract: this stable message text is matched by the lag-based alert
-		// rule; do not change without coordinating the alert update.
+		// Same dual-shape guard as epoch.go: bootstrap empty slice or LEFT
+		// JOIN all-zero rows.  Keep the "epoch" wording verbatim for the
+		// alert rule; start_time/end_time disambiguate the day layer.
 		log.Warn().Time("start_time", startTime).Time("end_time", endTime).Msg("No validator balances available; cannot summarize epoch (will retry on next finality tick)")
 		return false, nil
 	}
@@ -295,16 +285,7 @@ func (s *Service) addValidatorBalanceSummaries(ctx context.Context,
 		return false, errors.Wrap(err, "failed to obtain validator end epoch balances")
 	}
 	if !validatorBalancesPresent(endBalances) {
-		// Same dual-branch guard as the startBalances fetch above:
-		// len(endBalances) == 0 covers the bootstrap path; the all-zero
-		// case covers the production-state LEFT JOIN shape that defeats
-		// the naive length check.  Reuse the exact warn-log text so the
-		// alert annotation contract stays single-sourced.  The "epoch"
-		// wording in the message is preserved verbatim to match the alert
-		// rule; structured start_time/end_time fields carry the day-layer
-		// identity so operators can disambiguate from epoch-layer trips.
-		// Alert annotation contract: this stable message text is matched by the lag-based alert
-		// rule; do not change without coordinating the alert update.
+		// Same dual-shape guard as startBalances above.
 		log.Warn().Time("start_time", startTime).Time("end_time", endTime).Msg("No validator balances available; cannot summarize epoch (will retry on next finality tick)")
 		return false, nil
 	}
@@ -443,13 +424,8 @@ func (s *Service) syncCommitteesForEpochs(ctx context.Context,
 }
 
 // validatorBalancesPresent reports whether the slice contains at least one
-// row with a non-zero balance — the inverse of the LEFT-JOIN-all-zeros
-// shape produced by ValidatorBalancesByEpoch when t_validator_balances has
-// no rows for the queried epoch but t_validators is populated.  An empty
-// slice (the bootstrap path before t_validators exists) also reports
-// false, so callers get a single guard for both shapes.  See
-// services/summarizer/standard/epoch.go for the equivalent epoch-layer
-// guard pattern from commit 1edcb45.
+// non-zero row.  An empty slice and a LEFT-JOIN-all-zero slice both report
+// false, collapsing the bootstrap and production-state shapes into one guard.
 func validatorBalancesPresent(balances []*chaindb.ValidatorBalance) bool {
 	for _, b := range balances {
 		if b.Balance != 0 || b.EffectiveBalance != 0 {

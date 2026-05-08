@@ -76,16 +76,10 @@ func (s *Service) summarizeEpoch(ctx context.Context,
 		return false, errors.Wrap(err, "failed to obtain validator balances")
 	}
 	if len(balances) == 0 {
-		// Bootstrap path: chaind has no validators rows yet (first boot before
-		// the validators service has populated t_validators), or validator
-		// balances are disabled entirely, so the LEFT JOIN in
-		// ValidatorBalancesByEpoch returns no rows at all.  In production
-		// state the JOIN returns one zero-balance row per validator instead —
-		// see the post-accumulation guard below for that case.  Both branches
-		// share one warn message so the alert-annotation contract is single-
-		// sourced.
-		// Alert annotation contract: this stable message text is matched by the lag-based alert
-		// rule; do not change without coordinating the alert update.
+		// Bootstrap path: t_validators not yet populated, so the LEFT JOIN in
+		// ValidatorBalancesByEpoch returns no rows.  Production state is
+		// covered by the post-accumulation guard below.  The message is the
+		// alert-rule contract; changing the text breaks the alert.
 		log.Warn().Msg("No validator balances available; cannot summarize epoch (will retry on next finality tick)")
 		return false, nil
 	}
@@ -106,14 +100,10 @@ func (s *Service) summarizeEpoch(ctx context.Context,
 	}
 	log.Trace().Dur("elapsed", time.Since(started)).Msg("Obtained validator balances")
 
-	// Production-state guard: ValidatorBalancesByEpoch LEFT-JOINs t_validators
-	// against t_validator_balances with COALESCE(f_balance, 0) — when no
-	// balance rows exist for the epoch, it returns one zero-balance row per
-	// validator rather than an empty slice, so the len(balances) == 0 check
-	// above cannot detect that case.  If we have active validators but zero
-	// summed balance, the upstream balance pipeline missed this epoch.  Refuse
-	// to write a corrupt summary; reuse the same warn-log text so the alert
-	// annotation contract is preserved.
+	// Production-state guard: ValidatorBalancesByEpoch's LEFT JOIN with
+	// COALESCE(f_balance, 0) returns one zero-balance row per validator when
+	// no balance rows exist for the epoch, so the len() check above cannot
+	// catch this shape.  Reuse the alert-rule message text.
 	if summary.ActiveValidators > 0 && summary.ActiveBalance == 0 {
 		log.Warn().Msg("No validator balances available; cannot summarize epoch (will retry on next finality tick)")
 		return false, nil

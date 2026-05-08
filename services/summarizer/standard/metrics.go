@@ -41,13 +41,9 @@ var (
 	lastBalancePrune prometheus.Gauge
 )
 
-// summarizerLagEpochs tracks how many epochs each summarizer pipeline is behind
-// the finality target.  Pipelines that are disabled never call WithLabelValues
-// so their series are absent from /metrics.
-//
-// Alert annotation contract: this gauge is referenced by the lag-based alert
-// rule deployed alongside chaind; do not rename without coordinating the alert
-// migration.
+// summarizerLagEpochs records how many epochs each pipeline trails its
+// upstream cursor.  Disabled pipelines never call WithLabelValues, so their
+// series are absent from /metrics.  Alert-rule contract — do not rename.
 var summarizerLagEpochs *prometheus.GaugeVec
 
 func registerMetrics(_ context.Context, monitor metrics.Service) error {

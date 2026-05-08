@@ -28,12 +28,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// noValidatorBalancesMsg is the stable warn-log text emitted when the
-// validator-balance fetcher rejects an empty or all-zero beacon response.
-// Both rejection sites use this exact string so an operator runbook or
-// Prometheus alert rule keyed off it matches uniformly.  See
-// docs/adr/0002-validator-balance-fetcher-recovery-model.md (claim 2:
-// no-empty-write).
+// noValidatorBalancesMsg is the warn-log text emitted when the fetcher
+// rejects an empty or all-zero beacon response.  Alert-rule contract — both
+// rejection sites must emit this exact string.  See ADR 0002.
 const noValidatorBalancesMsg = "Beacon returned no validator balances; cannot persist epoch (will retry on next finality tick)"
 
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
@@ -200,10 +197,8 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 	}
 	validators := validatorsResponse.Data
 
-	// Refuse to advance the cursor on an empty 200-OK validators response.
-	// ADR 0002 records the no-empty-write contract this guard enforces:
-	// when the beacon returns zero validators the cursor must stay put so
-	// the next finality tick re-fetches the same epoch.
+	// Empty 200-OK response: refuse to advance so the next tick re-fetches.
+	// See ADR 0002 (no-empty-write contract).
 	if len(validators) == 0 {
 		log.Warn().Msg(noValidatorBalancesMsg)
 		return errors.New("beacon returned no validator balances")
@@ -226,11 +221,8 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 			EffectiveBalance: validator.Validator.EffectiveBalance,
 		})
 	}
-	// Refuse to advance the cursor when the "do not store 0 balances"
-	// filter above amplifies an all-zero-balance beacon response into a
-	// zero-row insert.  No transaction is open at this point, so the
-	// rejection short-circuits cleanly; same warn-log contract as the
-	// empty-response guard.
+	// All-zero beacon response amplified by the filter above into a zero-row
+	// insert.  Refuse to advance.
 	if len(dbValidatorBalances) == 0 {
 		log.Warn().Msg(noValidatorBalancesMsg)
 		return errors.New("beacon returned no validator balances")

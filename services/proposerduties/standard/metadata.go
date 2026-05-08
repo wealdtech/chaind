@@ -24,16 +24,9 @@ import (
 // metadata stored about this service.
 type metadata struct {
 	LatestEpoch int64 `json:"latest_epoch"`
-	// Deprecated: never populated by any code path in this service nor in any
-	// other service in this repository.  The handleMissed consumer in
-	// service.go (lines 166-204) reads from a permanently-empty list — it is
-	// dormant code, retained alongside the field.  Residue from an abandoned
-	// gap-tracking design that also left the same residue in
-	// services/validators/standard/metadata.go and
-	// services/finalizer/standard/metadata.go.  Retained for JSON backward-
-	// compatibility with t_metadata rows persisted by older builds.  Do not
-	// add new readers or writers — file an issue to remove the field (and
-	// the dormant consumer) if you find one.
+	// Deprecated: never populated.  The handleMissed consumer reads from a
+	// permanently-empty list and is dormant.  Retained for JSON backward-
+	// compatibility with t_metadata rows persisted by older builds.
 	MissedEpochs []phase0.Epoch `json:"missed_epochs,omitempty"`
 }
 

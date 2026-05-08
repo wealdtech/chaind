@@ -27,10 +27,8 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
-// stubValidatorsProvider is a hand-built chaindb.ValidatorsProvider used to
-// drive summarizeEpoch into the silent-skip and zero-balance branches.  Only
-// Validators and ValidatorBalancesByEpoch are exercised; the remaining methods
-// satisfy the interface but are not invoked along the tested paths.
+// stubValidatorsProvider drives summarizeEpoch into the silent-skip and
+// zero-balance branches.
 type stubValidatorsProvider struct {
 	validators []*chaindb.Validator
 	balances   []*chaindb.ValidatorBalance
@@ -64,14 +62,10 @@ func (s *stubValidatorsProvider) ValidatorBalancesByIndexAndEpochs(_ context.Con
 	return nil, nil
 }
 
-// TestSummarizeEpochSilentSkipEmitsWarn drives summarizeEpoch with one active
-// validator and an empty balances slice (the bootstrap path), asserting it
-// returns (false, nil) and emits the alert-contract warn log.
 func TestSummarizeEpochSilentSkipEmitsWarn(t *testing.T) {
 	ctx := context.Background()
 
-	// main_test.go sets the global level to Disabled; locally raise it so
-	// the buffer logger below actually emits.
+	// main_test.go sets GlobalLevel to Disabled; raise it so the buffer captures warns.
 	originalGlobalLevel := zerolog.GlobalLevel()
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	defer zerolog.SetGlobalLevel(originalGlobalLevel)
@@ -112,10 +106,8 @@ func TestSummarizeEpochSilentSkipEmitsWarn(t *testing.T) {
 		"silent-skip log emitted at unexpected level; got: %s", logged)
 }
 
-// recordingChainDB is a chaindb.Service / EpochSummariesSetter that records
-// every SetEpochSummary call so a test can assert that the corrupt-summary
-// guard prevents writes.  No transaction enforcement — tests that drive the
-// guard path exit before BeginTx is reached.
+// recordingChainDB records every SetEpochSummary call so tests can assert
+// the corrupt-summary guard prevents writes.
 type recordingChainDB struct {
 	summariesSet []*chaindb.EpochSummary
 }
@@ -147,11 +139,8 @@ func (c *recordingChainDB) SetEpochSummary(_ context.Context, summary *chaindb.E
 	return nil
 }
 
-// TestSummarizeEpochZeroBalanceAssertion drives the production-state path:
-// ValidatorBalancesByEpoch returns one row per validator with Balance=0 and
-// EffectiveBalance=0 (mimicking the LEFT JOIN behavior when t_validator_balances
-// is empty for the epoch).  Asserts the guard returns (false, nil), emits the
-// alert-contract warn log, and writes nothing to t_epoch_summaries.
+// TestSummarizeEpochZeroBalanceAssertion drives the production-state shape
+// (LEFT JOIN with all-zero rows) and asserts the guard refuses to write.
 func TestSummarizeEpochZeroBalanceAssertion(t *testing.T) {
 	ctx := context.Background()
 
@@ -211,10 +200,8 @@ func TestSummarizeEpochZeroBalanceAssertion(t *testing.T) {
 		"zero-balance log emitted at unexpected level; got: %s", logged)
 }
 
-// TestSetLagGaugesWiring drives setLagGauges with synthetic (summarizer,
-// upstream) metadata pairs and asserts per-pipeline cursor-diff values,
-// disabled-pipeline absence, and clamp-to-zero behavior in the brief race
-// window where a downstream cursor is read ahead of its upstream.
+// TestSetLagGaugesWiring asserts per-pipeline cursor-diff math, disabled-
+// pipeline absence, and clamp-to-zero behavior.
 func TestSetLagGaugesWiring(t *testing.T) {
 	originalGauge := summarizerLagEpochs
 	summarizerLagEpochs = prometheus.NewGaugeVec(prometheus.GaugeOpts{

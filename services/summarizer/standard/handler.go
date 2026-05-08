@@ -47,10 +47,8 @@ func (s *Service) OnFinalityUpdated(
 		return
 	}
 	defer s.activitySem.Release(1)
-	// Refresh per-pipeline lag gauges on every handler invocation, including
-	// the error-return paths below.  Deferred so it observes the post-run
-	// metadata.  Registered after activitySem.Release so LIFO ordering runs
-	// the gauge update first, while the semaphore is still held.
+	// Registered after activitySem.Release so LIFO ordering runs the gauge
+	// update while the semaphore is still held.
 	defer s.updateLagGauges(ctx, finalizedEpoch)
 
 	if finalizedEpoch == 0 {
@@ -135,8 +133,7 @@ func (s *Service) summarizeEpochs(ctx context.Context, targetEpoch phase0.Epoch)
 			return errors.Wrapf(err, "failed to update summary for epoch %d", epoch)
 		}
 		if !updated {
-			// Alert annotation contract: this stable message text is matched by the lag-based alert
-			// rule; do not change without coordinating the alert update.
+			// Alert-rule contract — do not change message text.
 			log.Warn().Uint64("epoch", uint64(epoch)).Msg("Not enough data to update summary; will retry on next finality tick")
 			return nil
 		}
@@ -278,12 +275,8 @@ func (s *Service) epochsPerDay() phase0.Epoch {
 	return phase0.Epoch(86400.0 / s.chainTime.SlotDuration().Seconds() / float64(s.chainTime.SlotsPerEpoch()))
 }
 
-// updateLagGauges fetches the latest summarizer metadata and the upstream
-// validators metadata, then refreshes the per-pipeline lag gauges.  Invoked
-// via defer at the top of OnFinalityUpdated so it runs on every return path,
-// including handler errors.  The pure-compute half is split into setLagGauges
-// so unit tests can drive the gauge math with synthetic metadata without
-// standing up a chainDB.
+// updateLagGauges refreshes the per-pipeline lag gauges from current
+// metadata.  The pure-compute half is split into setLagGauges for testing.
 func (s *Service) updateLagGauges(ctx context.Context, finalizedEpoch phase0.Epoch) {
 	if finalizedEpoch == 0 {
 		return
@@ -301,17 +294,11 @@ func (s *Service) updateLagGauges(ctx context.Context, finalizedEpoch phase0.Epo
 	s.setLagGauges(md, upstream)
 }
 
-// setLagGauges computes lag-in-epochs per enabled pipeline as a cursor diff
-// against each pipeline's direct upstream:
+// setLagGauges sets per-pipeline lag as a cursor diff against direct upstream:
 //
 //   - epoch     = validators.LatestBalancesEpoch - summarizer.LastEpoch
 //   - block     = summarizer.LastEpoch          - summarizer.LastBlockEpoch
 //   - validator = summarizer.LastEpoch          - summarizer.LastValidatorEpoch
-//
-// The float64 conversion in clampLag is deliberate: a uint64 subtraction would
-// underflow to ~1.8e19 if a pipeline cursor is briefly ahead of its upstream
-// (a benign race window between metadata writes).  clampLag floors negatives
-// to 0 so the gauge never reports a phantom astronomical lag.
 func (s *Service) setLagGauges(md *metadata, upstream *upstreamMetadata) {
 	if s.epochSummaries {
 		monitorLag("epoch", clampLag(upstream.LatestBalancesEpoch, md.LastEpoch))
@@ -324,10 +311,9 @@ func (s *Service) setLagGauges(md *metadata, upstream *upstreamMetadata) {
 	}
 }
 
-// clampLag computes upstream - downstream as a non-negative float64.  Pipeline
-// cursors can transiently invert across metadata reads (downstream advances in
-// a transaction the read snapshot didn't capture), so clamping below at 0 is
-// the right semantic: "no lag" beats "phantom 1.8e19 lag" for an alert metric.
+// clampLag returns upstream - downstream as a non-negative float64.  uint64
+// subtraction would underflow to ~1.8e19 if cursors transiently invert across
+// metadata reads, breaking alerts.
 func clampLag(upstream, downstream phase0.Epoch) float64 {
 	if downstream >= upstream {
 		return 0

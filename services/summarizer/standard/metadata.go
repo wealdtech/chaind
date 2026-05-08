@@ -83,30 +83,23 @@ type oldmetadata struct {
 	PeriodicValidatorRollups bool   `json:"periodic_validator_rollups"`
 }
 
-// upstreamMetadataKey is the metadata key written by the validators service.
-// Mirrored here (rather than imported) so the summarizer stays decoupled from
-// the validators package.  Format contract owned by services/validators/standard.
+// upstreamMetadataKey mirrors validators.standard's metadata key to keep the
+// summarizer decoupled from the validators package.
 const upstreamMetadataKey = "validators.standard"
 
-// upstreamMetadata captures the subset of validators.standard metadata that the
-// per-pipeline lag gauge needs.  Only LatestBalancesEpoch is consumed today;
-// the struct exists so future fields can be added without changing the call
-// site.
+// upstreamMetadata captures the subset of validators.standard metadata the
+// lag gauge consumes.
 type upstreamMetadata struct {
 	LatestBalancesEpoch phase0.Epoch `json:"latest_balances_epoch"`
 }
 
-// oldUpstreamMetadata mirrors upstreamMetadata for the pre-0.8.8 unquoted-int
-// JSON format the validators service may have written.
+// oldUpstreamMetadata is the pre-0.8.8 unquoted-int format.
 type oldUpstreamMetadata struct {
 	LatestBalancesEpoch uint64 `json:"latest_balances_epoch"`
 }
 
-// getUpstreamMetadata reads the validators.standard metadata row used to
-// compute the epoch-pipeline lag.  Returns a zero-valued struct (not an error)
-// when the row is absent — bootstrap state where the validators service has
-// not yet written metadata is a normal condition, and the cursor diff in
-// setLagGauges naturally clamps to 0 in that case.
+// getUpstreamMetadata reads validators.standard metadata.  Returns a zero
+// struct when the row is absent (bootstrap state).
 func (s *Service) getUpstreamMetadata(ctx context.Context) (*upstreamMetadata, error) {
 	md := &upstreamMetadata{}
 	mdJSON, err := s.chainDB.Metadata(ctx, upstreamMetadataKey)
@@ -117,7 +110,7 @@ func (s *Service) getUpstreamMetadata(ctx context.Context) (*upstreamMetadata, e
 		return md, nil
 	}
 	if err := json.Unmarshal(mdJSON, md); err != nil {
-		// Try the old format.  Same dual-path pattern as getMetadata above.
+		// Try the old format.
 		omd := &oldUpstreamMetadata{}
 		if err := json.Unmarshal(mdJSON, omd); err != nil {
 			return nil, errors.Wrap(err, "failed to unmarshal upstream validators metadata")
