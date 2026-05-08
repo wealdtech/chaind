@@ -717,8 +717,8 @@ ORDER BY f_inclusion_slot DESC,f_inclusion_index DESC`)
 
 	if filter.Limit > 0 {
 		queryVals = append(queryVals, filter.Limit)
-		queryBuilder.WriteString(fmt.Sprintf(`
-LIMIT $%d`, len(queryVals)))
+		fmt.Fprintf(&queryBuilder, `
+LIMIT $%d`, len(queryVals))
 	}
 
 	if e := log.Trace(); e.Enabled() {
