@@ -33,6 +33,8 @@ import (
 // rejection sites must emit this exact string.  See ADR 0002.
 const noValidatorBalancesMsg = "Beacon returned no validator balances; cannot persist epoch (will retry on next finality tick)"
 
+var errNoValidatorBalances = errors.New("beacon returned no validator balances")
+
 // OnBeaconChainHeadUpdated receives beacon chain head updated notifications.
 func (s *Service) OnBeaconChainHeadUpdated(
 	ctx context.Context,
@@ -201,7 +203,7 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 	// See ADR 0002 (no-empty-write contract).
 	if len(validators) == 0 {
 		log.Warn().Msg(noValidatorBalancesMsg)
-		return errors.New("beacon returned no validator balances")
+		return errNoValidatorBalances
 	}
 
 	span.AddEvent("Obtained validators", trace.WithAttributes(
@@ -225,7 +227,7 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 	// insert.  Refuse to advance.
 	if len(dbValidatorBalances) == 0 {
 		log.Warn().Msg(noValidatorBalancesMsg)
-		return errors.New("beacon returned no validator balances")
+		return errNoValidatorBalances
 	}
 
 	dbCtx, cancel, err := s.chainDB.BeginTx(ctx)
