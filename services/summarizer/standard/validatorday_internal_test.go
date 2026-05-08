@@ -27,6 +27,10 @@ import (
 	mockchaintime "github.com/wealdtech/chaind/services/chaintime/mock"
 )
 
+// Tests in this file mutate the package-level `log` variable and restore it on
+// teardown.  Do NOT add t.Parallel() to any test here — the global mutation
+// would race across goroutines.
+
 // stubBalanceChainDB pops balance responses from a queue so one fixture can
 // drive both the start-balances and end-balances guard paths.  daySummariesSet
 // records writes so tests can assert the guard short-circuits.

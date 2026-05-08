@@ -27,6 +27,11 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
+// Tests in this file mutate package-level state — the unexported `log` variable
+// and the `summarizerLagEpochs` gauge — and restore the originals on teardown.
+// Do NOT add t.Parallel() to any test here; the global mutation would race
+// across goroutines.
+
 // stubValidatorsProvider drives summarizeEpoch into the silent-skip and
 // zero-balance branches.
 type stubValidatorsProvider struct {

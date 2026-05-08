@@ -29,6 +29,10 @@ import (
 	"github.com/wealdtech/chaind/services/chaindb"
 )
 
+// Tests in this file mutate the package-level `log` variable via captureWarnLog
+// and restore it on teardown.  Do NOT add t.Parallel() to any test here — the
+// global mutation would race across goroutines.
+
 // captureWarnLog redirects the package logger to a byte buffer at WarnLevel
 // and returns the buffer plus a restore func.
 func captureWarnLog(t *testing.T) (*bytes.Buffer, func()) {
