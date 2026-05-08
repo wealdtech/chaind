@@ -892,9 +892,6 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
 				copy(block.BlobKZGCommitments[i][:], blobKZGCommitments[i])
 			}
 		}
-		if err != nil {
-			return nil, err
-		}
 		blocks = append(blocks, block)
 	}
 
