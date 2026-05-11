@@ -162,6 +162,7 @@ func fetchConfig() error {
 	pflag.Int32("blocks.start-slot", -1, "Slot from which to start fetching blocks")
 	pflag.Bool("blocks.refetch", false, "Refetch all blocks even if they are already in the database")
 	pflag.Bool("blocks.blobs.enable", true, "Enable saving of blobs for block-related information")
+	pflag.Bool("blocks.attestations.enable", true, "Enable saving of attestations for block-related information")
 	pflag.Bool("finalizer.enable", true, "Enable additional information on receipt of finality checkpoint")
 	pflag.Bool("summarizer.enable", true, "Enable summary information")
 	pflag.Bool("summarizer.epochs.enable", true, "Enable summary information for epochs")
@@ -510,6 +511,7 @@ func startBlocks(
 		standardblocks.WithStartSlot(viper.GetInt64("blocks.start-slot")),
 		standardblocks.WithRefetch(viper.GetBool("blocks.refetch")),
 		standardblocks.WithBlobsSaving(viper.GetBool("blocks.blobs.enable")),
+		standardblocks.WithAttestationsSaving(viper.GetBool("blocks.attestations.enable")),
 		standardblocks.WithActivitySem(activitySem),
 	)
 	if err != nil {

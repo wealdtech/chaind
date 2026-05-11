@@ -36,6 +36,10 @@ blocks:
   # blobs.enable will fetch and save blobs for blocks
   blobs:
     enable: true
+  # attestations.enable will save attestations contained in blocks.
+  # Disable to reduce database size during backfill when attestations are not needed.
+  attestations:
+    enable: true
 # validators contains configuration for obtaining validator-related information.
 validators:
   enable: true

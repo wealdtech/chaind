@@ -1,3 +1,8 @@
+dev:
+  - added `blocks.attestations.enable` configuration flag (default: true) to control whether attestations contained in blocks should be saved
+  - detach validator handler from SSE event-stream context so a stream reconnect does not cancel an in-flight balance write
+  - added fetch/write duration logs to the validator balances handler
+
 0.10.2:
   - added `blocks.blobs.enable` configuration flag (default: true) to control whether blobs for blocks should be fetched and saved
 

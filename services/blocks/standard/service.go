@@ -48,6 +48,7 @@ type Service struct {
 	chainTime                   chaintime.Service
 	refetch                     bool
 	blobsSaving                 bool
+	attestationsSaving          bool
 	lastHandledBlockRoot        phase0.Root
 	activitySem                 *semaphore.Weighted
 	syncCommittees              map[uint64]*chaindb.SyncCommittee
@@ -154,12 +155,14 @@ func New(ctx context.Context, params ...Parameter) (*Service, error) {
 		chainTime:                   parameters.chainTime,
 		refetch:                     parameters.refetch,
 		blobsSaving:                 parameters.blobsSaving,
+		attestationsSaving:          parameters.attestationsSaving,
 		activitySem:                 parameters.activitySem,
 		syncCommittees:              make(map[uint64]*chaindb.SyncCommittee),
 	}
 
 	log.Trace().
 		Bool("blobsSaving", parameters.blobsSaving).
+		Bool("attestationsSaving", parameters.attestationsSaving).
 		Bool("refetch", parameters.refetch).
 		Int64("startSlot", parameters.startSlot).
 		Msg("Blocks Service initialized")

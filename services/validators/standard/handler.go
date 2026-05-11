@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/attestantio/go-eth2-client/api"
@@ -37,6 +38,13 @@ func (s *Service) OnBeaconChainHeadUpdated(
 	// skipcq: RVV-A0005
 	epochTransition bool,
 ) {
+	// Detach from SSE event stream context. In go-eth2-client v0.27.1+,
+	// the head handler receives the SSE connection context. If the SSE stream
+	// disconnects (e.g. Cloudflare timeout), this context gets canceled and
+	// kills any in-flight state downloads for validator balances.
+	// This restores the v0.24.0 behavior where handlers were context-independent.
+	ctx = context.WithoutCancel(ctx)
+
 	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "OnBeaconChainHeadUpdated",
 		trace.WithAttributes(
 			attribute.Int64("slot", int64(slot)),
@@ -58,7 +66,8 @@ func (s *Service) OnBeaconChainHeadUpdated(
 		return
 	}
 
-	log.Trace().Msg("Handling epoch transition")
+	handlerStart := time.Now()
+	log.Info().Msg("Handling epoch transition")
 
 	md, err := s.getMetadata(ctx)
 	if err != nil {
@@ -67,16 +76,24 @@ func (s *Service) OnBeaconChainHeadUpdated(
 		return
 	}
 
+	validatorsStart := time.Now()
 	if err := s.onEpochTransitionValidators(ctx, md, epoch); err != nil {
-		log.Warn().Err(err).Msg("Failed to update validators")
+		log.Warn().Err(err).Dur("elapsed", time.Since(validatorsStart)).Msg("Failed to update validators")
+	} else {
+		log.Info().Dur("elapsed", time.Since(validatorsStart)).Msg("Validators updated")
 	}
+
+	balancesStart := time.Now()
+	balancesGap := int64(epoch) - int64(md.LatestBalancesEpoch)
 	if err := s.onEpochTransitionValidatorBalances(ctx, md, epoch); err != nil {
-		log.Warn().Err(err).Msg("Failed to update validators")
+		log.Warn().Err(err).Dur("elapsed", time.Since(balancesStart)).Int64("catchup_epochs", balancesGap).Msg("Failed to update balances")
+	} else {
+		log.Info().Dur("elapsed", time.Since(balancesStart)).Int64("catchup_epochs", balancesGap).Msg("Balances updated")
 	}
 	s.activitySem.Release(1)
 
 	monitorEpochProcessed(epoch)
-	log.Trace().Msg("Finished handling epoch transition")
+	log.Info().Dur("total", time.Since(handlerStart)).Msg("Finished handling epoch transition")
 }
 
 func (s *Service) onEpochTransitionValidators(ctx context.Context,
@@ -182,7 +199,8 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 
 	log := log.With().Uint64("epoch", uint64(epoch)).Logger()
 	stateID := fmt.Sprintf("%d", s.chainTime.FirstSlotOfEpoch(epoch))
-	log.Trace().Uint64("slot", uint64(s.chainTime.FirstSlotOfEpoch(epoch))).Msg("Fetching validators")
+
+	fetchStart := time.Now()
 	validatorsResponse, err := s.eth2Client.(eth2client.ValidatorsProvider).Validators(ctx, &api.ValidatorsOpts{
 		State: stateID,
 	})
@@ -190,11 +208,13 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 		return errors.Wrap(err, "failed to obtain validators for validator balances")
 	}
 	validators := validatorsResponse.Data
+	fetchDur := time.Since(fetchStart)
 
 	span.AddEvent("Obtained validators", trace.WithAttributes(
 		attribute.Int("slot", int(s.chainTime.FirstSlotOfEpoch(epoch))),
 	))
 
+	writeStart := time.Now()
 	dbCtx, cancel, err := s.chainDB.BeginTx(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to begin transaction for validator balances")
@@ -241,6 +261,8 @@ func (s *Service) onEpochTransitionValidatorBalancesForEpoch(ctx context.Context
 		cancel()
 		return errors.Wrap(err, "failed to set commit transaction for validator balances")
 	}
+	writeDur := time.Since(writeStart)
+	log.Info().Dur("fetch", fetchDur).Dur("write", writeDur).Int("validators", len(validators)).Msg("Balance epoch processed")
 	monitorBalancesEpochProcessed(epoch)
 
 	return nil
