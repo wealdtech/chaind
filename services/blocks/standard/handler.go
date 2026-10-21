@@ -29,7 +29,9 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/capella"
 	"github.com/attestantio/go-eth2-client/spec/deneb"
 	"github.com/attestantio/go-eth2-client/spec/electra"
+	"github.com/attestantio/go-eth2-client/spec/gloas"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/jackc/pgx/v5"
 	"github.com/pkg/errors"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"go.opentelemetry.io/otel"
@@ -195,6 +197,8 @@ func (s *Service) OnBlock(ctx context.Context, signedBlock *spec.VersionedSigned
 		return s.onBlockElectra(ctx, signedBlock.Electra, dbBlock)
 	case spec.DataVersionFulu:
 		return s.onBlockElectra(ctx, signedBlock.Fulu, dbBlock)
+	case spec.DataVersionGloas:
+		return s.onBlockGloas(ctx, signedBlock.Gloas, dbBlock)
 	case spec.DataVersionUnknown:
 		return errors.New("unknown block version")
 	default:
@@ -470,6 +474,131 @@ func (s *Service) onBlockElectra(ctx context.Context, signedBlock *electra.Signe
 	}
 	if err := s.updateConsolidationRequestsForBlock(ctx, dbBlock.ConsolidationRequests); err != nil {
 		return errors.Wrap(err, "failed to update consolidation requests")
+	}
+
+	return nil
+}
+
+// onBlockGloas handles a Gloas block.
+// Gloas attestations and attester slashings have the same fields as their Electra
+// equivalents, so are converted and handled as such.
+func (s *Service) onBlockGloas(ctx context.Context, signedBlock *gloas.SignedBeaconBlock, dbBlock *chaindb.Block) error {
+	ctx, span := otel.Tracer("wealdtech.chaind.services.blocks.standard").Start(ctx, "OnBlockGloas")
+	defer span.End()
+
+	attestations := make([]*electra.Attestation, len(signedBlock.Message.Body.Attestations))
+	for i, attestation := range signedBlock.Message.Body.Attestations {
+		electraAttestation := electra.Attestation(*attestation)
+		attestations[i] = &electraAttestation
+	}
+	if err := s.updateElectraAttestationsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		attestations); err != nil {
+		return errors.Wrap(err, "failed to update attestations")
+	}
+	if err := s.updateProposerSlashingsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.ProposerSlashings); err != nil {
+		return errors.Wrap(err, "failed to update proposer slashings")
+	}
+	attesterSlashings := make([]*electra.AttesterSlashing, len(signedBlock.Message.Body.AttesterSlashings))
+	for i, attesterSlashing := range signedBlock.Message.Body.AttesterSlashings {
+		attestation1 := electra.IndexedAttestation(*attesterSlashing.Attestation1)
+		attestation2 := electra.IndexedAttestation(*attesterSlashing.Attestation2)
+		attesterSlashings[i] = &electra.AttesterSlashing{
+			Attestation1: &attestation1,
+			Attestation2: &attestation2,
+		}
+	}
+	if err := s.updateElectraAttesterSlashingsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		attesterSlashings); err != nil {
+		return errors.Wrap(err, "failed to update attester slashings")
+	}
+	if err := s.updateDepositsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.Deposits); err != nil {
+		return errors.Wrap(err, "failed to update deposits")
+	}
+	if err := s.updateVoluntaryExitsForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.VoluntaryExits); err != nil {
+		return errors.Wrap(err, "failed to update voluntary exits")
+	}
+	if err := s.updateSyncAggregateForBlock(ctx,
+		signedBlock.Message.Slot,
+		dbBlock.Root,
+		signedBlock.Message.Body.SyncAggregate); err != nil {
+		return errors.Wrap(err, "failed to update sync aggregate")
+	}
+	if len(dbBlock.BlobKZGCommitments) > 0 {
+		if err := s.updateBlobSidecarsForBlock(ctx, dbBlock.Root); err != nil {
+			return errors.Wrap(err, "failed to update blob sidecars")
+		}
+	}
+
+	if err := s.updateDepositRequestsForBlock(ctx, dbBlock.DepositRequests); err != nil {
+		return errors.Wrap(err, "failed to update deposit requests")
+	}
+	if err := s.updateWithdrawalRequestsForBlock(ctx, dbBlock.WithdrawalRequests); err != nil {
+		return errors.Wrap(err, "failed to update withdrawal requests")
+	}
+	if err := s.updateConsolidationRequestsForBlock(ctx, dbBlock.ConsolidationRequests); err != nil {
+		return errors.Wrap(err, "failed to update consolidation requests")
+	}
+
+	if err := s.updateParentExecutionPayload(ctx, dbBlock); err != nil {
+		return errors.Wrap(err, "failed to update parent execution payload")
+	}
+
+	return nil
+}
+
+// parentPayloadIsFull returns true if the child's bid builds on the parent's payload.
+func parentPayloadIsFull(parent *chaindb.Block, child *chaindb.Block) bool {
+	if parent.ExecutionPayloadBid == nil || child.ExecutionPayloadBid == nil {
+		return false
+	}
+
+	return child.ExecutionPayloadBid.ParentBlockHash == parent.ExecutionPayloadBid.BlockHash
+}
+
+// updateParentExecutionPayload stores the execution payload of the block's parent.
+// The payload for a Gloas block arrives in a separate envelope after the block, and
+// may never arrive; the child's bid states if the parent payload is canonical, so
+// the payload is stored when the child is processed.
+func (s *Service) updateParentExecutionPayload(ctx context.Context, block *chaindb.Block) error {
+	parent, err := s.chainDB.(chaindb.BlocksProvider).BlockByRoot(ctx, block.ParentRoot)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			log.Debug().Uint64("slot", uint64(block.Slot)).Msg("Parent block not in database; cannot update its execution payload")
+			return nil
+		}
+		return errors.Wrap(err, "failed to obtain parent block")
+	}
+	if parent.ExecutionPayload != nil || !parentPayloadIsFull(parent, block) {
+		// Already stored, pre-Gloas, or empty.
+		return nil
+	}
+
+	response, err := s.eth2Client.(eth2client.ExecutionPayloadProvider).SignedExecutionPayloadEnvelope(ctx, &api.SignedExecutionPayloadEnvelopeOpts{
+		Block: parent.Root.String(),
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain parent execution payload envelope")
+	}
+	if response.Data == nil || response.Data.Gloas == nil || response.Data.Gloas.Message == nil || response.Data.Gloas.Message.Payload == nil {
+		return errors.New("parent execution payload envelope missing payload")
+	}
+
+	parent.ExecutionPayload = dbExecutionPayloadGloas(parent.Root, parent.Slot, response.Data.Gloas.Message.Payload)
+	if err := s.blocksSetter.SetBlock(ctx, parent); err != nil {
+		return errors.Wrap(err, "failed to set parent block")
 	}
 
 	return nil
@@ -764,6 +893,8 @@ func (s *Service) dbBlock(
 		return s.dbBlockElectra(ctx, block.Electra.Message)
 	case spec.DataVersionFulu:
 		return s.dbBlockElectra(ctx, block.Fulu.Message)
+	case spec.DataVersionGloas:
+		return s.dbBlockGloas(ctx, block.Gloas.Message)
 	case spec.DataVersionUnknown:
 		return nil, errors.New("unknown block version")
 	default:
@@ -1210,6 +1341,168 @@ func (*Service) dbBlockElectra(
 	}
 
 	return dbBlock, nil
+}
+
+// dbBlockGloas converts a Gloas block to its database equivalent.
+// Gloas blocks carry only a bid for the execution payload; the payload itself arrives
+// in a separate envelope, so the block is stored without an execution payload.
+func (*Service) dbBlockGloas(
+	_ context.Context,
+	block *gloas.BeaconBlock,
+) (*chaindb.Block, error) {
+	bodyRoot, err := block.Body.HashTreeRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to calculate body root")
+	}
+
+	header := &phase0.BeaconBlockHeader{
+		Slot:          block.Slot,
+		ProposerIndex: block.ProposerIndex,
+		ParentRoot:    block.ParentRoot,
+		StateRoot:     block.StateRoot,
+		BodyRoot:      bodyRoot,
+	}
+	root, err := header.HashTreeRoot()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to calculate block root")
+	}
+
+	blsToExecutionChanges := make([]*chaindb.BLSToExecutionChange, len(block.Body.BLSToExecutionChanges))
+	for i := range block.Body.BLSToExecutionChanges {
+		blsToExecutionChanges[i] = &chaindb.BLSToExecutionChange{
+			InclusionBlockRoot: root,
+			InclusionSlot:      block.Slot,
+			InclusionIndex:     uint(i),
+			ValidatorIndex:     block.Body.BLSToExecutionChanges[i].Message.ValidatorIndex,
+		}
+		copy(blsToExecutionChanges[i].FromBLSPubKey[:], block.Body.BLSToExecutionChanges[i].Message.FromBLSPubkey[:])
+		copy(blsToExecutionChanges[i].ToExecutionAddress[:], block.Body.BLSToExecutionChanges[i].Message.ToExecutionAddress[:])
+	}
+
+	// Gloas blocks contain the execution requests of their parent's payload.
+	depositRequests := make([]*chaindb.DepositRequest, 0)
+	if block.Body.ParentExecutionRequests != nil {
+		for i, request := range block.Body.ParentExecutionRequests.Deposits {
+			depositRequest := &chaindb.DepositRequest{
+				InclusionBlockRoot:    root,
+				InclusionSlot:         block.Slot,
+				InclusionIndex:        uint(i),
+				Pubkey:                request.Pubkey,
+				WithdrawalCredentials: [32]byte(request.WithdrawalCredentials),
+				Amount:                request.Amount,
+				Signature:             request.Signature,
+				Index:                 request.Index,
+			}
+			depositRequests = append(depositRequests, depositRequest)
+		}
+	}
+
+	withdrawalRequests := make([]*chaindb.WithdrawalRequest, 0)
+	if block.Body.ParentExecutionRequests != nil {
+		for i, request := range block.Body.ParentExecutionRequests.Withdrawals {
+			withdrawalRequest := &chaindb.WithdrawalRequest{
+				InclusionBlockRoot: root,
+				InclusionSlot:      block.Slot,
+				InclusionIndex:     uint(i),
+				SourceAddress:      request.SourceAddress,
+				ValidatorPubkey:    request.ValidatorPubkey,
+				Amount:             request.Amount,
+			}
+			withdrawalRequests = append(withdrawalRequests, withdrawalRequest)
+		}
+	}
+
+	consolidationRequests := make([]*chaindb.ConsolidationRequest, 0)
+	if block.Body.ParentExecutionRequests != nil {
+		for i, request := range block.Body.ParentExecutionRequests.Consolidations {
+			consolidationRequest := &chaindb.ConsolidationRequest{
+				InclusionBlockRoot: root,
+				InclusionSlot:      block.Slot,
+				InclusionIndex:     uint(i),
+				SourceAddress:      request.SourceAddress,
+				SourcePubkey:       request.SourcePubkey,
+				TargetPubkey:       request.TargetPubkey,
+			}
+			consolidationRequests = append(consolidationRequests, consolidationRequest)
+		}
+	}
+
+	var blobKZGCommitments []deneb.KZGCommitment
+	var executionPayloadBid *chaindb.ExecutionPayloadBid
+	if block.Body.SignedExecutionPayloadBid != nil && block.Body.SignedExecutionPayloadBid.Message != nil {
+		bid := block.Body.SignedExecutionPayloadBid.Message
+		blobKZGCommitments = bid.BlobKZGCommitments
+		executionPayloadBid = &chaindb.ExecutionPayloadBid{
+			ParentBlockHash:  bid.ParentBlockHash,
+			BlockHash:        bid.BlockHash,
+			FeeRecipient:     bid.FeeRecipient,
+			GasLimit:         bid.GasLimit,
+			BuilderIndex:     uint64(bid.BuilderIndex),
+			Value:            bid.Value,
+			ExecutionPayment: bid.ExecutionPayment,
+		}
+	}
+
+	dbBlock := &chaindb.Block{
+		Slot:                  block.Slot,
+		ProposerIndex:         block.ProposerIndex,
+		Root:                  root,
+		Graffiti:              block.Body.Graffiti[:],
+		RANDAOReveal:          block.Body.RANDAOReveal,
+		BodyRoot:              bodyRoot,
+		ParentRoot:            block.ParentRoot,
+		StateRoot:             block.StateRoot,
+		ETH1BlockHash:         block.Body.ETH1Data.BlockHash,
+		ETH1DepositCount:      block.Body.ETH1Data.DepositCount,
+		ETH1DepositRoot:       block.Body.ETH1Data.DepositRoot,
+		BLSToExecutionChanges: blsToExecutionChanges,
+		BlobKZGCommitments:    blobKZGCommitments,
+		DepositRequests:       depositRequests,
+		WithdrawalRequests:    withdrawalRequests,
+		ConsolidationRequests: consolidationRequests,
+		ExecutionPayloadBid:   executionPayloadBid,
+	}
+
+	return dbBlock, nil
+}
+
+// dbExecutionPayloadGloas converts a Gloas execution payload, delivered in an envelope
+// for the block with the given root and slot, to its database equivalent.
+func dbExecutionPayloadGloas(root phase0.Root,
+	slot phase0.Slot,
+	payload *gloas.ExecutionPayload,
+) *chaindb.ExecutionPayload {
+	withdrawals := make([]*chaindb.Withdrawal, len(payload.Withdrawals))
+	for i := range payload.Withdrawals {
+		withdrawals[i] = &chaindb.Withdrawal{
+			InclusionBlockRoot: root,
+			InclusionSlot:      slot,
+			InclusionIndex:     uint(i),
+			Index:              payload.Withdrawals[i].Index,
+			ValidatorIndex:     payload.Withdrawals[i].ValidatorIndex,
+			Amount:             payload.Withdrawals[i].Amount,
+		}
+		copy(withdrawals[i].Address[:], payload.Withdrawals[i].Address[:])
+	}
+
+	return &chaindb.ExecutionPayload{
+		ParentHash:    payload.ParentHash,
+		FeeRecipient:  payload.FeeRecipient,
+		StateRoot:     payload.StateRoot,
+		ReceiptsRoot:  payload.ReceiptsRoot,
+		LogsBloom:     payload.LogsBloom,
+		PrevRandao:    payload.PrevRandao,
+		BlockNumber:   payload.BlockNumber,
+		GasLimit:      payload.GasLimit,
+		GasUsed:       payload.GasUsed,
+		Timestamp:     payload.Timestamp,
+		ExtraData:     payload.ExtraData,
+		BaseFeePerGas: payload.BaseFeePerGas.ToBig(),
+		BlockHash:     payload.BlockHash,
+		Withdrawals:   withdrawals,
+		BlobGasUsed:   payload.BlobGasUsed,
+		ExcessBlobGas: payload.ExcessBlobGas,
+	}
 }
 
 func (s *Service) dbAttestation(
