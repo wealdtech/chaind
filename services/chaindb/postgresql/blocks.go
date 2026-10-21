@@ -76,7 +76,7 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
          ,f_body_root = excluded.f_body_root
          ,f_parent_root = excluded.f_parent_root
          ,f_state_root = excluded.f_state_root
-         ,f_canonical = excluded.f_canonical
+         ,f_canonical = COALESCE(excluded.f_canonical, t_blocks.f_canonical)
          ,f_eth1_block_hash = excluded.f_eth1_block_hash
          ,f_eth1_deposit_count = excluded.f_eth1_deposit_count
          ,f_eth1_deposit_root = excluded.f_eth1_deposit_root
