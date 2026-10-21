@@ -19,10 +19,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/OffchainLabs/go-bitfield"
 	"github.com/attestantio/go-eth2-client/spec/electra"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
-	"github.com/prysmaticlabs/go-bitfield"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
