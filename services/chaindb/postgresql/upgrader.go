@@ -27,7 +27,7 @@ type schemaMetadata struct {
 	Version uint64 `json:"version"`
 }
 
-var currentVersion = uint64(16)
+var currentVersion = uint64(17)
 
 type upgrade struct {
 	requiresRefetch bool
@@ -138,6 +138,11 @@ var upgrades = map[uint64]*upgrade{
 			addBlockDepositRequests,
 			addBlockWithdrawalRequests,
 			addBlockConsolidationRequests,
+		},
+	},
+	17: {
+		funcs: []func(context.Context, *Service) error{
+			addBlockExecutionPayloadBids,
 		},
 	},
 }
@@ -1256,6 +1261,19 @@ CREATE INDEX i_block_consolidation_requests_2 ON t_block_consolidation_requests(
 CREATE INDEX i_block_consolidation_requests_3 ON t_block_consolidation_requests(f_source_address);
 CREATE INDEX i_block_consolidation_requests_4 ON t_block_consolidation_requests(f_source_pubkey);
 CREATE INDEX i_block_consolidation_requests_5 ON t_block_consolidation_requests(f_target_pubkey);
+
+CREATE TABLE t_block_execution_payload_bids(
+  f_block_root        BYTEA   NOT NULL PRIMARY KEY REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_parent_block_hash BYTEA   NOT NULL
+ ,f_block_hash        BYTEA   NOT NULL
+ ,f_fee_recipient     BYTEA   NOT NULL
+ ,f_gas_limit         BIGINT  NOT NULL
+ ,f_builder_index     NUMERIC NOT NULL
+ ,f_value             BIGINT  NOT NULL
+ ,f_execution_payment BIGINT  NOT NULL
+);
+CREATE INDEX i_block_execution_payload_bids_1 ON t_block_execution_payload_bids(f_fee_recipient);
+CREATE INDEX i_block_execution_payload_bids_2 ON t_block_execution_payload_bids(f_builder_index);
 `); err != nil {
 		cancel()
 		return errors.Wrap(err, "failed to create initial tables")
@@ -2098,6 +2116,41 @@ CREATE INDEX i_block_consolidation_requests_4 ON t_block_consolidation_requests(
 CREATE INDEX i_block_consolidation_requests_5 ON t_block_consolidation_requests(f_target_pubkey)
 `); err != nil {
 		return errors.Wrap(err, "failed to add i_block_consolidation_requests_5 to t_block_consolidation_requests")
+	}
+
+	return nil
+}
+
+// addBlockExecutionPayloadBids adds the execution payload bids table.
+func addBlockExecutionPayloadBids(ctx context.Context, s *Service) error {
+	tx := s.tx(ctx)
+	if tx == nil {
+		return ErrNoTransaction
+	}
+
+	tableExists, err := s.tableExists(ctx, "t_block_execution_payload_bids")
+	if err != nil {
+		return errors.Wrap(err, "failed to check presence of t_block_execution_payload_bids")
+	}
+	if tableExists {
+		return nil
+	}
+
+	if _, err := tx.Exec(ctx, `
+CREATE TABLE t_block_execution_payload_bids(
+  f_block_root        BYTEA   NOT NULL PRIMARY KEY REFERENCES t_blocks(f_root) ON DELETE CASCADE
+ ,f_parent_block_hash BYTEA   NOT NULL
+ ,f_block_hash        BYTEA   NOT NULL
+ ,f_fee_recipient     BYTEA   NOT NULL
+ ,f_gas_limit         BIGINT  NOT NULL
+ ,f_builder_index     NUMERIC NOT NULL
+ ,f_value             BIGINT  NOT NULL
+ ,f_execution_payment BIGINT  NOT NULL
+);
+CREATE INDEX i_block_execution_payload_bids_1 ON t_block_execution_payload_bids(f_fee_recipient);
+CREATE INDEX i_block_execution_payload_bids_2 ON t_block_execution_payload_bids(f_builder_index);
+`); err != nil {
+		return errors.Wrap(err, "failed to create t_block_execution_payload_bids")
 	}
 
 	return nil

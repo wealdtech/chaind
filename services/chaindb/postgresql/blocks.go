@@ -104,6 +104,11 @@ func (s *Service) SetBlock(ctx context.Context, block *chaindb.Block) error {
 		return errors.Wrap(err, "failed to set execution payload")
 	}
 
+	// Set execution payload bid (will return without error if bid is not present).
+	if err := s.setExecutionPayloadBid(ctx, block); err != nil {
+		return errors.Wrap(err, "failed to set execution payload bid")
+	}
+
 	// Set BLS to execution changes (will return without error if changes are not present).
 	if err := s.setBLSToExecutionChanges(ctx, block); err != nil {
 		return errors.Wrap(err, "failed to set BLS to execution changes")
@@ -264,6 +269,13 @@ LIMIT $%d`, len(queryVals)))
 			block.ExecutionPayload = payload
 		}
 	}
+	bids, err := s.executionPayloadBids(ctx, tx, roots)
+	if err != nil {
+		return nil, err
+	}
+	for _, block := range blocks {
+		block.ExecutionPayloadBid = bids[block.Root]
+	}
 
 	// Always return order of slot then root.
 	sort.Slice(blocks, func(i int, j int) bool {
@@ -371,6 +383,10 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*chaind
 		if err != nil {
 			return nil, err
 		}
+		block.ExecutionPayloadBid, err = s.executionPayloadBid(ctx, tx, block.Root)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return blocks, nil
@@ -475,6 +491,10 @@ func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot,
 		if err != nil {
 			return nil, err
 		}
+		block.ExecutionPayloadBid, err = s.executionPayloadBid(ctx, tx, block.Root)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return blocks, nil
@@ -561,6 +581,10 @@ func (s *Service) BlockByRoot(ctx context.Context, root phase0.Root) (*chaindb.B
 
 	// Add execution payload to the block if available.
 	block.ExecutionPayload, err = s.executionPayload(ctx, tx, block.Root)
+	if err != nil {
+		return nil, err
+	}
+	block.ExecutionPayloadBid, err = s.executionPayloadBid(ctx, tx, block.Root)
 	if err != nil {
 		return nil, err
 	}
@@ -709,6 +733,10 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot phase0.Root
 	// Add execution payload to the blocks where available.
 	for _, block := range blocks {
 		block.ExecutionPayload, err = s.executionPayload(ctx, tx, block.Root)
+		if err != nil {
+			return nil, err
+		}
+		block.ExecutionPayloadBid, err = s.executionPayloadBid(ctx, tx, block.Root)
 		if err != nil {
 			return nil, err
 		}
@@ -901,6 +929,10 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
 	// Add execution payload to the blocks where available.
 	for _, block := range blocks {
 		block.ExecutionPayload, err = s.executionPayload(ctx, tx, block.Root)
+		if err != nil {
+			return nil, err
+		}
+		block.ExecutionPayloadBid, err = s.executionPayloadBid(ctx, tx, block.Root)
 		if err != nil {
 			return nil, err
 		}

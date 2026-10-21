@@ -47,6 +47,8 @@ type Block struct {
 	DepositRequests       []*DepositRequest
 	WithdrawalRequests    []*WithdrawalRequest
 	ConsolidationRequests []*ConsolidationRequest
+	// Information only available from Gloas onwards.
+	ExecutionPayloadBid *ExecutionPayloadBid
 }
 
 // Validator holds information about a validator.
@@ -307,6 +309,17 @@ type ExecutionPayload struct {
 	Withdrawals   []*Withdrawal
 	BlobGasUsed   uint64
 	ExcessBlobGas uint64
+}
+
+// ExecutionPayloadBid holds information about a block's execution payload bid.
+type ExecutionPayloadBid struct {
+	ParentBlockHash  [32]byte
+	BlockHash        [32]byte
+	FeeRecipient     [20]byte
+	GasLimit         uint64
+	BuilderIndex     uint64
+	Value            phase0.Gwei
+	ExecutionPayment phase0.Gwei
 }
 
 // BLSToExecutionChange holds information about credentials change operations.
