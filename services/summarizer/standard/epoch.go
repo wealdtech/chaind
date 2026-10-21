@@ -243,11 +243,18 @@ func (s *Service) withdrawalStatsForEpoch(ctx context.Context,
 	}
 
 	for _, withdrawal := range withdrawals {
+		if withdrawal.ValidatorIndex&builderIndexFlag != 0 {
+			// Builder payment to a proposer from Gloas onwards, not a validator withdrawal.
+			continue
+		}
 		summary.Withdrawals += withdrawal.Amount
 	}
 
 	return nil
 }
+
+// builderIndexFlag is set on the validator index of withdrawals made by builders.
+const builderIndexFlag = phase0.ValidatorIndex(1 << 40)
 
 func (s *Service) attestationStatsForEpoch(ctx context.Context,
 	epoch phase0.Epoch,
