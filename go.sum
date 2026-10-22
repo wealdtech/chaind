@@ -314,8 +314,8 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8m
 github.com/pelletier/go-toml/v2 v2.2.3 h1:YmeHyLY8mFWbdkNWwpr+qIL2bEqT0o95WSdkNHvL12M=
 github.com/pelletier/go-toml/v2 v2.2.3/go.mod h1:MfCQTFTvCcUyyvvwm1+G6H/jORL20Xlb6rzQu9GuUkc=
 github.com/petermattis/goid v0.0.0-20240813172612-4fcff4a6cae7/go.mod h1:pxMtw7cyUw6B2bRH0ZBANSPg+AoSud1I1iyJHI69jH4=
-github.com/petermattis/goid v0.0.0-20250121172306-05bcfb9a85dc h1:Xz/LkK9AJRY5QTkA1uE1faB8yeqRFjeKgwDtI13ogcY=
-github.com/petermattis/goid v0.0.0-20250121172306-05bcfb9a85dc/go.mod h1:pxMtw7cyUw6B2bRH0ZBANSPg+AoSud1I1iyJHI69jH4=
+github.com/petermattis/goid v0.0.0-20260918085751-abfca077860b h1:OzNsuVdSWGwXvWKTtChx9ve89k4cFJ6NxYM4Aw4/f+E=
+github.com/petermattis/goid v0.0.0-20260918085751-abfca077860b/go.mod h1:pxMtw7cyUw6B2bRH0ZBANSPg+AoSud1I1iyJHI69jH4=
 github.com/pk910/dynamic-ssz v1.4.0 h1:uwDOiBR/gmbC08gGo1TA/SLD17ArJyLKi0PHaQmuZEM=
 github.com/pk910/dynamic-ssz v1.4.0/go.mod h1:mnRbhjX+4YMyP4jYMncTUA3aDpMzBLqAbjcvfCyOyRI=
 github.com/pk910/hashtree-bindings v0.2.6 h1:BjRQho04nWzGrXwBCLVTyQRNV30O59iPcvQRcidFt2o=
