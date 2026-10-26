@@ -269,12 +269,8 @@ LIMIT $%d`, len(queryVals)))
 			block.ExecutionPayload = payload
 		}
 	}
-	bids, err := s.executionPayloadBids(ctx, tx, roots)
-	if err != nil {
+	if err := s.addExecutionPayloadBids(ctx, tx, blocks); err != nil {
 		return nil, err
-	}
-	for _, block := range blocks {
-		block.ExecutionPayloadBid = bids[block.Root]
 	}
 
 	// Always return order of slot then root.
@@ -383,10 +379,9 @@ func (s *Service) BlocksBySlot(ctx context.Context, slot phase0.Slot) ([]*chaind
 		if err != nil {
 			return nil, err
 		}
-		block.ExecutionPayloadBid, err = s.executionPayloadBid(ctx, tx, block.Root)
-		if err != nil {
-			return nil, err
-		}
+	}
+	if err := s.addExecutionPayloadBids(ctx, tx, blocks); err != nil {
+		return nil, err
 	}
 
 	return blocks, nil
@@ -491,10 +486,9 @@ func (s *Service) BlocksForSlotRange(ctx context.Context, startSlot phase0.Slot,
 		if err != nil {
 			return nil, err
 		}
-		block.ExecutionPayloadBid, err = s.executionPayloadBid(ctx, tx, block.Root)
-		if err != nil {
-			return nil, err
-		}
+	}
+	if err := s.addExecutionPayloadBids(ctx, tx, blocks); err != nil {
+		return nil, err
 	}
 
 	return blocks, nil
@@ -736,10 +730,9 @@ func (s *Service) BlocksByParentRoot(ctx context.Context, parentRoot phase0.Root
 		if err != nil {
 			return nil, err
 		}
-		block.ExecutionPayloadBid, err = s.executionPayloadBid(ctx, tx, block.Root)
-		if err != nil {
-			return nil, err
-		}
+	}
+	if err := s.addExecutionPayloadBids(ctx, tx, blocks); err != nil {
+		return nil, err
 	}
 
 	return blocks, nil
@@ -932,10 +925,9 @@ func (s *Service) LatestBlocks(ctx context.Context) ([]*chaindb.Block, error) {
 		if err != nil {
 			return nil, err
 		}
-		block.ExecutionPayloadBid, err = s.executionPayloadBid(ctx, tx, block.Root)
-		if err != nil {
-			return nil, err
-		}
+	}
+	if err := s.addExecutionPayloadBids(ctx, tx, blocks); err != nil {
+		return nil, err
 	}
 
 	return blocks, nil

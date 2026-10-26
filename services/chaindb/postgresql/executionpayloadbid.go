@@ -163,3 +163,27 @@ WHERE f_block_root = ANY($1)`,
 
 	return res, nil
 }
+
+// addExecutionPayloadBids adds execution payload bids to the given blocks.
+func (s *Service) addExecutionPayloadBids(ctx context.Context,
+	tx pgx.Tx,
+	blocks []*chaindb.Block,
+) error {
+	if len(blocks) == 0 {
+		return nil
+	}
+
+	roots := make([]phase0.Root, len(blocks))
+	for i := range blocks {
+		roots[i] = blocks[i].Root
+	}
+	bids, err := s.executionPayloadBids(ctx, tx, roots)
+	if err != nil {
+		return err
+	}
+	for _, block := range blocks {
+		block.ExecutionPayloadBid = bids[block.Root]
+	}
+
+	return nil
+}

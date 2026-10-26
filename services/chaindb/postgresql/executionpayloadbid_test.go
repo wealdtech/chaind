@@ -65,4 +65,19 @@ func TestExecutionPayloadBid(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, blocks, 1)
 	require.Equal(t, bid, blocks[0].ExecutionPayloadBid)
+
+	blocks, err = s.BlocksBySlot(ctx, block.Slot)
+	require.NoError(t, err)
+	require.Len(t, blocks, 1)
+	require.Equal(t, bid, blocks[0].ExecutionPayloadBid)
+
+	blocks, err = s.BlocksForSlotRange(ctx, block.Slot, block.Slot+1)
+	require.NoError(t, err)
+	require.Len(t, blocks, 1)
+	require.Equal(t, bid, blocks[0].ExecutionPayloadBid)
+
+	blocks, err = s.BlocksByParentRoot(ctx, block.ParentRoot)
+	require.NoError(t, err)
+	require.Len(t, blocks, 1)
+	require.Equal(t, bid, blocks[0].ExecutionPayloadBid)
 }
