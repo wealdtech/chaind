@@ -157,6 +157,9 @@ WHERE f_block_root = ANY($1)`,
 		copy(key[:], blockRoot)
 		res[key] = bid
 	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(err, "failed to read rows")
+	}
 
 	return res, nil
 }
