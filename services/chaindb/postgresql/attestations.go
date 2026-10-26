@@ -81,9 +81,9 @@ func (s *Service) SetAttestation(ctx context.Context, attestation *chaindb.Attes
          ,f_source_root = excluded.f_source_root
          ,f_target_epoch = excluded.f_target_epoch
          ,f_target_root = excluded.f_target_root
-         ,f_canonical = excluded.f_canonical
-         ,f_target_correct = excluded.f_target_correct
-         ,f_head_correct = excluded.f_head_correct
+         ,f_canonical = COALESCE(excluded.f_canonical, t_attestations.f_canonical)
+         ,f_target_correct = COALESCE(excluded.f_target_correct, t_attestations.f_target_correct)
+         ,f_head_correct = COALESCE(excluded.f_head_correct, t_attestations.f_head_correct)
 	  `,
 		attestation.InclusionSlot,
 		attestation.InclusionBlockRoot[:],
@@ -115,7 +115,13 @@ func (s *Service) SetAttestations(ctx context.Context, attestations []*chaindb.A
 		return ErrNoTransaction
 	}
 
-	_, err := tx.CopyFrom(ctx,
+	// Create a savepoint in case the copy fails, so that the caller can fall back to setting individually.
+	nestedTx, err := tx.Begin(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to create nested transaction")
+	}
+
+	_, err = nestedTx.CopyFrom(ctx,
 		pgx.Identifier{"t_attestations"},
 		[]string{
 			"f_inclusion_slot",
@@ -168,7 +174,15 @@ func (s *Service) SetAttestations(ctx context.Context, attestations []*chaindb.A
 				headCorrect,
 			}, nil
 		}))
-	return err
+	if err != nil {
+		if rollbackErr := nestedTx.Rollback(ctx); rollbackErr != nil {
+			return errors.Wrapf(err, "failed to copy attestations, and failed to roll back nested transaction: %v", rollbackErr)
+		}
+
+		return err
+	}
+
+	return nestedTx.Commit(ctx)
 }
 
 // AttestationsForBlock fetches all attestations made for the given block.
