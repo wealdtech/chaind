@@ -536,11 +536,6 @@ func (s *Service) onBlockGloas(ctx context.Context, signedBlock *gloas.SignedBea
 		signedBlock.Message.Body.SyncAggregate); err != nil {
 		return errors.Wrap(err, "failed to update sync aggregate")
 	}
-	if len(dbBlock.BlobKZGCommitments) > 0 {
-		if err := s.updateBlobSidecarsForBlock(ctx, dbBlock.Root); err != nil {
-			return errors.Wrap(err, "failed to update blob sidecars")
-		}
-	}
 
 	if err := s.updateDepositRequestsForBlock(ctx, dbBlock.DepositRequests); err != nil {
 		return errors.Wrap(err, "failed to update deposit requests")
@@ -568,10 +563,10 @@ func parentPayloadIsFull(parent *chaindb.Block, child *chaindb.Block) bool {
 	return child.ExecutionPayloadBid.ParentBlockHash == parent.ExecutionPayloadBid.BlockHash
 }
 
-// updateParentExecutionPayload stores the execution payload of the block's parent.
-// The payload for a Gloas block arrives in a separate envelope after the block, and
+// updateParentExecutionPayload stores the execution payload and blob sidecars of the block's parent.
+// The payload and blobs for a Gloas block arrive in a separate envelope after the block, and
 // may never arrive; the child's bid states if the parent payload is canonical, so
-// the payload is stored when the child is processed.
+// they are stored when the child is processed.
 func (s *Service) updateParentExecutionPayload(ctx context.Context, block *chaindb.Block) error {
 	parent, err := s.chainDB.(chaindb.BlocksProvider).BlockByRoot(ctx, block.ParentRoot)
 	if err != nil {
@@ -599,6 +594,12 @@ func (s *Service) updateParentExecutionPayload(ctx context.Context, block *chain
 	parent.ExecutionPayload = dbExecutionPayloadGloas(parent.Root, parent.Slot, response.Data.Gloas.Message.Payload)
 	if err := s.blocksSetter.SetBlock(ctx, parent); err != nil {
 		return errors.Wrap(err, "failed to set parent block")
+	}
+
+	if len(parent.BlobKZGCommitments) > 0 {
+		if err := s.updateBlobSidecarsForBlock(ctx, parent.Root); err != nil {
+			return errors.Wrap(err, "failed to update parent blob sidecars")
+		}
 	}
 
 	return nil
