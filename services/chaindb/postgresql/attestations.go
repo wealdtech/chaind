@@ -176,7 +176,7 @@ func (s *Service) SetAttestations(ctx context.Context, attestations []*chaindb.A
 		}))
 	if err != nil {
 		if rollbackErr := nestedTx.Rollback(ctx); rollbackErr != nil {
-			return errors.Wrap(rollbackErr, "failed to roll back nested transaction")
+			return errors.Wrapf(err, "failed to copy attestations, and failed to roll back nested transaction: %v", rollbackErr)
 		}
 
 		return err
