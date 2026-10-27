@@ -19,10 +19,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/OffchainLabs/go-bitfield"
 	"github.com/attestantio/go-eth2-client/spec/electra"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/pkg/errors"
-	"github.com/prysmaticlabs/go-bitfield"
 	"github.com/wealdtech/chaind/services/chaindb"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -243,11 +243,18 @@ func (s *Service) withdrawalStatsForEpoch(ctx context.Context,
 	}
 
 	for _, withdrawal := range withdrawals {
+		if withdrawal.ValidatorIndex&builderIndexFlag != 0 {
+			// Builder payment to a proposer from Gloas onwards, not a validator withdrawal.
+			continue
+		}
 		summary.Withdrawals += withdrawal.Amount
 	}
 
 	return nil
 }
+
+// builderIndexFlag is set on the validator index of withdrawals made by builders.
+const builderIndexFlag = phase0.ValidatorIndex(1 << 40)
 
 func (s *Service) attestationStatsForEpoch(ctx context.Context,
 	epoch phase0.Epoch,

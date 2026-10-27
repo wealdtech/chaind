@@ -1,3 +1,6 @@
+0.11.0:
+  - support gloas: store execution payload bids, and execution payloads from envelopes once a child block confirms them
+
 0.10.2:
   - added `blocks.blobs.enable` configuration flag (default: true) to control whether blobs for blocks should be fetched and saved
 
